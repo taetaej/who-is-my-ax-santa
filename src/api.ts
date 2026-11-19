@@ -1,3 +1,4 @@
+import type { AwardCard, Gift } from './awards'
 import type { Look } from './look'
 
 export type Phase = 'READY' | 'ACTIVE' | 'REVEAL'
@@ -13,13 +14,12 @@ export type Me = {
   liveRoom: string | null
   letter: LetterStatus
   look: Look | null
-  todo: { tree: boolean; votes: number; awards: number }
+  todo: { tree: boolean; given: number; people: number } // given = 키워드를 준 동료 수, people = 나를 뺀 인원
 }
 export type Awards = {
   phase: Phase
-  categories: { name: string; myVote: number | null }[]
-  players: { id: number; name: string }[]
-  results: { category: string; winners: number[]; votes: number }[] | null
+  people: { id: number; name: string; gift: Gift }[] // 나를 뺀 동료와 내가 준 키워드
+  results: ({ id: number; name: string } & AwardCard)[] | null // 공개일에만
 }
 export type LetterStatus = 'none' | 'draft' | 'submitted'
 export type Stat = { label: string; value: number }
@@ -82,9 +82,8 @@ export const api = {
   postTree: (body: string) => call('PUT', '/tree/today', { body }),
   heart: (id: number) => call<{ liked: boolean }>('POST', `/tree/${id}/heart`),
   awards: () => call<Awards>('GET', '/awards'),
-  vote: (category: string, nomineeId: number | null) => call('PUT', '/awards/vote', { category, nomineeId }),
-  adminAwards: () => call<{ categories: string[]; done: number; started: number }>('GET', '/admin/awards'),
-  saveAwards: (categories: string[]) => call<{ categories: string[] }>('PUT', '/admin/awards', { categories }),
+  giveKeywords: (receiverId: number, gift: Gift) => call<{ gift: Gift }>('PUT', '/awards/keywords', { receiverId, ...gift }),
+  adminAwards: () => call<{ people: number; players: { name: string; given: number }[] }>('GET', '/admin/awards'),
   letter: () => call<LetterState>('GET', '/me/letter'),
   saveLetter: (body: Letter, submit = false) => call<LetterState>('PUT', '/me/letter', { body, submit }),
   adminStatus: () => call<AdminStatus>('GET', '/admin/status'),

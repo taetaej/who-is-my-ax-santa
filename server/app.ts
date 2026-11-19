@@ -2,7 +2,7 @@ import { Hono, type Context, type Next } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { COOKIE, LOCK_MINUTES, MAX_FAILS, PIN_RE, hashPin, issue, read, verifyPin } from './auth.js'
 import { PHASES, db, getPhase, type Phase } from './db.js'
-import { DEFAULT_AWARDS, cleanAwards, tally } from '../src/awards.js'
+import { awardFor, cleanGift, isEmptyGift, type Gift } from '../src/awards.js'
 import { cleanLook } from '../src/look.js'
 import { FIRST_DAY, QUESTIONS, cleanQuestions, isDay, questionDay, questionFor, treeDay } from '../src/questions.js'
 import { EMPTY_LETTER, cleanLetter, missing } from './letter.js'
@@ -21,8 +21,8 @@ app.onError((err, c) => {
 const bad = (c: Context, error: string, status: 400 | 401 | 403 | 404 | 409 | 423 = 400) => c.json({ error }, status)
 
 function login(c: Context, pid: number, v: number) {
-  const { value, maxAge } = issue(pid, v)
-  setCookie(c, COOKIE, value, { httpOnly: true, sameSite: 'Lax', secure: !!process.env.VERCEL, path: '/', maxAge })
+  // maxAge 없음 = 세션 쿠키 (브라우저를 닫으면 사라짐). 만료는 서명 안의 exp(12시간)가 지킨다.
+  setCookie(c, COOKIE, issue(pid, v), { httpOnly: true, sameSite: 'Lax', secure: !!process.env.VERCEL, path: '/' })
 }
 
 async function requireLogin(c: Context<Env>, next: Next) {
@@ -118,12 +118,12 @@ app.get('/me', async (c) => {
      from players p left join letters l on l.santa_id = p.id where p.id = $1`,
     [me.id],
   )
-  // 엘프 NPC 잔소리용: 오늘 메시지 트리를 썼는지, 어워즈 투표를 몇 개 했는지
-  const awards = await getAwards()
-  const [todo] = await q<{ tree: boolean; votes: number }>(
+  // 엘프 NPC 잔소리용: 오늘 메시지 트리를 썼는지, 동료 몇 명에게 키워드를 줬는지
+  const [todo] = await q<{ tree: boolean; given: number; people: number }>(
     `select exists (select 1 from messages where player_id = $1 and day = $2) as tree,
-       (select count(*)::int from votes where voter_id = $1 and category = any($3)) as votes`,
-    [me.id, treeDay(), awards],
+       (select count(*)::int from keywords where giver_id = $1) as given,
+       (select count(*)::int - 1 from players) as people`,
+    [me.id, treeDay()],
   )
   return c.json({
     id: me.id,
@@ -134,7 +134,7 @@ app.get('/me', async (c) => {
     profile: row.profile,
     letter: row.letter,
     look: row.look ? cleanLook(row.look, me.id) : null, // null = 아직 안 꾸밈 → 처음 들어올 때 꾸미기 창
-    todo: { tree: todo.tree, votes: todo.votes, awards: awards.length },
+    todo: { tree: todo.tree, given: todo.given, people: todo.people },
     // 실시간 마을: 키가 없으면 null → 화면은 혼자 돌아다니는 모드로 동작
     liveRoom: process.env.LIVEBLOCKS_SECRET_KEY ? LIVE_ROOM : null,
   })
@@ -332,62 +332,60 @@ app.post('/tree/:id/heart', async (c) => {
   return c.json({ liked: removed.length === 0 })
 })
 
-// ── 🏆 AX 어워즈 ────────────────────────────────────────────────
-// 투표는 공개일 전까지 바꿀 수 있고, 결과는 공개일(REVEAL)에만 모두에게 열린다. 그 전엔 운영자도 결과를 못 본다.
-async function getAwards(): Promise<string[]> {
-  const q = await db()
-  const [row] = await q<{ value: string }>(`select value from settings where key = 'awards'`)
-  try {
-    const list = cleanAwards(JSON.parse(row?.value ?? 'null'))
-    if (list.length) return list
-  } catch {
-    /* 깨진 값이면 기본 목록 */
-  }
-  return [...DEFAULT_AWARDS]
-}
-
+// ── 🏆 AX 어워즈: 동료 키워드 상 ────────────────────────────────
+// 나를 뺀 모두에게 키워드를 준다. 공개일 전까지는 내가 준 것만 보이고, 공개일에 받은 사람별로 합친 상이 열린다.
+// 누가 어떤 키워드를 줬는지는 끝까지 아무에게도(운영자 포함) 보여 주지 않는다.
 app.use('/awards', requireLogin)
 app.use('/awards/*', requireLogin)
+
+const toGift = (r: { chips: string[]; custom: string | null }): Gift => cleanGift(r)
 
 app.get('/awards', async (c) => {
   const me = c.get('me')
   const q = await db()
   const phase = await getPhase()
-  const categories = await getAwards()
-  const mine = await q<{ category: string; nominee_id: number }>(`select category, nominee_id from votes where voter_id = $1`, [me.id])
   const players = await q<{ id: number; name: string }>(`select id, name from players order by name`)
+  const mine = await q<{ receiver_id: number; chips: string[]; custom: string | null }>(
+    `select receiver_id, chips, custom from keywords where giver_id = $1`,
+    [me.id],
+  )
   let results = null
   if (phase === 'REVEAL') {
-    const all = await q<{ category: string; nominee_id: number }>(`select category, nominee_id from votes`)
-    results = tally(categories, all.map((v) => ({ category: v.category, nomineeId: v.nominee_id })))
+    const all = await q<{ receiver_id: number; chips: string[]; custom: string | null }>(`select receiver_id, chips, custom from keywords`)
+    results = players.map((p) => ({ id: p.id, name: p.name, ...awardFor(all.filter((g) => g.receiver_id === p.id).map(toGift)) }))
   }
   return c.json({
     phase,
-    categories: categories.map((name) => ({ name, myVote: mine.find((v) => v.category === name)?.nominee_id ?? null })),
-    players,
+    people: players
+      .filter((p) => p.id !== me.id)
+      .map((p) => {
+        const g = mine.find((m) => m.receiver_id === p.id)
+        return { id: p.id, name: p.name, gift: g ? toGift(g) : { chips: [], custom: null } }
+      }),
     results,
   })
 })
 
-app.put('/awards/vote', async (c) => {
-  if ((await getPhase()) === 'REVEAL') return bad(c, '투표가 끝났어요', 409)
-  const { category, nomineeId } = await c.req.json<{ category: unknown; nomineeId: unknown }>()
+app.put('/awards/keywords', async (c) => {
+  if ((await getPhase()) === 'REVEAL') return bad(c, '키워드 주기가 끝났어요', 409)
+  const body = await c.req.json<{ receiverId?: unknown; chips?: unknown; custom?: unknown }>()
   const me = c.get('me')
-  if (typeof category !== 'string' || !(await getAwards()).includes(category)) return bad(c, '없는 상이에요', 404)
+  const receiverId = Number(body.receiverId)
+  if (receiverId === me.id) return bad(c, '나에게는 줄 수 없어요')
   const q = await db()
-  if (nomineeId === null) {
-    await q(`delete from votes where voter_id = $1 and category = $2`, [me.id, category])
-    return c.json({ ok: true })
-  }
-  if (nomineeId === me.id) return bad(c, '나에게는 투표할 수 없어요')
-  const [p] = await q(`select id from players where id = $1`, [nomineeId])
+  const [p] = await q(`select id from players where id = $1`, [receiverId])
   if (!p) return bad(c, '없는 참가자예요', 404)
-  await q(
-    `insert into votes (voter_id, category, nominee_id) values ($1, $2, $3)
-     on conflict (voter_id, category) do update set nominee_id = excluded.nominee_id`,
-    [me.id, category, nomineeId],
-  )
-  return c.json({ ok: true })
+  const gift = cleanGift(body)
+  if (isEmptyGift(gift)) {
+    await q(`delete from keywords where giver_id = $1 and receiver_id = $2`, [me.id, receiverId])
+  } else {
+    await q(
+      `insert into keywords (giver_id, receiver_id, chips, custom) values ($1, $2, $3, $4)
+       on conflict (giver_id, receiver_id) do update set chips = excluded.chips, custom = excluded.custom, updated_at = now()`,
+      [me.id, receiverId, gift.chips, gift.custom],
+    )
+  }
+  return c.json({ gift })
 })
 
 // ── 운영자 (블라인드: 매칭과 남의 내용은 돌려주지 않는다, PRD 4.2) ─────
@@ -432,24 +430,13 @@ app.post('/admin/phase', async (c) => {
   return c.json({ phase: to })
 })
 
-// 어워즈 상 목록. 결과는 주지 않고 몇 명이 투표를 끝냈는지만 (블라인드)
+// 어워즈 진행: 사람마다 "몇 명에게 줬는지"만 (누구에게 무엇을 줬는지는 주지 않는다)
 app.get('/admin/awards', async (c) => {
-  const categories = await getAwards()
   const q = await db()
-  const rows = await q<{ voter_id: number; n: number }>(
-    `select voter_id, count(*)::int as n from votes where category = any($1) group by voter_id`,
-    [categories],
+  const rows = await q<{ name: string; given: number }>(
+    `select p.name, (select count(*)::int from keywords k where k.giver_id = p.id) as given from players p order by p.name`,
   )
-  return c.json({ categories, done: rows.filter((r) => r.n >= categories.length).length, started: rows.length })
-})
-
-app.put('/admin/awards', async (c) => {
-  const { categories } = await c.req.json<{ categories: unknown }>()
-  const list = cleanAwards(categories)
-  if (!list.length) return bad(c, '상을 하나 이상 넣어 주세요')
-  const q = await db()
-  await q(`insert into settings (key, value) values ('awards', $1) on conflict (key) do update set value = excluded.value`, [JSON.stringify(list)])
-  return c.json({ categories: list })
+  return c.json({ people: rows.length - 1, players: rows })
 })
 
 // 메시지 트리 질문 관리: 목록(한 줄에 하나)과 첫 질문이 나오는 날
@@ -485,7 +472,7 @@ app.post('/admin/reset-all', async (c) => {
   for (const sql of [
     `delete from hearts`,
     `delete from messages`,
-    `delete from votes`,
+    `delete from keywords`,
     `delete from letters`,
     `delete from matches`,
     `update players set pin_hash = null, failed_attempts = 0, locked_until = null, session_version = session_version + 1,

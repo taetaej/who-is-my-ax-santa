@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, type AdminStatus, type Phase } from '../api'
-import { AWARDS_LIMIT, AWARD_MAX, cleanAwards } from '../awards'
+import { KEYWORDS } from '../awards'
 import { QUESTIONS_LIMIT, QUESTION_MAX, cleanQuestions, questionDay } from '../questions'
 
 const NEXT: Partial<Record<Phase, { to: Phase; label: string; confirm: string }>> = {
@@ -35,53 +35,48 @@ export function Admin({ onPhaseChange, onQuestions }: { onPhaseChange: () => voi
   )
 }
 
-// 어워즈 상 목록. 결과는 운영자도 공개일 전엔 못 본다 (투표 진행 수만)
+// 어워즈 진행: 사람마다 동료 몇 명에게 키워드를 줬는지만. 누구에게 무엇을 줬는지는 운영자도 못 본다
 function AwardsAdmin() {
-  const [text, setText] = useState<string | null>(null)
-  const [stat, setStat] = useState({ done: 0, started: 0 })
-  const [msg, setMsg] = useState('')
+  const [data, setData] = useState<{ people: number; players: { name: string; given: number }[] } | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api.adminAwards().then(
-      (r) => {
-        setText(r.categories.join('\n'))
-        setStat({ done: r.done, started: r.started })
-      },
-      (e: Error) => setError(e.message),
-    )
+    api.adminAwards().then(setData, (e: Error) => setError(e.message))
   }, [])
 
-  if (text === null) return <p className="muted">{error || '불러오는 중…'}</p>
-  const list = cleanAwards(text)
-
-  const save = async () => {
-    setError('')
-    try {
-      await api.saveAwards(list)
-      setMsg('저장했어요 🏆')
-    } catch (e) {
-      setError((e as Error).message)
-    }
-  }
+  if (!data) return <p className="muted">{error || '불러오는 중…'}</p>
+  const done = data.players.filter((p) => p.given >= data.people).length
 
   return (
     <div className="questions">
       <p className="muted">
-        한 줄에 상 하나씩. 투표 결과는 <b>공개일</b>에 모두에게 열리고, 그 전에는 운영자도 볼 수 없어요. 지금 <b>{stat.done}명</b>이 모든 상에 투표했고,{' '}
-        {stat.started}명이 투표를 시작했어요.
+        동료에게 키워드를 주면, 가장 많이 받은 키워드가 그 사람의 상이 돼요. 결과는 <b>공개일</b>에 열리고, 누가 무엇을 줬는지는 운영자도 볼 수 없어요. 지금{' '}
+        <b>
+          {done}/{data.players.length}명
+        </b>
+        이 모두에게 줬어요.
       </p>
-      <textarea rows={10} value={text} onChange={(e) => (setText(e.target.value), setMsg(''))} />
+      <table>
+        <thead>
+          <tr>
+            <th>이름</th>
+            <th>키워드 준 동료</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.players.map((p) => (
+            <tr key={p.name}>
+              <td>{p.name}</td>
+              <td className={p.given >= data.people ? 'ok-text' : ''}>
+                {p.given}/{data.people}명
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
       <p className="muted small">
-        {list.length}개 · 상 이름 {AWARD_MAX}자, 최대 {AWARDS_LIMIT}개까지 · 이미 받은 표는 상 이름으로 묶여 있어서, 이름을 바꾸면 그 상의 표는 다시 받아야 해요
+        키워드 칩 {KEYWORDS.length}개: {KEYWORDS.map((k) => k.chip).join(' · ')}
       </p>
-      <div className="letter-actions">
-        {msg && <span className="ok-text">{msg}</span>}
-        <button className="primary" disabled={!list.length} onClick={save}>
-          저장
-        </button>
-      </div>
-      {error && <p className="error">{error}</p>}
     </div>
   )
 }
@@ -122,7 +117,8 @@ function Questions({ onSaved }: { onSaved: () => void }) {
   return (
     <div className="questions">
       <p className="muted">
-        한 줄에 질문 하나씩 적어 주세요. <b>시작일</b>부터 <b>평일</b> 하루에 하나씩 위에서부터 차례로 나오고, 끝까지 가면 처음으로 돌아가요. 주말에는 금요일 질문이 이어져요 (한국 시간 자정에 바뀜).
+        한 줄에 질문 하나씩 적어 주세요. <b>시작일</b>부터 <b>평일</b> 하루에 하나씩 위에서부터 차례로 나오고, 끝까지 가면 처음으로 돌아가요. 주말에는 금요일
+        질문이 이어져요 (한국 시간 자정에 바뀜).
       </p>
       <div className="questions-body">
         <div>
@@ -130,12 +126,7 @@ function Questions({ onSaved }: { onSaved: () => void }) {
             <span>첫 질문이 나오는 날</span>
             <input type="date" value={start} onChange={(e) => (setStart(e.target.value), setMsg(''))} />
           </label>
-          <textarea
-            rows={16}
-            value={text}
-            onChange={(e) => (setText(e.target.value), setMsg(''))}
-            placeholder="올해 가장 자랑스러웠던 일은? 🏆"
-          />
+          <textarea rows={16} value={text} onChange={(e) => (setText(e.target.value), setMsg(''))} placeholder="올해 가장 자랑스러웠던 일은? 🏆" />
           <p className="muted small">
             {list.length}개 · 한 질문 {QUESTION_MAX}자, 최대 {QUESTIONS_LIMIT}개까지
           </p>
@@ -201,10 +192,21 @@ function Status({ onPhaseChange }: { onPhaseChange: () => void }) {
       <p>
         현재 단계 <b>{s.phase}</b> · 매칭 {s.matched ? '완료' : '전'}
       </p>
-      {next && <button className="primary" onClick={advance}>{next.label}</button>}
+      {next && (
+        <button className="primary" onClick={advance}>
+          {next.label}
+        </button>
+      )}
       <table>
         <thead>
-          <tr><th>이름</th><th>PIN</th><th>프로필</th><th>상자 개봉</th><th>소개서</th><th /></tr>
+          <tr>
+            <th>이름</th>
+            <th>PIN</th>
+            <th>프로필</th>
+            <th>상자 개봉</th>
+            <th>소개서</th>
+            <th />
+          </tr>
         </thead>
         <tbody>
           {s.players.map((p) => (
@@ -214,7 +216,13 @@ function Status({ onPhaseChange }: { onPhaseChange: () => void }) {
               <td>{p.hasProfile ? '✓' : '–'}</td>
               <td>{p.opened ? '✓' : '–'}</td>
               <td>{{ none: '–', draft: '쓰는 중', submitted: '제출 ✓' }[p.letter]}</td>
-              <td>{p.hasPin && <button className="ghost small" onClick={() => reset(p.id, p.name)}>PIN 초기화</button>}</td>
+              <td>
+                {p.hasPin && (
+                  <button className="ghost small" onClick={() => reset(p.id, p.name)}>
+                    PIN 초기화
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -255,8 +263,8 @@ function DangerZone() {
         <>
           <b>⚠️ 전체 초기화 (되돌릴 수 없어요)</b>
           <p className="muted small">
-            매칭, 소개서, 메시지 트리 답과 ❤️, 어워즈 투표, <b>모든 사람의 PIN·로그인·꾸미기·프로필</b>, 운영 화면에서 바꾼 질문·상 목록이 지워지고 단계가 READY 로 돌아가요. 14명 명단만 남아요. 나도
-            로그아웃돼요.
+            매칭, 소개서, 메시지 트리 답과 ❤️, 어워즈 투표, <b>모든 사람의 PIN·로그인·꾸미기·프로필</b>, 운영 화면에서 바꾼 질문·상 목록이 지워지고 단계가 READY
+            로 돌아가요. 14명 명단만 남아요. 나도 로그아웃돼요.
           </p>
           <p className="small">
             계속하려면 <code>{RESET_CONFIRM}</code> 을 입력하세요.

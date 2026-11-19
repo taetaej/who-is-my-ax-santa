@@ -28,7 +28,7 @@ export const SPOT = {
   cocoa: { a: UP + 0.82, r: 11.4 }, // AX 카페: 핫초코
   field: { a: 0.28, r: 11.3 }, // 눈밭: 눕기, (다음) 눈싸움
   fire: { a: Math.PI - 0.28, r: 11.1 }, // 불멍 회의실: 모닥불에 둘러앉아 캐롤 듣기
-  awards: { a: 1.0, r: 10.6 }, // 🏆 어워즈 투표소 (앞 오른쪽)
+  awards: { a: 1.0, r: 10.6 }, // 🏆 어워즈 키워드 부스 (앞 오른쪽)
   board: { a: Math.PI / 2 + 0.5, r: 5.1 }, // 마니또 게시판 (광장, 카메라 쪽을 본다)
 } as const
 
@@ -105,7 +105,7 @@ export function actionAt(x: number, z: number): { action: Action; label: string 
   if (Math.hypot(PARTY.x - x, PARTY.z - z) < 1.9) return { action: 'cake', label: 'E · 🍰 케이크 한 조각 먹기' }
   if (near(SPOT.post, 1.5, POST_SIZE.d / 2 + 0.5)) return { action: 'letter', label: 'E · 💌 마니또 소개서 쓰기' }
   if (near(SPOT.board, 1.3)) return { action: 'manito', label: 'E · 📋 나의 마니또 보기' }
-  if (near(SPOT.awards, 1.9)) return { action: 'awards', label: 'E · 🏆 AX 어워즈 투표하기' }
+  if (near(SPOT.awards, 1.9)) return { action: 'awards', label: 'E · 🏆 동료에게 키워드 주기' }
   if (Math.hypot(x, z) < 4.3) return { action: 'tree', label: 'E · 🎄 메시지 트리 보기 · 쓰기' } // 광장 큰 트리
   if (near(SPOT.cocoa, 1.5, COCOA_SIZE.d / 2 + 0.55)) return { action: 'cocoa', label: 'E · ☕ AX 카페 핫초코 받기' }
   if (FIRE_SEATS.some((s) => Math.hypot(s.x - x, s.z - z) < 0.9)) return { action: 'sit', label: 'E · 🔥 불멍하러 앉기' }

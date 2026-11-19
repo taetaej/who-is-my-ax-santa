@@ -12,7 +12,7 @@ const base: Me = {
   liveRoom: null,
   letter: 'submitted',
   look: null,
-  todo: { tree: true, votes: 7, awards: 7 },
+  todo: { tree: true, given: 13, people: 13 },
 }
 
 describe('엘프 잔소리', () => {
@@ -24,7 +24,7 @@ describe('엘프 잔소리', () => {
   })
 
   it('안 한 것만 순서대로 짚고, 바로 가는 버튼을 준다', () => {
-    const me: Me = { ...base, manitoOpened: false, letter: 'draft', todo: { tree: false, votes: 2, awards: 7 } }
+    const me: Me = { ...base, manitoOpened: false, letter: 'draft', todo: { tree: false, given: 2, people: 13 } }
     const go = elfLines(me, '최애 간식?', 0).flatMap((l) => (l.go ? [l.go.to] : []))
     expect(go).toEqual(['manito', 'tree', 'awards', 'letter'])
     expect(elfLines(me, '최애 간식?', 0).find((l) => l.go?.to === 'tree')?.text).toContain('최애 간식?')
@@ -32,7 +32,7 @@ describe('엘프 잔소리', () => {
   })
 
   it('행사 시작 전에는 마니또·소개서 잔소리를 하지 않는다', () => {
-    const me: Me = { ...base, phase: 'READY', manitoOpened: false, letter: 'none', todo: { tree: false, votes: 0, awards: 7 } }
+    const me: Me = { ...base, phase: 'READY', manitoOpened: false, letter: 'none', todo: { tree: false, given: 0, people: 13 } }
     const go = elfLines(me, 'Q', 0).flatMap((l) => (l.go ? [l.go.to] : []))
     expect(go).toEqual(['tree', 'awards'])
   })

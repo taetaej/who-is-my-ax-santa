@@ -32,8 +32,9 @@ declare global {
 const initialPresence: Presence = { x: 0, z: 0, rot: 0, speed: 0, pose: 'stand', cup: false, look: null, wave: 0, say: null }
 
 export function LiveRoot({ room, children }: { room: string; children: ReactNode }) {
+  // 무료 플랜 배지: 오른쪽 아래면 좁은 화면에서 로그아웃 버튼을 가려서 왼쪽 아래로
   return (
-    <LiveblocksProvider authEndpoint="/api/me/live-auth" throttle={80}>
+    <LiveblocksProvider authEndpoint="/api/me/live-auth" throttle={80} badgeLocation="bottom-left">
       <RoomProvider id={room} initialPresence={initialPresence}>
         {children}
       </RoomProvider>

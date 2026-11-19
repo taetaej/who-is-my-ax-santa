@@ -359,11 +359,27 @@ textarea {
 
 /* ── 어워즈 ─────────────────────────────── */
 .panel.awards { width: min(620px, 94vw); max-height: 82vh; overflow: auto; }
-.award-list { display: grid; gap: 8px; }
-.award-row { display: grid; grid-template-columns: 1fr 180px; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: #fff; border: 1px solid var(--line); }
-.award-row.done { background: #fff8e6; border-color: #f0d28a; }
 .award-name { font-weight: 800; }
-.award-row select { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: #fff; }
+/* 동료 키워드 주기 */
+.kw-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; margin: 12px 0; }
+.kw-people .name.done:not(.on) { background: #fff8e6; border-color: #f0d28a; }
+.kw-card { padding: 14px; border-radius: 14px; background: #fff; border: 1px solid var(--line); }
+.kw-card h3 { margin: 0 0 10px; font-size: 17px; }
+.kw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.kw-chip { background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 14px; }
+.kw-chip.on { background: var(--red); color: #fff; border-color: var(--red); }
+.kw-chip:disabled { opacity: 0.4; }
+.kw-custom { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 14px; }
+.kw-custom input { flex: 1; font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); }
+/* 공개일 상장 */
+.certificate { text-align: center; padding: 22px 16px; margin: 10px 0 18px; border-radius: 18px; background: linear-gradient(160deg, #fff6dc, #f6dc9a); border: 3px double #c99a2e; }
+.cert-kicker { font-weight: 800; letter-spacing: 0.4em; color: #9a6b10; }
+.certificate h3 { margin: 4px 0 8px; font-size: 26px; }
+.cert-title { margin: 4px 0; font-size: 22px; font-weight: 800; color: var(--red); }
+.cloud { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 12px; margin-top: 12px; }
+.cloud span { font-size: calc(14px * var(--s, 1)); font-weight: 700; }
+.cloud sup { font-size: 11px; color: #9a6b10; margin-left: 1px; }
+.kw-all-title { margin: 0 0 8px; }
 .award-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 .award-result { display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: 14px; background: linear-gradient(160deg, #fff6dc, #f6dc9a); }
 .award-result b { font-size: 22px; color: var(--red); }
@@ -399,7 +415,7 @@ textarea {
    본문: 페이퍼로지. 말풍선·명언·메시지 카드처럼 사람 말투인 곳만 손글씨 Gaegu. */
 h1, h2, h3, h4, h5, b, strong, button, kbd, label.kw,
 .tag, .bubble, .banner, .spot-label, .spot-count, .online-count, .prompt, .notice, .chip, .who,
-.dock, .help, .milestone, .tree-q, .tree-day, .award-name, .award-result b, .tl-fun, .tl-month,
+.dock, .help, .milestone, .tree-q, .tree-day, .award-name, .award-result b, .cert-title, .cert-kicker, .cloud span, .tl-fun, .tl-month,
 .dialog-name, .elf-bubble, .elf-tag, .look-name, .card-top, .card-kws span, .ms-month, .tree-label, .ok-text,
 .letter-card h4, .letter-card h5, .stat b, .stat-row b, .hint-box span, .tl-dot, .carol-head b, .names .name {
   font-family: var(--font-display);
@@ -428,3 +444,8 @@ body, p, li, input, textarea, select, .muted, td, th { font-weight: 400; }
 .danger b { color: var(--red); }
 .danger-row { display: flex; gap: 8px; align-items: center; }
 .danger-btn { background: var(--red); color: #fff; padding: 9px 16px; font-weight: 700; white-space: nowrap; }
+
+/* 다시 온 사람: 이름은 기억, PIN 만 */
+.welcome-back { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.welcome-back p { margin: 0; }
+.welcome-back .quiet { font-size: 13px; padding: 4px 10px; }

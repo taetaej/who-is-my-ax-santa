@@ -61,12 +61,15 @@ async function migrate(q: Query) {
     player_id int not null references players(id),
     primary key (message_id, player_id)
   )`)
-  // AX 어워즈 투표: 상마다 한 사람당 한 표 (상 이름으로 묶는다)
-  await q(`create table if not exists votes (
-    voter_id int not null references players(id),
-    category text not null,
-    nominee_id int not null references players(id),
-    primary key (voter_id, category)
+  // AX 어워즈: 동료에게 주는 키워드. 한 사람이 한 사람에게 한 줄 (칩 id 목록 + 직접 쓴 키워드)
+  // 누가 누구에게 줬는지는 어떤 API 로도 돌려주지 않는다. 공개일엔 받은 사람별로 합친 결과만 연다.
+  await q(`create table if not exists keywords (
+    giver_id int not null references players(id),
+    receiver_id int not null references players(id),
+    chips text[] not null default '{}',
+    custom text,
+    updated_at timestamptz not null default now(),
+    primary key (giver_id, receiver_id)
   )`)
   // 산타 → 마니또. 운영자 화면과 어떤 API 에서도 이 테이블 전체를 돌려주지 않는다 (PRD 4.2)
   await q(`create table if not exists matches (

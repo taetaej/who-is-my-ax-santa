@@ -10,6 +10,7 @@ import { MessageTree } from './screens/MessageTree'
 import { AwardsPanel } from './screens/AwardsPanel'
 import { ElfDialog, elfChatter, type ElfGo } from './screens/ElfDialog'
 import { Login } from './screens/Login'
+import { clearEntered, enteredThisTab } from './entry'
 import { ProfileForm } from './screens/ProfileForm'
 import { CarolPlayer } from './screens/CarolPlayer'
 
@@ -30,10 +31,19 @@ export function App() {
   inputEnabled.current = !!me && modal === null && !firstVisit
 
   const refresh = useCallback(async () => {
+    // 이 탭에서 아직 PIN 을 안 넣었으면, 남아 있는 쿠키도 버리고 입장 화면부터 (매번 PIN)
+    if (!enteredThisTab()) {
+      await api.logout().catch(() => undefined)
+      setMe(null)
+      return
+    }
     try {
       setMe(await api.me())
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) setMe(null)
+      if (e instanceof ApiError && e.status === 401) {
+        clearEntered()
+        setMe(null)
+      }
       else throw e
     }
   }, [])
@@ -59,6 +69,7 @@ export function App() {
 
   const logout = async () => {
     await api.logout()
+    clearEntered()
     setModal(null)
     setMe(null)
   }
@@ -122,7 +133,7 @@ export function App() {
             <CarolPlayer level={carol} />
 
             <div className="help">
-              <kbd>←↑↓→</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>Space</kbd> 인사 · <kbd>E</kbd> 말 걸기·앉기·투표 등 · <kbd>M</kbd> 전경
+              <kbd>←↑↓→</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>Space</kbd> 인사 · <kbd>E</kbd> 말 걸기·앉기 등 · <kbd>M</kbd> 전경
             </div>
 
             <nav className="dock">
@@ -132,6 +143,14 @@ export function App() {
                 💌 소개서 <span className={`chip ${me.letter === 'submitted' ? 'ok' : me.phase === 'ACTIVE' && me.letter === 'none' ? 'warn' : ''}`}>{LETTER_CHIP[me.letter]}</span>
               </button>
               <button onClick={() => setModal('tree')}>🎄 메시지 트리</button>
+              <button onClick={() => setModal('awards')}>
+                🏆 어워즈{' '}
+                {me.phase !== 'REVEAL' && (
+                  <span className={`chip ${me.todo.given >= me.todo.people ? 'ok' : ''}`}>
+                    {me.todo.given}/{me.todo.people}
+                  </span>
+                )}
+              </button>
               <button onClick={() => setModal('profile')}>✏️ 내 프로필</button>
               {me.isAdmin && <button onClick={() => setModal('admin')}>⚙️ 운영</button>}
               <button className={overview ? 'on' : ''} onClick={() => setOverview((v) => !v)} title="M">

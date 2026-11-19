@@ -670,7 +670,7 @@ export function Spots({ tree }: { tree: TreeInfo | null }) {
       <SpotLabel position={polar(SPOT.cocoa.a, SPOT.cocoa.r, 3.3)} text="☕ AX 카페" />
       <SpotLabel position={polar(SPOT.fire.a, SPOT.fire.r, 2.2)} text="🔥 불멍 회의실 · 🎵 캐롤" />
       <SpotLabel position={polar(SPOT.field.a, SPOT.field.r, 1.9)} text="❄️ 눈밭" />
-      <SpotLabel position={polar(SPOT.awards.a, SPOT.awards.r, 2.6)} text="🏆 AX 어워즈 투표소" />
+      <SpotLabel position={polar(SPOT.awards.a, SPOT.awards.r, 2.6)} text="🏆 AX 어워즈" />
       <SpotLabel position={polar(SPOT.board.a, SPOT.board.r, 2.15)} text="📋 마니또 게시판" />
       <SpotLabel position={polar(Math.PI, 2.7, 0.9)} text="🧊 얼음 연못" />
     </group>

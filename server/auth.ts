@@ -22,7 +22,8 @@ export async function verifyPin(pin: string, stored: string): Promise<boolean> {
 
 // ── 세션 쿠키: base64url(JSON).HMAC ──────────────────────────────
 export const COOKIE = 'santa_session'
-const MAX_AGE_SEC = 60 * 60 * 24 * 30
+// 브라우저를 닫으면 사라지는 쿠키. 켜 둔 채로도 12시간이 지나면 다시 PIN 을 묻는다.
+const MAX_AGE_SEC = 60 * 60 * 12
 
 function secret(): string {
   const s = process.env.SESSION_SECRET
@@ -35,9 +36,9 @@ const sign = (body: string) => createHmac('sha256', secret()).update(body).diges
 
 export type Session = { pid: number; v: number; exp: number }
 
-export function issue(pid: number, v: number): { value: string; maxAge: number } {
+export function issue(pid: number, v: number): string {
   const body = Buffer.from(JSON.stringify({ pid, v, exp: Date.now() + MAX_AGE_SEC * 1000 })).toString('base64url')
-  return { value: `${body}.${sign(body)}`, maxAge: MAX_AGE_SEC }
+  return `${body}.${sign(body)}`
 }
 
 export function read(value: string | undefined): Session | null {
