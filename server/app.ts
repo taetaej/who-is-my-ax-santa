@@ -473,6 +473,32 @@ app.put('/admin/questions', async (c) => {
   return c.json({ list, start, today: treeDay(), first: questionDay(start, 0) })
 })
 
+// ⚠️ 전체 초기화: 테스트 흔적을 지우고 행사 전 상태로. 되돌릴 수 없어서 확인 문구를 정확히 받아야 한다.
+// 지우는 것: 매칭, 소개서, 메시지 트리 답·❤️, 어워즈 투표, 모든 사람의 PIN·로그인·꾸미기·프로필·상자 개봉,
+//           운영 화면에서 바꾼 질문·상 목록 (코드 기본값으로 돌아감). 단계는 READY 로.
+// 남는 것: 14명 명단과 운영자 지정.
+export const RESET_CONFIRM = '전체 초기화'
+app.post('/admin/reset-all', async (c) => {
+  const { confirm } = await c.req.json<{ confirm?: unknown }>().catch(() => ({ confirm: undefined }))
+  if (confirm !== RESET_CONFIRM) return bad(c, `확인 문구로 "${RESET_CONFIRM}" 을 정확히 입력해 주세요`)
+  const q = await db()
+  for (const sql of [
+    `delete from hearts`,
+    `delete from messages`,
+    `delete from votes`,
+    `delete from letters`,
+    `delete from matches`,
+    `update players set pin_hash = null, failed_attempts = 0, locked_until = null, session_version = session_version + 1,
+       manito_opened_at = null, profile = null, look = null`,
+    `delete from settings where key in ('questions', 'questions_start', 'awards')`,
+    `update settings set value = 'READY' where key = 'phase'`,
+  ]) {
+    await q(sql)
+  }
+  deleteCookie(c, COOKIE, { path: '/' }) // 운영자 본인도 로그아웃 (PIN 도 지워졌으니)
+  return c.json({ ok: true })
+})
+
 app.post('/admin/reset-pin', async (c) => {
   const { playerId } = await c.req.json<{ playerId: number }>()
   const q = await db()

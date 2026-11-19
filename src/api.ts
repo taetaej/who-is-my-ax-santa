@@ -91,5 +91,6 @@ export const api = {
   setPhase: (to: Phase) => call<{ phase: Phase }>('POST', '/admin/phase', { to }),
   questions: () => call<{ list: string[]; start: string; today: string }>('GET', '/admin/questions'),
   saveQuestions: (questions: string[], start: string) => call<{ list: string[]; start: string }>('PUT', '/admin/questions', { questions, start }),
+  resetAll: (confirm: string) => call('POST', '/admin/reset-all', { confirm }),
   resetPin: (playerId: number) => call('POST', '/admin/reset-pin', { playerId }),
 }

@@ -220,6 +220,59 @@ function Status({ onPhaseChange }: { onPhaseChange: () => void }) {
         </tbody>
       </table>
       {error && <p className="error">{error}</p>}
+      <DangerZone />
+    </div>
+  )
+}
+
+/** ⚠️ 전체 초기화: 행사 전에 테스트 흔적을 지울 때. 확인 문구를 직접 입력해야 눌린다 */
+const RESET_CONFIRM = '전체 초기화'
+function DangerZone() {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const run = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      await api.resetAll(text)
+      window.location.reload() // 운영자도 로그아웃되므로 처음 화면으로
+    } catch (e) {
+      setError((e as Error).message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="danger">
+      {!open ? (
+        <button className="ghost small" onClick={() => setOpen(true)}>
+          ⚠️ 전체 초기화…
+        </button>
+      ) : (
+        <>
+          <b>⚠️ 전체 초기화 (되돌릴 수 없어요)</b>
+          <p className="muted small">
+            매칭, 소개서, 메시지 트리 답과 ❤️, 어워즈 투표, <b>모든 사람의 PIN·로그인·꾸미기·프로필</b>, 운영 화면에서 바꾼 질문·상 목록이 지워지고 단계가 READY 로 돌아가요. 14명 명단만 남아요. 나도
+            로그아웃돼요.
+          </p>
+          <p className="small">
+            계속하려면 <code>{RESET_CONFIRM}</code> 을 입력하세요.
+          </p>
+          <div className="danger-row">
+            <input value={text} onChange={(e) => setText(e.target.value)} placeholder={RESET_CONFIRM} />
+            <button className="danger-btn" disabled={busy || text !== RESET_CONFIRM} onClick={run}>
+              초기화
+            </button>
+            <button className="ghost small" onClick={() => (setOpen(false), setText(''))}>
+              취소
+            </button>
+          </div>
+          {error && <p className="error">{error}</p>}
+        </>
+      )}
     </div>
   )
 }
