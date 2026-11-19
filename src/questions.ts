@@ -1,29 +1,28 @@
-// 메시지 트리 "오늘의 질문". 하루에 하나씩, 날짜가 바뀌면 다음 질문으로 넘어간다 (한국 시간 기준).
+// 메시지 트리 "오늘의 질문". 평일 하루에 하나씩, 날짜가 바뀌면 다음 질문으로 넘어간다 (한국 시간 기준).
+// 주말(토·일)에는 새 질문 없이 금요일 질문이 이어지고, 주말에 쓴 답도 금요일 카드로 걸린다.
 // 운영자가 ⚙️ 운영 → 메시지 트리 질문 에서 목록과 시작일을 바꿀 수 있다 (DB settings 에 저장).
 // 아래는 운영자가 아직 아무것도 저장하지 않았을 때 쓰는 기본 목록이다.
 
 export const QUESTIONS = [
-  '올해 가장 자랑스러웠던 일은? 🏆',
-  '올해 가장 맛있었던 회사 식당 메뉴는? 🍱',
-  '올해 나를 버티게 한 간식은? 🍫',
-  '올해 팀에서 가장 웃겼던 순간은? 😂',
-  '올해 가장 많이 들은 노래는? 🎧',
-  '올해의 나에게 상을 준다면, 무슨 상? 🏅',
-  '회사 근처 최애 점심·카페는? ☕',
-  '올해 새로 시작한 것은? 🌱',
-  '올해 배운 것 중 가장 쓸모 있었던 것은? 💡',
-  '내 책상 위 최애 아이템은? 🖥️',
-  '올해 고마웠던 동료에게 한마디 (이름 언급 OK) 💌',
+  // 행사 기간(12/7~12/16) 평일 8일에 하나씩. 주말은 쉬고 금요일 질문이 이어진다
+  '올해 가장 뿌듯했던 순간은? 나에게 상을 준다면 무슨 상? 🏆',
+  '올해 나를 버티게 해 준 동료나 무언가는? 🤝 (이름·간식·노래·루틴 뭐든 OK)',
+  '올해 새로 배운 것 중 가장 쓸모 있었던 것은? 💡',
+  '올해 우리 팀이 함께 넘은 가장 큰 산은? ⛰️',
+  '올해 일하면서 가장 웃겼던 순간은? 😂',
+  '올해 AI로 일하는 방식이 바뀐 순간은? 🤖',
+  '올해 가장 고마웠던 동료에게 한마디 💌 (이름 언급 OK)',
+  '내년의 AX팀에게, 그리고 나에게 한마디 🚀',
+  // 예비 (행사 뒤에도 트리가 열려 있으면 이어서 나온다)
   '올해를 한 단어로 표현하면? ✍️',
-  '올해 가장 기억에 남는 여행·휴가는? ✈️',
+  '다른 팀에 자랑하고 싶은 우리 팀 문화는? 🌟',
+  '올해 가장 많이 쓴 툴이나 기능은? 🛠️',
+  '내년에 꼭 해 보고 싶은 일은? 🌱',
   '크리스마스에 받고 싶은 선물은? 🎁',
-  '연말에 꼭 하고 싶은 것은? 🎄',
-  '내년에 꼭 해 보고 싶은 것은? 🚀',
-  '내년의 나에게 한마디 📮',
 ] as const
 
-/** 첫 번째 질문이 나오는 날 (행사 시작일). 이날부터 하루에 하나씩 */
-export const FIRST_DAY = '2026-12-01'
+/** 첫 번째 질문이 나오는 날 (행사 시작일). 이날부터 평일마다 하나씩 */
+export const FIRST_DAY = '2026-12-07' // 행사 시작일 (12/7 ~ 12/16 진행, 12/17 공개)
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -46,11 +45,45 @@ export function addDays(day: string, n: number): string {
 export const QUESTION_MAX = 80 // 질문 한 개 글자 수
 export const QUESTIONS_LIMIT = 60 // 질문 개수
 
-/** 그날의 질문 (목록이 끝나면 처음부터 다시) */
+export const isWeekend = (day: string) => {
+  const w = new Date(`${day}T00:00:00Z`).getUTCDay()
+  return w === 0 || w === 6
+}
+
+/** 메시지 트리의 "오늘": 주말이면 바로 앞 금요일 (주말엔 금요일 질문이 이어진다) */
+export function treeDay(nowMs = Date.now()): string {
+  let d = kstDay(nowMs)
+  while (isWeekend(d)) d = addDays(d, -1)
+  return d
+}
+
+/** start 부터 day 앞날까지의 평일 수 (day 가 start 보다 앞이면 음수) */
+export function weekdaysBetween(start: string, day: string): number {
+  const [a, b, sign] = start <= day ? [start, day, 1] : [day, start, -1]
+  const days = daysBetween(a, b)
+  let n = Math.floor(days / 7) * 5
+  for (let i = Math.floor(days / 7) * 7; i < days; i++) if (!isWeekend(addDays(a, i))) n++
+  return n * sign
+}
+
+/** 질문 i 번이 나오는 날 (시작일부터 평일만 센다) */
+export function questionDay(start: string, i: number): string {
+  let d = start
+  while (isWeekend(d)) d = addDays(d, 1)
+  for (let k = 0; k < i; ) {
+    d = addDays(d, 1)
+    if (!isWeekend(d)) k++
+  }
+  return d
+}
+
+/** 그날의 질문. 평일만 세고, 목록이 끝나면 처음부터 다시. 주말은 앞 금요일 질문 */
 export function questionFor(day: string, list: readonly string[] = QUESTIONS, start = FIRST_DAY): string {
   const n = list.length
   if (!n) return ''
-  const i = ((daysBetween(start, day) % n) + n) % n
+  let d = day
+  while (isWeekend(d)) d = addDays(d, -1)
+  const i = ((weekdaysBetween(start, d) % n) + n) % n
   return list[i]
 }
 

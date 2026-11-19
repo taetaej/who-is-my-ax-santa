@@ -4,7 +4,7 @@ import { COOKIE, LOCK_MINUTES, MAX_FAILS, PIN_RE, hashPin, issue, read, verifyPi
 import { PHASES, db, getPhase, type Phase } from './db.js'
 import { DEFAULT_AWARDS, cleanAwards, tally } from '../src/awards.js'
 import { cleanLook } from '../src/look.js'
-import { FIRST_DAY, QUESTIONS, addDays, cleanQuestions, isDay, kstDay, questionFor } from '../src/questions.js'
+import { FIRST_DAY, QUESTIONS, cleanQuestions, isDay, questionDay, questionFor, treeDay } from '../src/questions.js'
 import { EMPTY_LETTER, cleanLetter, missing } from './letter.js'
 import { makeCycle } from './matching.js'
 
@@ -123,7 +123,7 @@ app.get('/me', async (c) => {
   const [todo] = await q<{ tree: boolean; votes: number }>(
     `select exists (select 1 from messages where player_id = $1 and day = $2) as tree,
        (select count(*)::int from votes where voter_id = $1 and category = any($3)) as votes`,
-    [me.id, kstDay(), awards],
+    [me.id, treeDay(), awards],
   )
   return c.json({
     id: me.id,
@@ -266,7 +266,7 @@ const MESSAGE_MAX = 140
 
 app.get('/tree/summary', async (c) => {
   const q = await db()
-  const today = kstDay()
+  const today = treeDay() // 주말이면 금요일 (금요일 질문이 이어진다)
   const qs = await getQuestions()
   const [r] = await q<{ total: number; today: number }>(
     `select count(*)::int as total, count(*) filter (where day = $1)::int as today from messages`,
@@ -276,7 +276,7 @@ app.get('/tree/summary', async (c) => {
 })
 
 app.get('/tree', async (c) => {
-  const today = kstDay()
+  const today = treeDay() // 주말이면 금요일 (금요일 질문이 이어진다)
   const asked = c.req.query('day')
   const day = isDay(asked) && asked <= today ? asked : today
   const me = c.get('me')
@@ -307,7 +307,7 @@ app.put('/tree/today', async (c) => {
   const text = typeof body === 'string' ? body.trim().slice(0, MESSAGE_MAX) : ''
   const me = c.get('me')
   const q = await db()
-  const today = kstDay()
+  const today = treeDay() // 주말이면 금요일 (금요일 질문이 이어진다)
   if (!text) {
     await q(`delete from messages where player_id = $1 and day = $2`, [me.id, today])
   } else {
@@ -455,7 +455,7 @@ app.put('/admin/awards', async (c) => {
 // 메시지 트리 질문 관리: 목록(한 줄에 하나)과 첫 질문이 나오는 날
 app.get('/admin/questions', async (c) => {
   const qs = await getQuestions()
-  return c.json({ ...qs, today: kstDay() })
+  return c.json({ ...qs, today: treeDay() })
 })
 
 app.put('/admin/questions', async (c) => {
@@ -470,7 +470,7 @@ app.put('/admin/questions', async (c) => {
   ]) {
     await q(`insert into settings (key, value) values ($1, $2) on conflict (key) do update set value = excluded.value`, [key, value])
   }
-  return c.json({ list, start, today: kstDay(), tomorrow: questionFor(addDays(kstDay(), 1), list, start) })
+  return c.json({ list, start, today: treeDay(), first: questionDay(start, 0) })
 })
 
 app.post('/admin/reset-pin', async (c) => {

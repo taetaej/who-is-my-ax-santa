@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, type AdminStatus, type Phase } from '../api'
 import { AWARDS_LIMIT, AWARD_MAX, cleanAwards } from '../awards'
-import { QUESTIONS_LIMIT, QUESTION_MAX, addDays, cleanQuestions } from '../questions'
+import { QUESTIONS_LIMIT, QUESTION_MAX, cleanQuestions, questionDay } from '../questions'
 
 const NEXT: Partial<Record<Phase, { to: Phase; label: string; confirm: string }>> = {
   READY: {
@@ -122,7 +122,7 @@ function Questions({ onSaved }: { onSaved: () => void }) {
   return (
     <div className="questions">
       <p className="muted">
-        한 줄에 질문 하나씩 적어 주세요. <b>시작일</b>부터 하루에 하나씩 위에서부터 차례로 나오고, 끝까지 가면 처음으로 돌아가요 (한국 시간 자정에 바뀜).
+        한 줄에 질문 하나씩 적어 주세요. <b>시작일</b>부터 <b>평일</b> 하루에 하나씩 위에서부터 차례로 나오고, 끝까지 가면 처음으로 돌아가요. 주말에는 금요일 질문이 이어져요 (한국 시간 자정에 바뀜).
       </p>
       <div className="questions-body">
         <div>
@@ -144,7 +144,7 @@ function Questions({ onSaved }: { onSaved: () => void }) {
           <h3>📅 날짜별 미리보기</h3>
           <ol className="schedule">
             {list.map((q, i) => {
-              const day = addDays(start, i)
+              const day = questionDay(start, i) // 평일만 (주말은 금요일 질문이 이어짐)
               return (
                 <li key={i} className={day === today ? 'today' : day < today ? 'past' : ''}>
                   <span>{day.slice(5).replace('-', '/')}</span>
