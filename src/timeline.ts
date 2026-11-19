@@ -21,6 +21,13 @@ export const TIMELINE: Milestone[] = [
     lines: ['통합 플랫폼 ReadySet 런칭 및 핵심 솔루션 Reach Caster, DataShot 동시 공개'],
   },
   {
+    month: '2026. 07',
+    emoji: '🏅',
+    fun: 'Mappy, PLAYBOOK 상 탔다!',
+    title: 'Mappy, 1분기 PLAYBOOK 수상',
+    lines: ['Mappy, 1분기 PLAYBOOK 수상 🏅'],
+  },
+  {
     month: '2026. 08',
     emoji: '🔧',
     fun: '현업 피드백 먹고 쑥쑥 v1.1.0',
