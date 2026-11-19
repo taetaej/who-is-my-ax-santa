@@ -273,6 +273,7 @@ export function Village({
   tree = null,
   elf = null,
   talking = false,
+  overview = false,
   live = false,
 }: {
   me: Resident | null
@@ -283,6 +284,7 @@ export function Village({
   tree?: TreeInfo | null // 메시지 트리에 걸린 카드 수와 오늘의 질문
   elf?: { alert: boolean; chatter: string[] } | null // 엘프 NPC (로그인했을 때만)
   talking?: boolean // 엘프와 대화 중 (카메라 클로즈업)
+  overview?: boolean // 마을 전경 보기
   live?: boolean // true 면 LiveRoot 안에서 그려진다 (실시간 접속)
 }) {
   const [online, setOnline] = useState<Set<number>>(() => new Set())
@@ -342,7 +344,7 @@ export function Village({
         {!live && me && <CarolCount others={0} me={myState} />}
 
         {me ? (
-          <Player name={me.name} seed={me.id} look={me.look} enabled={inputEnabled} onPrompt={onPrompt} onOpen={onOpen} onCarol={onCarol} talkingToElf={talking} share={myState} />
+          <Player name={me.name} seed={me.id} look={me.look} enabled={inputEnabled} onPrompt={onPrompt} onOpen={onOpen} onCarol={onCarol} talkingToElf={talking} overview={overview} share={myState} />
         ) : (
           <OrbitRig />
         )}

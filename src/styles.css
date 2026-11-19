@@ -421,3 +421,5 @@ body, p, li, input, textarea, select, .muted, td, th { font-weight: 400; }
 
 .topbar h1 .ax { color: #fff; background: var(--red); padding: 0 7px; border-radius: 8px; margin: 0 1px; }
 .topbar h1 { color: var(--red); text-shadow: 0 1px 0 rgba(255,255,255,0.6); }
+
+.dock button.on { background: var(--ink); color: #fff; border-color: var(--ink); }

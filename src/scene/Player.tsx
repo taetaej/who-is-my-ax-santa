@@ -27,7 +27,9 @@ type V = [number, number, number]
 const FIRE = at(SPOT.fire)
 
 /** 지금 있는 곳에 맞는 카메라 위치와 바라볼 곳. slow = 천천히 넘어가는 연출용 시점 */
-function viewFor(s: CookieState, talking: boolean): { cam: V; look: V; slow?: boolean } {
+function viewFor(s: CookieState, talking: boolean, overview: boolean): { cam: V; look: V; slow?: boolean } {
+  // 🗺️ 마을 전경: 높이 떠서 마을 전체를 내려다본다 (움직일 수는 있다)
+  if (overview) return { cam: [s.x * 0.15, 34, 33], look: [s.x * 0.1, 0, 2.6], slow: true }
   // 🧝 엘프와 대화: 엘프 얼굴 쪽으로 다가간다
   if (talking) {
     // 나와 엘프가 함께 잡히도록 비스듬히, 둘 사이를 본다
@@ -82,6 +84,7 @@ export function Player({
   onOpen,
   onCarol,
   talkingToElf,
+  overview,
   share,
 }: {
   name: string
@@ -92,6 +95,7 @@ export function Player({
   onOpen: (panel: PanelAction) => void // 우편함·게시판·트리에서 E → 창 열기
   onCarol?: (level: number) => void // 캐롤 무대와의 거리 → 0~1 볼륨
   talkingToElf?: boolean // 엘프와 대화 중이면 엘프를 클로즈업
+  overview?: boolean // 마을 전경 보기
   share?: MutableRefObject<CookieState | null> // 실시간 공유용으로 내 상태를 밖에 알려준다
 }) {
   const state = useRef(newCookieState(SPAWN.x, SPAWN.z, SPAWN.rot))
@@ -111,6 +115,8 @@ export function Player({
   const carol = useRef(-1)
   const talking = useRef(false)
   talking.current = !!talkingToElf
+  const overviewRef = useRef(false)
+  overviewRef.current = !!overview
   const { camera, clock } = useThree()
   const camTarget = useMemo(() => new THREE.Vector3(), [])
   const lookTarget = useMemo(() => new THREE.Vector3(), [])
@@ -282,7 +288,7 @@ export function Player({
     if (s.say && t > sayUntil.current) s.say = null
 
     // 카메라: 평소엔 뒤 위에서 따라가고, 특별한 곳에서는 그 장면을 바라보는 시점으로 부드럽게 바뀐다
-    const v = viewFor(s, talking.current)
+    const v = viewFor(s, talking.current, overviewRef.current)
     const k = Math.min(1, dt * (v.slow ? 2.4 : 4))
     camTarget.set(v.cam[0], v.cam[1], v.cam[2])
     camera.position.lerp(camTarget, k)

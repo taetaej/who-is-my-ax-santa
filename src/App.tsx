@@ -22,6 +22,7 @@ export function App() {
   const [modal, setModal] = useState<Modal>(null)
   const [prompt, setPrompt] = useState<string | null>(null)
   const [carol, setCarol] = useState(0)
+  const [overview, setOverview] = useState(false) // 🗺️ 마을 전경 보기
   const [tree, setTree] = useState<TreeSummary | null>(null)
   const inputEnabled = useRef(false)
   // 처음 들어온 사람은 쿠키부터 꾸민다 (사우나 게임처럼 입장 전에)
@@ -41,9 +42,17 @@ export function App() {
     void refresh()
   }, [refresh])
 
-  // Esc 로 창 닫기
+  // Esc 로 창 닫기 (전경 보기 중이면 전경도 닫기), M 으로 전경 보기
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setModal(null)
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return
+      if (e.key === 'Escape') {
+        setModal(null)
+        setOverview(false)
+      }
+      if (e.code === 'KeyM' && !e.repeat) setOverview((v) => !v)
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
@@ -79,10 +88,10 @@ export function App() {
     <>
       {me?.liveRoom ? (
         <LiveRoot room={me.liveRoom}>
-          <Village me={{ id: me.id, name: me.name, look: me.look }} inputEnabled={inputEnabled} onPrompt={setPrompt} onOpen={openPanel} onCarol={setCarol} tree={tree} elf={elf} talking={modal === 'elf'} live />
+          <Village me={{ id: me.id, name: me.name, look: me.look }} inputEnabled={inputEnabled} onPrompt={setPrompt} onOpen={openPanel} onCarol={setCarol} tree={tree} elf={elf} talking={modal === 'elf'} overview={overview && modal === null} live />
         </LiveRoot>
       ) : (
-        <Village me={me ? { id: me.id, name: me.name, look: me.look } : null} inputEnabled={inputEnabled} onPrompt={setPrompt} onOpen={openPanel} onCarol={setCarol} tree={tree} elf={elf} talking={modal === 'elf'} />
+        <Village me={me ? { id: me.id, name: me.name, look: me.look } : null} inputEnabled={inputEnabled} onPrompt={setPrompt} onOpen={openPanel} onCarol={setCarol} tree={tree} elf={elf} talking={modal === 'elf'} overview={overview && modal === null} />
       )}
       <div className="ui">
         <header className="topbar">
@@ -113,7 +122,7 @@ export function App() {
             <CarolPlayer level={carol} />
 
             <div className="help">
-              <kbd>←↑↓→</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>Space</kbd> 인사 · <kbd>E</kbd> 말 걸기·앉기·투표 등
+              <kbd>←↑↓→</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>Space</kbd> 인사 · <kbd>E</kbd> 말 걸기·앉기·투표 등 · <kbd>M</kbd> 전경
             </div>
 
             <nav className="dock">
@@ -125,6 +134,9 @@ export function App() {
               <button onClick={() => setModal('tree')}>🎄 메시지 트리</button>
               <button onClick={() => setModal('profile')}>✏️ 내 프로필</button>
               {me.isAdmin && <button onClick={() => setModal('admin')}>⚙️ 운영</button>}
+              <button className={overview ? 'on' : ''} onClick={() => setOverview((v) => !v)} title="M">
+                🗺️ 전경
+              </button>
               <button onClick={() => setModal('look')}>🎨 꾸미기</button>
               <button className="quiet" onClick={logout}>로그아웃</button>
             </nav>
