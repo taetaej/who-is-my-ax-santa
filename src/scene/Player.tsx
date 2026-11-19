@@ -27,9 +27,9 @@ type V = [number, number, number]
 const FIRE = at(SPOT.fire)
 
 /** 지금 있는 곳에 맞는 카메라 위치와 바라볼 곳. slow = 천천히 넘어가는 연출용 시점 */
-function viewFor(s: CookieState, talking: boolean, overview: boolean): { cam: V; look: V; slow?: boolean } {
-  // 🗺️ 마을 전경: 높이 떠서 마을 전체를 내려다본다 (움직일 수는 있다)
-  if (overview) return { cam: [s.x * 0.15, 34, 33], look: [s.x * 0.1, 0, 2.6], slow: true }
+function viewFor(s: CookieState, talking: boolean, overview: boolean, orbit: number): { cam: V; look: V; slow?: boolean } {
+  // 🗺️ 마을 전경: 처음 들어올 때 화면처럼 마을 위를 천천히 한 바퀴 돈다 (움직일 수는 있다)
+  if (overview) return { cam: [Math.cos(orbit) * 30, 17, Math.sin(orbit) * 30], look: [0, 1.2, 0], slow: true }
   // 🧝 엘프와 대화: 엘프 얼굴 쪽으로 다가간다
   if (talking) {
     // 나와 엘프가 함께 잡히도록 비스듬히, 둘 사이를 본다
@@ -116,6 +116,7 @@ export function Player({
   const talking = useRef(false)
   talking.current = !!talkingToElf
   const overviewRef = useRef(false)
+  const orbit = useRef(Math.PI / 2)
   overviewRef.current = !!overview
   const { camera, clock } = useThree()
   const camTarget = useMemo(() => new THREE.Vector3(), [])
@@ -230,6 +231,13 @@ export function Player({
     const h = enabled.current ? held.current : new Set<string>()
     let dx = (h.has('right') ? 1 : 0) - (h.has('left') ? 1 : 0)
     let dz = (h.has('down') ? 1 : 0) - (h.has('up') ? 1 : 0)
+    // 방향키는 화면 기준: 카메라가 돌아가 있으면(전경 회전 등) 그만큼 돌려서 ↑ 가 늘 화면 위쪽이 되게
+    {
+      const yaw = Math.atan2(camera.position.x - lookTarget.x, camera.position.z - lookTarget.z)
+      const c = Math.cos(yaw)
+      const sn = Math.sin(yaw)
+      ;[dx, dz] = [dx * c + dz * sn, -dx * sn + dz * c]
+    }
     const len = Math.hypot(dx, dz)
 
     // 앉거나 누워 있을 때: 방향키를 누르면 일어난다
@@ -288,7 +296,9 @@ export function Player({
     if (s.say && t > sayUntil.current) s.say = null
 
     // 카메라: 평소엔 뒤 위에서 따라가고, 특별한 곳에서는 그 장면을 바라보는 시점으로 부드럽게 바뀐다
-    const v = viewFor(s, talking.current, overviewRef.current)
+    // 전경일 땐 각도를 조금씩 돌리고, 아니면 정면(남쪽)으로 되돌려 둔다 (다음에 켤 때 정면에서 시작)
+    orbit.current = overviewRef.current ? orbit.current + dt * 0.035 : Math.PI / 2
+    const v = viewFor(s, talking.current, overviewRef.current, orbit.current)
     const k = Math.min(1, dt * (v.slow ? 2.4 : 4))
     camTarget.set(v.cam[0], v.cam[1], v.cam[2])
     camera.position.lerp(camTarget, k)
