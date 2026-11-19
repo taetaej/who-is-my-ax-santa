@@ -1,12 +1,12 @@
 import { Hono, type Context, type Next } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
-import { COOKIE, LOCK_MINUTES, MAX_FAILS, PIN_RE, hashPin, issue, read, verifyPin } from './auth'
-import { PHASES, db, getPhase, type Phase } from './db'
-import { DEFAULT_AWARDS, cleanAwards, tally } from '../src/awards'
-import { cleanLook } from '../src/look'
-import { FIRST_DAY, QUESTIONS, addDays, cleanQuestions, isDay, kstDay, questionFor } from '../src/questions'
-import { EMPTY_LETTER, cleanLetter, missing } from './letter'
-import { makeCycle } from './matching'
+import { COOKIE, LOCK_MINUTES, MAX_FAILS, PIN_RE, hashPin, issue, read, verifyPin } from './auth.js'
+import { PHASES, db, getPhase, type Phase } from './db.js'
+import { DEFAULT_AWARDS, cleanAwards, tally } from '../src/awards.js'
+import { cleanLook } from '../src/look.js'
+import { FIRST_DAY, QUESTIONS, addDays, cleanQuestions, isDay, kstDay, questionFor } from '../src/questions.js'
+import { EMPTY_LETTER, cleanLetter, missing } from './letter.js'
+import { makeCycle } from './matching.js'
 
 type Me = { id: number; name: string; is_admin: boolean }
 type Env = { Variables: { me: Me } }

@@ -1,6 +1,6 @@
 import { serve } from '@hono/node-server'
-import { app } from './app'
-import { db } from './db'
+import { app } from './app.js'
+import { db } from './db.js'
 
 await db() // 로컬 DB 준비 (테이블 생성 + 명단 시드)
 serve({ fetch: app.fetch, port: 8787 }, (info) => {

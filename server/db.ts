@@ -1,4 +1,4 @@
-import { ROSTER, ADMIN_NAME } from './roster'
+import { ROSTER, ADMIN_NAME } from './roster.js'
 
 /**
  * DB 접근 계층.
