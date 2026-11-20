@@ -18,14 +18,14 @@ export type TextLine = {
 } // hand = 손글씨, kr = 영문도 페이퍼로지로, wrap = 폭에 맞춰 줄바꿈
 
 const FONT = "Sora, Paperlogy, 'Apple SD Gothic Neo', 'Apple Color Emoji', sans-serif"
-const HAND = "Gaegu, Paperlogy, 'Apple Color Emoji', sans-serif"
+const HAND = "'Poor Story', Paperlogy, 'Apple Color Emoji', sans-serif"
 const KR = "Paperlogy, 'Apple SD Gothic Neo', 'Apple Color Emoji', sans-serif"
 
 // 웹폰트가 받아지기 전에 그리면 기본 서체로 굳어 버리므로, 받아진 뒤 한 번 더 그린다
 const fontReady: Promise<unknown> =
   typeof document !== 'undefined' && document.fonts
     ? Promise.all(
-        ['800 40px Sora', '800 40px Paperlogy', '700 40px Paperlogy', '500 40px Paperlogy', '700 40px Gaegu'].map((f) => document.fonts.load(f, '가A')),
+        ['800 40px Sora', '800 40px Paperlogy', '700 40px Paperlogy', '500 40px Paperlogy', '400 40px "Poor Story"'].map((f) => document.fonts.load(f, '가A')),
       ).catch(() => null)
     : Promise.resolve()
 const PX = 220 // 1 월드 단위당 픽셀
@@ -45,7 +45,7 @@ function paint(lines: TextLine[], w: number, h: number, bg?: string, radius = 0)
   g.textBaseline = 'middle'
   const max = c.width * 0.88
   const pad = (c.width - max) / 2
-  const fontOf = (l: TextLine, px: number) => (l.hand ? `700 ${px * 1.15}px ${HAND}` : `${l.weight ?? 800} ${px}px ${l.kr ? KR : FONT}`)
+  const fontOf = (l: TextLine, px: number) => (l.hand ? `400 ${px * 1.15}px ${HAND}` : `${l.weight ?? 800} ${px}px ${l.kr ? KR : FONT}`)
 
   // wrap 줄은 폭에 맞춰 여러 줄로 나누고, 아닌 줄은 넘치면 글씨를 줄인다
   type Row = { l: TextLine; text: string; px: number; h: number }

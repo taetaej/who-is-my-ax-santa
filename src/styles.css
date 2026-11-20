@@ -13,7 +13,7 @@
   --line: #e6dccf;
   --font-display: 'Sora', 'Paperlogy', 'Apple SD Gothic Neo', sans-serif;
   --font-body: 'Paperlogy', 'Apple SD Gothic Neo', sans-serif;
-  --font-hand: 'Gaegu', 'Paperlogy', sans-serif;
+  --font-hand: 'Poor Story', 'Paperlogy', sans-serif;
   font-family: var(--font-body);
   color: var(--ink);
 }
@@ -412,7 +412,7 @@ textarea {
 
 /* ── 서체 ────────────────────────────────────
    제목·버튼·이름표: Sora(영문) + 페이퍼로지(한글) 굵게.
-   본문: 페이퍼로지. 말풍선·명언·메시지 카드처럼 사람 말투인 곳만 손글씨 Gaegu. */
+   본문: 페이퍼로지. 말풍선·명언·메시지 카드처럼 사람 말투인 곳만 손글씨 서툰이야기(Poor Story, 굵기 400 하나뿐). */
 h1, h2, h3, h4, h5, b, strong, button, kbd, label.kw,
 .tag, .bubble, .banner, .spot-label, .spot-count, .online-count, .prompt, .notice, .chip, .who,
 .dock, .help, .toast, .gift-name, .treasure-hud, .tier-head b, .milestone, .tree-q, .tree-day, .award-name, .award-result b, .cert-title, .cert-kicker, .cloud span, .tl-fun, .tl-month,
@@ -424,7 +424,7 @@ h1, h2, h3, h4, h5, b, strong, button, kbd, label.kw,
 }
 .bubble, .elf-bubble, .motto, .tree-card p, .dialog-text, .quote {
   font-family: var(--font-hand);
-  font-weight: 700;
+  font-weight: 400; /* 서툰이야기는 굵기가 하나뿐: 700 이면 브라우저가 가짜 굵게를 만든다 */
 }
 .tree-card p { font-size: 18px; }
 body, p, li, input, textarea, select, .muted, td, th { font-weight: 400; }
