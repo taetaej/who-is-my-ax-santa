@@ -7,6 +7,7 @@ import { ApiError, api, type Letter, type LetterState, type Stat } from '../api'
 const LIMIT = { keyword: 20, first: 40, now: 40, statLabel: 20, genre: 40, bgm: 80, bgmReason: 200, tmi: 120, gift: 60, hint: 120 }
 const KW_PH = ['프로집중러', '아아수혈중', '리액션장인']
 const STAT_PH = ['업무 몰입도', '점심 메뉴 결정력', '퇴근 준비 속도']
+const STAT_CHIPS = ['업무 몰입도', '카페인 의존도', '칼퇴 본능', '리액션 온도', '간식 레이더', '점심 메뉴 결정력']
 const GENRES = ['치밀한 두뇌 오피스물', '잔잔한 일상 힐링물', '유쾌한 코미디 시트콤', '반전 있는 미스터리', '청춘 성장 드라마']
 const HINTS = ['저는 이분보다 출근 시간이 빠릅니다.', '최근 이분과 점심을 같이 먹은 적이 있습니다.', '저는 이분과 같은 층에 앉아 있습니다.']
 
@@ -120,6 +121,17 @@ export function LetterForm({ meName, onSaved }: { meName: string; onSaved: () =>
                 <b>{s.value}%</b>
               </div>
             ))}
+            <div className="examples">
+              {STAT_CHIPS.map((c) => {
+                const used = l.stats.some((s) => s.label === c)
+                const empty = l.stats.findIndex((s) => !s.label)
+                return (
+                  <button key={c} type="button" className="ghost small" disabled={used || empty < 0} onClick={() => setStat(empty, { label: c })}>
+                    {c}
+                  </button>
+                )
+              })}
+            </div>
           </section>
 
           <section>
@@ -138,8 +150,8 @@ export function LetterForm({ meName, onSaved }: { meName: string; onSaved: () =>
             <h3>5. 산타의 비밀 관찰 TMI & 맞춤 선물</h3>
             <p className="sentence">
               몰래 관찰해 보니{' '}
-              <input className="wide" value={l.tmi} maxLength={LIMIT.tmi} placeholder="책상에 늘 귤이 있는 습관" onChange={(e) => set({ tmi: e.target.value })} />
-              이(가) 있으시더라고요. 그래서 이 선물을 준비했습니다!
+              <input className="wide" value={l.tmi} maxLength={LIMIT.tmi} placeholder="책상에 늘 귤을 두는" onChange={(e) => set({ tmi: e.target.value })} />
+              모습이 눈에 띄더라고요. 그래서 이 선물을 준비했어요!
             </p>
             <input value={l.gift} maxLength={LIMIT.gift} placeholder="🎁 준비한 선물 (카드를 뒤집을 때 공개돼요)" onChange={(e) => set({ gift: e.target.value })} />
             <p className="hint">💡 선물 예산은 2만 원 이하예요</p>
@@ -188,19 +200,22 @@ export function LetterForm({ meName, onSaved }: { meName: string; onSaved: () =>
 }
 
 /** 공개일에 펼쳐질 카드 미리보기. 앞면(낭독) ↔ 뒷면(정체 공개) */
-function LetterCard({ l, target, santa }: { l: Letter; target: string | null; santa: string }) {
-  const [back, setBack] = useState(false)
+export function LetterCard({ l, target, santa, side }: { l: Letter; target: string | null; santa: string; side?: 'front' | 'back' }) {
+  const [backSel, setBack] = useState(false)
+  const back = side ? side === 'back' : backSel
   const blank = (v: string, ph = '______') => (v ? <b>{v}</b> : <span className="blank">{ph}</span>)
   return (
     <div className="card-wrap">
-      <div className="card-toggle">
+      {!side && (
+        <div className="card-toggle">
         <button className={back ? 'ghost small' : 'ghost small on'} onClick={() => setBack(false)}>
           앞면 · 낭독
         </button>
         <button className={back ? 'ghost small on' : 'ghost small'} onClick={() => setBack(true)}>
           뒷면 · 정체 공개
         </button>
-      </div>
+        </div>
+      )}
       <div className={`flip ${back ? 'flipped' : ''}`}>
         <article className="letter-card front">
           <div className="card-top">
@@ -237,7 +252,7 @@ function LetterCard({ l, target, santa }: { l: Letter; target: string | null; sa
           </p>
           <h5>🔍 비밀 관찰 TMI</h5>
           <p>
-            몰래 관찰해 보니 {blank(l.tmi)}이(가) 있으시더라고요. 그래서 이 선물을 준비했습니다! 🎁 <span className="blank">(뒷면에서 공개)</span>
+            몰래 관찰해 보니 {blank(l.tmi)} 모습이 눈에 띄더라고요. 그래서 이 선물을 준비했어요! 🎁 <span className="blank">(뒷면에서 공개)</span>
           </p>
           <div className="hint-box">
             <span>🕵️ 산타의 정체 힌트</span>

@@ -14,7 +14,7 @@ export type Letter = {
   genre: string // 4. 이 사람이 주인공인 드라마/영화 장르
   bgm: string //    테마 BGM (노래 한 곡)
   bgmReason: string //    짧은 이유 (선택)
-  tmi: string // 5. 몰래 관찰해 보니 [ ]이(가) 있으시더라고요.
+  tmi: string // 5. 몰래 관찰해 보니 [ ] 모습이 눈에 띄더라고요.
   gift: string //    준비한 선물 (뒷면)
   hint: string // 6. 산타의 정체 힌트 한 줄
 }
