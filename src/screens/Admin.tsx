@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, type AdminStatus, type AdminTreasure, type Phase } from '../api'
 import { KEYWORDS } from '../awards'
 import { tierOf } from '../treasure'
+import { RevealShow } from './RevealShow'
 import { QUESTIONS_LIMIT, QUESTION_MAX, cleanQuestions, questionDay } from '../questions'
 
 const NEXT: Partial<Record<Phase, { to: Phase; label: string; confirm: string }>> = {
@@ -208,6 +209,7 @@ function Questions({ onSaved }: { onSaved: () => void }) {
 function Status({ onPhaseChange }: { onPhaseChange: () => void }) {
   const [s, setS] = useState<AdminStatus | null>(null)
   const [error, setError] = useState('')
+  const [show, setShow] = useState(false)
 
   const load = useCallback(() => api.adminStatus().then(setS, (e: Error) => setError(e.message)), [])
   useEffect(() => {
@@ -244,6 +246,15 @@ function Status({ onPhaseChange }: { onPhaseChange: () => void }) {
           {next.label}
         </button>
       )}
+      {s.phase === 'REVEAL' && (
+        <>
+          <button className="primary" onClick={() => setShow(true)}>
+            🎬 공개일 발표 화면 열기
+          </button>
+          <p className="muted small">회식·미팅 화면에 띄워 주세요. → / Space 로 넘기고 ← 로 돌아가요. 짝과 내용은 이 화면에서 처음 보여요.</p>
+        </>
+      )}
+      {show && <RevealShow onClose={() => setShow(false)} />}
       <table>
         <thead>
           <tr>
@@ -252,6 +263,7 @@ function Status({ onPhaseChange }: { onPhaseChange: () => void }) {
             <th>프로필</th>
             <th>상자 개봉</th>
             <th>관찰 리포트</th>
+            <th>추리노트</th>
             <th />
           </tr>
         </thead>
@@ -263,6 +275,7 @@ function Status({ onPhaseChange }: { onPhaseChange: () => void }) {
               <td>{p.hasProfile ? '✓' : '–'}</td>
               <td>{p.opened ? '✓' : '–'}</td>
               <td>{{ none: '–', draft: '쓰는 중', submitted: '제출 ✓' }[p.letter]}</td>
+              <td>{{ none: '–', draft: '쓰는 중', done: '완성 ✓' }[p.guess]}</td>
               <td>
                 {p.hasPin && (
                   <button className="ghost small" onClick={() => reset(p.id, p.name)}>

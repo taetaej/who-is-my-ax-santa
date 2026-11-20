@@ -7,6 +7,7 @@ import { LiveRoot } from './scene/live'
 import { Admin } from './screens/Admin'
 import { Home } from './screens/Home'
 import { LetterForm } from './screens/LetterForm'
+import { GuessForm } from './screens/GuessForm'
 import { LookEditor } from './screens/LookEditor'
 import { MessageTree } from './screens/MessageTree'
 import { AwardsPanel } from './screens/AwardsPanel'
@@ -16,9 +17,10 @@ import { clearEntered, enteredThisTab } from './entry'
 import { ProfileForm } from './screens/ProfileForm'
 import { CarolPlayer } from './screens/CarolPlayer'
 
-type Modal = 'manito' | 'profile' | 'letter' | 'look' | 'tree' | 'awards' | 'elf' | 'admin' | 'treasure' | null
+type Modal = 'manito' | 'profile' | 'letter' | 'guess' | 'look' | 'tree' | 'awards' | 'elf' | 'admin' | 'treasure' | null
 
 const LETTER_CHIP = { none: '작성 전', draft: '쓰는 중', submitted: '제출 ✓' } as const
+const GUESS_CHIP = { none: '작성 전', draft: '쓰는 중', done: '완성 ✓' } as const
 
 export function App() {
   const [me, setMe] = useState<Me | null | undefined>(undefined) // undefined = 확인 중
@@ -259,6 +261,12 @@ export function App() {
                   {LETTER_CHIP[me.letter]}
                 </span>
               </button>
+              <button onClick={() => setModal('guess')}>
+                🔍 추리노트{' '}
+                <span className={`chip ${me.guess === 'done' ? 'ok' : me.phase === 'ACTIVE' && me.guess === 'none' ? 'warn' : ''}`}>
+                  {GUESS_CHIP[me.guess]}
+                </span>
+              </button>
               <button onClick={() => setModal('tree')}>🎄 메시지 트리</button>
               <button onClick={() => setModal('awards')}>
                 🏆 어워즈{' '}
@@ -319,6 +327,7 @@ export function App() {
                   )}
                   {modal === 'awards' && <AwardsPanel meId={me.id} onChange={refresh} />}
                   {modal === 'letter' && <LetterForm meName={me.name} onSaved={refresh} />}
+                  {modal === 'guess' && <GuessForm onSaved={refresh} />}
                   {modal === 'treasure' && treasure && <TreasureBoard t={treasure} />}
                   {modal === 'admin' && me.isAdmin && <Admin onPhaseChange={refresh} onQuestions={loadTree} />}
                 </div>

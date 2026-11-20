@@ -1,4 +1,5 @@
 import type { AwardCard, Gift } from './awards'
+import type { Guess, GuessStatus } from './guess'
 import type { Look } from './look'
 import type { Tier } from './treasure'
 
@@ -14,6 +15,7 @@ export type Me = {
   profile: Profile | null
   liveRoom: string | null
   letter: LetterStatus
+  guess: GuessStatus
   look: Look | null
   todo: {
     tree: boolean
@@ -60,11 +62,21 @@ export type LetterState = { target: string | null; body: Letter; submittedAt: st
 export type TreeMessage = { id: number; name: string; body: string; hearts: number; liked: boolean; mine: boolean }
 export type TreeDay = { today: string; day: string; question: string; days: string[]; messages: TreeMessage[] }
 export type TreeSummary = { today: string; question: string; total: number; todayCount: number }
+export type GuessState = { people: { id: number; name: string }[]; body: Guess; updatedAt: string | null; locked?: boolean }
+export type RevealCard = {
+  target: { id: number; name: string }
+  santa: { id: number; name: string }
+  letter: Letter | null
+  letterSubmitted: boolean
+  guess: (Guess & { suspectName: string }) | null
+  suspectIsMyTarget: boolean
+}
+export type Reveal = { people: { id: number; name: string }[]; cards: RevealCard[] }
 export type Manito = { name: string; profile: Profile | null }
 export type AdminStatus = {
   phase: Phase
   matched: boolean
-  players: { id: number; name: string; hasPin: boolean; hasProfile: boolean; opened: boolean; letter: LetterStatus }[]
+  players: { id: number; name: string; hasPin: boolean; hasProfile: boolean; opened: boolean; letter: LetterStatus; guess: GuessStatus }[]
 }
 
 export class ApiError extends Error {
@@ -111,6 +123,9 @@ export const api = {
   adminTreasure: () => call<AdminTreasure>('GET', '/admin/treasure'),
   letter: () => call<LetterState>('GET', '/me/letter'),
   saveLetter: (body: Letter, submit = false) => call<LetterState>('PUT', '/me/letter', { body, submit }),
+  guess: () => call<GuessState>('GET', '/me/guess'),
+  saveGuess: (body: Guess) => call<GuessState>('PUT', '/me/guess', body),
+  adminReveal: () => call<Reveal>('GET', '/admin/reveal'),
   adminStatus: () => call<AdminStatus>('GET', '/admin/status'),
   setPhase: (to: Phase) => call<{ phase: Phase }>('POST', '/admin/phase', { to }),
   questions: () => call<{ list: string[]; start: string; today: string }>('GET', '/admin/questions'),

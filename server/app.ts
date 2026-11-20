@@ -6,6 +6,7 @@ import { awardFor, cleanGift, isEmptyGift, type Gift } from '../src/awards.js'
 import { cleanLook } from '../src/look.js'
 import { FIRST_DAY, QUESTIONS, cleanQuestions, isDay, kstDay, questionDay, questionFor, treeDay } from '../src/questions.js'
 import { EMPTY_LETTER, cleanLetter, missing } from './letter.js'
+import { EMPTY_GUESS, cleanGuess, guessDone, type Guess, type GuessStatus } from '../src/guess.js'
 import { makeCycle } from './matching.js'
 import { RESCUE_FROM, SPOTS, spot, tierOf } from '../src/treasure.js'
 import { REAL, dudLine } from './treasure.js'
@@ -130,6 +131,7 @@ app.get('/me', async (c) => {
     manitoOpened: !!row.manito_opened_at,
     profile: row.profile,
     letter: row.letter,
+    guess: await guessStatus(me.id),
     look: row.look ? cleanLook(row.look, me.id) : null, // null = 아직 안 꾸밈 → 처음 들어올 때 꾸미기 창
     todo: { tree: todo.tree, given: todo.given, people: todo.people, gift: await giftTodo(me.id) },
     // 실시간 마을: 키가 없으면 null → 화면은 혼자 돌아다니는 모드로 동작
@@ -236,6 +238,47 @@ app.put('/me/letter', async (c) => {
     [me.id, JSON.stringify(letter), !!submit],
   )
   return c.json(await loadLetter(me.id))
+})
+
+// ── 🔍 내 산타 추리노트 (src/guess.ts) ─────────────────────────────
+// 쓴 사람 본인만 읽고 쓴다. 진행 기간(ACTIVE)에만 쓰고, 공개일(REVEAL)부터는 잠긴다.
+async function loadGuess(pid: number) {
+  const q = await db()
+  const people = await q<{ id: number; name: string }>(`select id, name from players where id <> $1 order by name`, [pid])
+  const [g] = await q<{ body: unknown; updated_at: string }>(`select body, updated_at from guesses where player_id = $1`, [pid])
+  return {
+    people,
+    body: g ? cleanGuess(g.body, people.map((p) => p.id)) : EMPTY_GUESS,
+    updatedAt: g?.updated_at ?? null,
+  }
+}
+
+async function guessStatus(pid: number): Promise<GuessStatus> {
+  const q = await db()
+  const [g] = await q<{ body: Guess }>(`select body from guesses where player_id = $1`, [pid])
+  return !g ? 'none' : guessDone(g.body) ? 'done' : 'draft'
+}
+
+app.get('/me/guess', async (c) => {
+  const phase = await getPhase()
+  if (phase === 'READY') return bad(c, '산타 배정이 시작되면 쓸 수 있어요', 409)
+  return c.json({ ...(await loadGuess(c.get('me').id)), locked: phase === 'REVEAL' })
+})
+
+app.put('/me/guess', async (c) => {
+  const phase = await getPhase()
+  if (phase === 'READY') return bad(c, '산타 배정이 시작되면 쓸 수 있어요', 409)
+  if (phase === 'REVEAL') return bad(c, '공개일이 시작돼서 더 고칠 수 없어요', 409)
+  const me = c.get('me')
+  const q = await db()
+  const ids = (await q<{ id: number }>(`select id from players where id <> $1`, [me.id])).map((r) => r.id)
+  const guess = cleanGuess(await c.req.json(), ids)
+  await q(
+    `insert into guesses (player_id, body) values ($1, $2)
+     on conflict (player_id) do update set body = excluded.body, updated_at = now()`,
+    [me.id, JSON.stringify(guess)],
+  )
+  return c.json(await loadGuess(me.id))
 })
 
 // ── 🎄 메시지 트리 (매일 바뀌는 질문에 답을 걸어 두기) ──────────────────
@@ -462,7 +505,9 @@ app.get('/admin/status', async (c) => {
   return c.json({
     phase: await getPhase(),
     matched: n > 0,
-    players: rows.map((r) => ({ id: r.id, name: r.name, hasPin: r.has_pin, hasProfile: r.has_profile, opened: r.opened, letter: r.letter })),
+    players: await Promise.all(
+      rows.map(async (r) => ({ id: r.id, name: r.name, hasPin: r.has_pin, hasProfile: r.has_profile, opened: r.opened, letter: r.letter, guess: await guessStatus(r.id) })),
+    ),
   })
 })
 
@@ -486,6 +531,36 @@ app.post('/admin/phase', async (c) => {
   }
   await q(`update settings set value = $1 where key = 'phase' and value = $2`, [to, from])
   return c.json({ phase: to })
+})
+
+// 🎬 공개일 더블 리빌 (발표 화면). 공개일(REVEAL)부터만 짝·관찰 리포트·추리노트를 한꺼번에 준다.
+// 그 전에는 운영자에게도 짝을 보여 주지 않는다 (블라인드).
+app.get('/admin/reveal', async (c) => {
+  if ((await getPhase()) !== 'REVEAL') return bad(c, '공개일이 시작되면 열려요', 409)
+  const q = await db()
+  const players = await q<{ id: number; name: string }>(`select id, name from players order by name`)
+  const name = (id: number | null) => players.find((p) => p.id === id)?.name ?? null
+  const pairs = await q<{ santa_id: number; target_id: number }>(`select santa_id, target_id from matches`)
+  const letters = await q<{ santa_id: number; body: unknown; submitted: boolean }>(`select santa_id, body, submitted_at is not null as submitted from letters`)
+  const guesses = await q<{ player_id: number; body: unknown }>(`select player_id, body from guesses`)
+  const targetOf = new Map(pairs.map((p) => [p.santa_id, p.target_id]))
+  return c.json({
+    people: players,
+    cards: pairs.map(({ santa_id, target_id }) => {
+      const l = letters.find((x) => x.santa_id === santa_id)
+      const gRow = guesses.find((x) => x.player_id === target_id)
+      const g = gRow ? cleanGuess(gRow.body, players.filter((p) => p.id !== target_id).map((p) => p.id)) : null
+      return {
+        target: { id: target_id, name: name(target_id) },
+        santa: { id: santa_id, name: name(santa_id) },
+        letter: l ? cleanLetter(l.body) : null,
+        letterSubmitted: !!l?.submitted,
+        guess: g && g.suspect !== null ? { ...g, suspectName: name(g.suspect) } : null,
+        // 주인공이 지목한 사람이 사실 주인공 자신이 챙기던 사람인지 (한 줄 순환이라 절대 산타일 수 없다)
+        suspectIsMyTarget: !!g && g.suspect !== null && targetOf.get(target_id) === g.suspect,
+      }
+    }),
+  })
 })
 
 // 어워즈 진행: 사람마다 "몇 명에게 줬는지"만 (누구에게 무엇을 줬는지는 주지 않는다)
@@ -550,6 +625,7 @@ app.post('/admin/reset-all', async (c) => {
     `delete from treasure_finds`,
     `delete from treasure_duds`,
     `delete from letters`,
+    `delete from guesses`,
     `delete from matches`,
     `update players set pin_hash = null, failed_attempts = 0, locked_until = null, session_version = session_version + 1,
        manito_opened_at = null, profile = null, look = null`,

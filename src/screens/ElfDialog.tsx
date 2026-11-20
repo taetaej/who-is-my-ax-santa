@@ -5,7 +5,7 @@ import { MOTTO } from '../team'
 // 🧝 AX 엘프와의 대화. 내 할 일(마니또 상자, 메시지 트리, 어워즈 키워드, 소개서)을 확인해서 잔소리하고,
 // 마을에서 할 수 있는 것을 하나씩 알려 준다. E·Space·Enter 로 넘기고 Esc 로 닫는다.
 
-export type ElfGo = 'manito' | 'tree' | 'awards' | 'letter' | 'look'
+export type ElfGo = 'manito' | 'tree' | 'awards' | 'letter' | 'guess' | 'look'
 type Line = { text: string; go?: { to: ElfGo; label: string } }
 
 const TIPS = [
@@ -54,6 +54,15 @@ export function elfLines(me: Me, question: string | null, tipIndex: number): Lin
       go: { to: 'letter', label: '🕵️ 관찰 리포트 쓰기' },
     })
   }
+  if (me.phase === 'ACTIVE' && me.guess !== 'done') {
+    nags.push({
+      text:
+        me.guess === 'none'
+          ? '🔍 너를 챙기는 산타는 누구 같아? 추리노트에 찍어 둬! 공개일에 맞히면 🎯 추리 성공이야.'
+          : '🔍 추리노트 아직 덜 썼더라? 이유랑 산타한테 한마디까지 채우면 완성!',
+      go: { to: 'guess', label: '🔍 추리노트 쓰기' },
+    })
+  }
 
   const hello: Line = { text: `${me.name} 님 안녕! 나는 AX 엘프 🧝 우리 팀 명언 알지? "${MOTTO}"` }
   const tip: Line =
@@ -72,6 +81,7 @@ export function elfChatter(me: Me): { alert: boolean; chatter: string[] } {
   if (!me.todo.tree) out.push('메시지 트리 썼어? 🎄')
   if (me.phase !== 'REVEAL' && me.todo.given < me.todo.people) out.push('키워드 다 줬어? 🏆')
   if (me.phase === 'ACTIVE' && me.letter !== 'submitted') out.push('관찰 리포트는…? 🕵️')
+  if (me.phase === 'ACTIVE' && me.guess !== 'done') out.push('내 산타는 누구 같아? 🔍')
   if (me.todo.gift && !me.todo.gift.found && me.todo.gift.hint) out.push('숨은 선물 찾았어? 🎀')
   if (me.phase === 'ACTIVE' && !me.manitoOpened) out.unshift('누굴 챙길지 확인했어? 🎅')
   return out.length ? { alert: true, chatter: out } : { alert: false, chatter: [`"${MOTTO}" 🧝`] }

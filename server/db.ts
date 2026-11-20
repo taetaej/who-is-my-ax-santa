@@ -95,6 +95,12 @@ async function migrate(q: Query) {
     submitted_at timestamptz,
     updated_at timestamptz not null default now()
   )`)
+  // 🔍 내 산타 추리노트 (src/guess.ts). 쓴 사람 기준 한 장. 공개일 전에는 본인만 읽는다
+  await q(`create table if not exists guesses (
+    player_id int primary key references players(id),
+    body jsonb not null,
+    updated_at timestamptz not null default now()
+  )`)
   await q(`create table if not exists settings (key text primary key, value text not null)`)
   await q(`insert into settings (key, value) values ('phase', 'READY') on conflict (key) do nothing`)
   for (const name of ROSTER) {
