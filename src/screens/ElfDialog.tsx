@@ -24,7 +24,7 @@ const TIPS = [
 export function elfLines(me: Me, question: string | null, tipIndex: number): Line[] {
   const nags: Line[] = []
   if (me.phase === 'ACTIVE' && !me.manitoOpened) {
-    nags.push({ text: '🤫 잠깐! 아직 내 마니또도 확인 안 했어?! 누굴 챙길지는 알아야지!', go: { to: 'manito', label: '🤫 마니또 확인하러 가기' } })
+    nags.push({ text: '🎅 잠깐! 아직 누굴 챙길지도 확인 안 했어?! 산타라면 알아야지!', go: { to: 'manito', label: '🎅 확인하러 가기' } })
   }
   if (!me.todo.tree) {
     nags.push({
@@ -49,9 +49,9 @@ export function elfLines(me: Me, question: string | null, tipIndex: number): Lin
     nags.push({
       text:
         me.letter === 'none'
-          ? '💌 마니또 소개서는 시작도 안 했네… 공개일 전에 꼭 제출해야 해!'
-          : '💌 소개서 쓰는 중이구나! 다 쓰면 제출 버튼 누르는 거 잊지 마.',
-      go: { to: 'letter', label: '💌 소개서 쓰기' },
+          ? '🕵️ 관찰 리포트는 시작도 안 했네… 공개일 전에 꼭 제출해야 해!'
+          : '🕵️ 관찰 리포트 쓰는 중이구나! 다 쓰면 제출 버튼 누르는 거 잊지 마.',
+      go: { to: 'letter', label: '🕵️ 관찰 리포트 쓰기' },
     })
   }
 
@@ -71,9 +71,9 @@ export function elfChatter(me: Me): { alert: boolean; chatter: string[] } {
   const out: string[] = []
   if (!me.todo.tree) out.push('메시지 트리 썼어? 🎄')
   if (me.phase !== 'REVEAL' && me.todo.given < me.todo.people) out.push('키워드 다 줬어? 🏆')
-  if (me.phase === 'ACTIVE' && me.letter !== 'submitted') out.push('소개서는…? 💌')
+  if (me.phase === 'ACTIVE' && me.letter !== 'submitted') out.push('관찰 리포트는…? 🕵️')
   if (me.todo.gift && !me.todo.gift.found && me.todo.gift.hint) out.push('숨은 선물 찾았어? 🎀')
-  if (me.phase === 'ACTIVE' && !me.manitoOpened) out.unshift('마니또 상자 열었어? 🎁')
+  if (me.phase === 'ACTIVE' && !me.manitoOpened) out.unshift('누굴 챙길지 확인했어? 🎅')
   return out.length ? { alert: true, chatter: out } : { alert: false, chatter: [`"${MOTTO}" 🧝`] }
 }
 

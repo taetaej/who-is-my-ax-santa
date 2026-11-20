@@ -7,10 +7,10 @@ import { QUESTIONS_LIMIT, QUESTION_MAX, cleanQuestions, questionDay } from '../q
 const NEXT: Partial<Record<Phase, { to: Phase; label: string; confirm: string }>> = {
   READY: {
     to: 'ACTIVE',
-    label: '마니또 시작 (Phase 1)',
+    label: '산타 배정 시작 (Phase 1)',
     confirm: '지금 매칭을 만들고 시작할까요? 되돌릴 수 없어요.',
   },
-  ACTIVE: { to: 'REVEAL', label: '공개일 시작 (Phase 2)', confirm: '소개서가 잠기고 공개일이 시작돼요. 되돌릴 수 없어요.' },
+  ACTIVE: { to: 'REVEAL', label: '공개일 시작 (Phase 2)', confirm: '관찰 리포트가 잠기고 공개일이 시작돼요. 되돌릴 수 없어요.' },
 }
 
 // A1 운영 대시보드 + A3 PIN 초기화. 매칭과 남의 내용은 보여주지 않는다 (블라인드 어드민)
@@ -100,7 +100,7 @@ function TreasureAdmin() {
     <div className="questions">
       <p className="muted">
         진짜 선물 {data.boxes.length}개 중 <b>{found}개</b>를 찾았어요. 마을에는 꽝을 합쳐 {data.spots}곳이 숨어 있고, 지금까지 꽝을 {data.duds}번 열었어요.
-        선물 상자는 <b>마니또 시작</b>과 함께 마을에 나타나고
+        선물 상자는 <b>산타 배정 시작</b>과 함께 마을에 나타나고
         {data.phase === 'READY' ? ' (지금은 아직 숨겨져 있어요)' : ''}, 12/14부터는 남은 상자가 반짝이며 엘프가 위치 힌트를 줘요. 진짜 자리와 등수는{' '}
         <code>server/treasure.ts</code>, 등수별 선물 이름과 숨긴 위치는 <code>src/treasure.ts</code> 에서 바꿔요.
       </p>
@@ -251,7 +251,7 @@ function Status({ onPhaseChange }: { onPhaseChange: () => void }) {
             <th>PIN</th>
             <th>프로필</th>
             <th>상자 개봉</th>
-            <th>소개서</th>
+            <th>관찰 리포트</th>
             <th />
           </tr>
         </thead>
@@ -310,7 +310,7 @@ function DangerZone() {
         <>
           <b>⚠️ 전체 초기화 (되돌릴 수 없어요)</b>
           <p className="muted small">
-            매칭, 소개서, 메시지 트리 답과 ❤️, 어워즈 투표, <b>모든 사람의 PIN·로그인·꾸미기·프로필</b>, 운영 화면에서 바꾼 질문·상 목록이 지워지고 단계가 READY
+            매칭, 관찰 리포트, 메시지 트리 답과 ❤️, 어워즈 투표, <b>모든 사람의 PIN·로그인·꾸미기·프로필</b>, 운영 화면에서 바꾼 질문·상 목록이 지워지고 단계가 READY
             로 돌아가요. 14명 명단만 남아요. 나도 로그아웃돼요.
           </p>
           <p className="small">

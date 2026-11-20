@@ -8,7 +8,7 @@ const LIMIT = { keyword: 20, first: 40, now: 40, statLabel: 20, genre: 40, bgm: 
 const KW_PH = ['프로집중러', '아아수혈중', '리액션장인']
 const STAT_PH = ['업무 몰입도', '점심 메뉴 결정력', '퇴근 준비 속도']
 const GENRES = ['치밀한 두뇌 오피스물', '잔잔한 일상 힐링물', '유쾌한 코미디 시트콤', '반전 있는 미스터리', '청춘 성장 드라마']
-const HINTS = ['저는 마니또님보다 출근 시간이 빠릅니다.', '최근 마니또님과 점심을 같이 먹은 적이 있습니다.', '저는 마니또님과 같은 층에 앉아 있습니다.']
+const HINTS = ['저는 이분보다 출근 시간이 빠릅니다.', '최근 이분과 점심을 같이 먹은 적이 있습니다.', '저는 이분과 같은 층에 앉아 있습니다.']
 
 export function LetterForm({ meName, onSaved }: { meName: string; onSaved: () => void }) {
   const [st, setSt] = useState<LetterState | null>(null)
@@ -31,7 +31,7 @@ export function LetterForm({ meName, onSaved }: { meName: string; onSaved: () =>
   if (!st || !l) {
     return (
       <div className="panel center">
-        <h2>💌 마니또 소개서</h2>
+        <h2>🕵️ 산타의 관찰 리포트</h2>
         <p className="muted">{error || '불러오는 중…'}</p>
       </div>
     )
@@ -76,7 +76,7 @@ export function LetterForm({ meName, onSaved }: { meName: string; onSaved: () =>
   return (
     <div className="panel letter">
       <div className="letter-head">
-        <h2>💌 {st.target ?? '마니또'} 님 X소개서</h2>
+        <h2>🕵️ {st.target ? `${st.target} 님 관찰 리포트` : '산타의 관찰 리포트'}</h2>
         <span className={`chip ${submitted ? 'ok' : dirty ? 'warn' : ''}`}>
           {submitted ? '제출 완료' : st.updatedAt ? '임시저장' : '작성 전'}
           {dirty && ' · 저장 안 된 내용 있음'}
@@ -90,7 +90,7 @@ export function LetterForm({ meName, onSaved }: { meName: string; onSaved: () =>
         <fieldset className="letter-form" disabled={locked || busy}>
           <section>
             <h3>1. 해시태그 3개</h3>
-            <p className="q-help">마니또를 가장 잘 설명하는 키워드</p>
+            <p className="q-help">이분을 가장 잘 설명하는 키워드</p>
             <div className="kws">
               {l.keywords.map((k, i) => (
                 <label key={i} className="kw">
@@ -105,7 +105,7 @@ export function LetterForm({ meName, onSaved }: { meName: string; onSaved: () =>
             <h3>2. 첫인상 vs 몰래 지켜본 현인상</h3>
             <p className="sentence">
               처음엔 <input value={l.first} maxLength={LIMIT.first} placeholder="차가운" onChange={(e) => set({ first: e.target.value })} />한 분인 줄
-              알았는데, 마니또 기간 동안 관찰해 보니 의외로{' '}
+              알았는데, 산타가 되어 몰래 관찰해 보니 의외로{' '}
               <input value={l.now} maxLength={LIMIT.now} placeholder="다정한" onChange={(e) => set({ now: e.target.value })} />한 면이 있었습니다.
             </p>
           </section>
@@ -204,10 +204,10 @@ function LetterCard({ l, target, santa }: { l: Letter; target: string | null; sa
       <div className={`flip ${back ? 'flipped' : ''}`}>
         <article className="letter-card front">
           <div className="card-top">
-            <span>🎄 X소개서</span>
+            <span>🎄 산타의 관찰 리포트</span>
             <span className="muted small">from. ??? 🎅</span>
           </div>
-          <h4>{target ?? '마니또'}</h4>
+          <h4>{target ?? '???'}</h4>
           <div className="card-kws">
             {l.keywords.map((k, i) => (
               <span key={i} className={k ? '' : 'blank'}>
@@ -248,7 +248,7 @@ function LetterCard({ l, target, santa }: { l: Letter; target: string | null; sa
           <div className="card-top">
             <span>🎉 정체 공개</span>
           </div>
-          <p className="muted">{target ?? '마니또'} 님의 산타는…</p>
+          <p className="muted">{target ?? '???'} 님의 산타는…</p>
           <h4 className="santa">🎅 {santa}</h4>
           <h5>🎁 준비한 선물</h5>
           <p className="gift">{blank(l.gift, '선물 이름')}</p>

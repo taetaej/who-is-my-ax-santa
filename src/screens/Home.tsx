@@ -14,7 +14,7 @@ export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => 
     return (
       <div className="panel">
         <h2>곧 마을이 열려요 ❄️</h2>
-        <p>운영자가 시작하면 나의 마니또가 정해져요.</p>
+        <p>운영자가 시작하면 내가 산타가 되어 몰래 챙길 사람이 정해져요.</p>
         {!me.profile && (
           <>
             <p className="hint">그 전에 내 프로필을 적어 주세요. 나를 챙길 산타에게 큰 도움이 돼요.</p>
@@ -47,9 +47,9 @@ export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => 
     }
     return (
       <div className="panel center">
-        <h2>내 마니또가 정해졌어요 🤫</h2>
+        <h2>내가 챙길 사람이 정해졌어요 🎅</h2>
         <p className="muted">이번 크리스마스에 몰래 챙길 사람이에요. 주변에 보는 사람이 없는지 먼저 살펴 주세요!</p>
-        <button className="primary big" onClick={open}>마니또 확인하기</button>
+        <button className="primary big" onClick={open}>확인하기</button>
         {error && <p className="error">{error}</p>}
       </div>
     )
@@ -57,7 +57,7 @@ export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => 
 
   return (
     <div className="panel">
-      <p className="muted">나의 마니또</p>
+      <p className="muted">🎅 나는 이분의 산타예요</p>
       <h2 className="manito">{manito?.name ?? '…'}</h2>
       {manito?.profile ? (
         <dl className="profile">
@@ -69,7 +69,7 @@ export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => 
       ) : (
         manito && <p className="muted">아직 프로필을 적지 않았어요. 직접 관찰해 볼까요?</p>
       )}
-      <p className="hint">💌 공개일 전까지 📮 AX 우편함에서 소개서를 써 주세요!</p>
+      <p className="hint">💌 공개일 전까지 📮 AX 우편함에서 관찰 리포트를 써 주세요!</p>
       {error && <p className="error">{error}</p>}
     </div>
   )

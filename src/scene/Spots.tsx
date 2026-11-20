@@ -666,12 +666,12 @@ export function Spots({ tree }: { tree: TreeInfo | null }) {
       <Lamp position={[cocoaFront[0] + 1.6, 0, cocoaFront[2]]} light />
       <Lamp position={[postFront[0] - 1.8, 0, postFront[2]]} light />
 
-      <SpotLabel position={polar(SPOT.post.a, SPOT.post.r, 3.6)} text="📮 AX 우편함 · 소개서" />
+      <SpotLabel position={polar(SPOT.post.a, SPOT.post.r, 3.6)} text="📮 AX 우편함 · 관찰 리포트" />
       <SpotLabel position={polar(SPOT.cocoa.a, SPOT.cocoa.r, 3.3)} text="☕ AX 카페" />
       <SpotLabel position={polar(SPOT.fire.a, SPOT.fire.r, 2.2)} text="🔥 불멍 회의실 · 🎵 캐롤" />
       <SpotLabel position={polar(SPOT.field.a, SPOT.field.r, 1.9)} text="❄️ 눈밭" />
       <SpotLabel position={polar(SPOT.awards.a, SPOT.awards.r, 2.6)} text="🏆 AX 어워즈" />
-      <SpotLabel position={polar(SPOT.board.a, SPOT.board.r, 2.15)} text="📋 마니또 게시판" />
+      <SpotLabel position={polar(SPOT.board.a, SPOT.board.r, 2.15)} text="📋 산타 게시판" />
       <SpotLabel position={polar(Math.PI, 2.7, 0.9)} text="🧊 얼음 연못" />
     </group>
   )

@@ -208,7 +208,7 @@ export function App() {
 
             {giftWaiting && modal === null && !firstVisit && (
               <button className="notice" onClick={() => setModal('manito')}>
-                🤫 내 마니또가 정해졌어요 · 확인하기
+                🎅 내가 챙길 사람이 정해졌어요 · 확인하기
               </button>
             )}
             {prompt && modal === null && <div className="prompt">{prompt}</div>}
@@ -252,9 +252,9 @@ export function App() {
 
             <nav className="dock">
               <span className="who">🍪 {me.name}</span>
-              <button onClick={() => setModal('manito')}>🎁 나의 마니또</button>
+              <button onClick={() => setModal('manito')}>🎅 내가 챙길 사람</button>
               <button onClick={() => setModal('letter')}>
-                💌 소개서{' '}
+                🕵️ 관찰 리포트{' '}
                 <span className={`chip ${me.letter === 'submitted' ? 'ok' : me.phase === 'ACTIVE' && me.letter === 'none' ? 'warn' : ''}`}>
                   {LETTER_CHIP[me.letter]}
                 </span>

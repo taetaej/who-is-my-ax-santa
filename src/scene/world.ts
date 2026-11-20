@@ -103,8 +103,8 @@ export function actionAt(x: number, z: number): { action: Action; label: string 
   }
   if (Math.hypot(ELF.x - x, ELF.z - z) < 1.5) return { action: 'elf', label: 'E · 🧝 AX 엘프와 이야기하기' }
   if (Math.hypot(PARTY.x - x, PARTY.z - z) < 1.9) return { action: 'cake', label: 'E · 🍰 케이크 한 조각 먹기' }
-  if (near(SPOT.post, 1.5, POST_SIZE.d / 2 + 0.5)) return { action: 'letter', label: 'E · 💌 마니또 소개서 쓰기' }
-  if (near(SPOT.board, 1.3)) return { action: 'manito', label: 'E · 📋 나의 마니또 보기' }
+  if (near(SPOT.post, 1.5, POST_SIZE.d / 2 + 0.5)) return { action: 'letter', label: 'E · 🕵️ 관찰 리포트 쓰기' }
+  if (near(SPOT.board, 1.3)) return { action: 'manito', label: 'E · 📋 내가 챙길 사람 보기' }
   if (near(SPOT.awards, 1.9)) return { action: 'awards', label: 'E · 🏆 동료에게 키워드 주기' }
   if (Math.hypot(x, z) < 4.3) return { action: 'tree', label: 'E · 🎄 메시지 트리 보기 · 쓰기' } // 광장 큰 트리
   if (near(SPOT.cocoa, 1.5, COCOA_SIZE.d / 2 + 0.55)) return { action: 'cocoa', label: 'E · ☕ AX 카페 핫초코 받기' }

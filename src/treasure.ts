@@ -52,7 +52,7 @@ export const SPOTS: readonly Spot[] = [
   { id: 's10', ...p(0.8, 5.9), kind: 'snow', place: '⛄ 눈사람 옆 눈더미' },
   { id: 's11', ...p(1.4, 6.35), kind: 'snow', place: '💡 앞쪽 가로등 아래 눈더미' },
   { id: 's12', ...p(5.6, 6.5), kind: 'jar', place: '💡 오른쪽 뒤 가로등 아래' },
-  { id: 's13', ...p(Math.PI / 2 + 0.5, 3.75), kind: 'bundle', place: '📋 마니또 게시판 뒤 연못가' },
+  { id: 's13', ...p(Math.PI / 2 + 0.5, 3.75), kind: 'bundle', place: '📋 산타 게시판 뒤 연못가' },
   // 📮 우편함 · ☕ 카페 · 📜 연대기
   { id: 's14', ...p(UP - 0.82, 13.4), kind: 'box', place: '📮 AX 우편함 뒤' },
   { id: 's15', ...p(UP - 0.66, 11.9), kind: 'bundle', place: '📮 AX 우편함 옆 소포 더미' },

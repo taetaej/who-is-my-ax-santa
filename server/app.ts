@@ -176,7 +176,7 @@ app.put('/me/profile', async (c) => {
 
 // 나의 마니또 (내가 챙길 사람). "나의 산타"를 알려주는 경로는 만들지 않는다 (PRD 4.3)
 app.get('/me/manito', async (c) => {
-  if ((await getPhase()) === 'READY') return bad(c, '아직 마니또가 정해지지 않았어요', 409)
+  if ((await getPhase()) === 'READY') return bad(c, '아직 챙길 사람이 정해지지 않았어요', 409)
   const q = await db()
   const [t] = await q<{ name: string; profile: unknown }>(
     `select p.name, p.profile from matches m join players p on p.id = m.target_id where m.santa_id = $1`,
@@ -211,14 +211,14 @@ async function loadLetter(santaId: number) {
 
 app.get('/me/letter', async (c) => {
   const phase = await getPhase()
-  if (phase === 'READY') return bad(c, '마니또가 정해지면 쓸 수 있어요', 409)
+  if (phase === 'READY') return bad(c, '챙길 사람이 정해지면 쓸 수 있어요', 409)
   return c.json({ ...(await loadLetter(c.get('me').id)), locked: phase === 'REVEAL' })
 })
 
 // submit=true 면 제출. 한 번 제출한 소개서는 고칠 때도 모든 문항이 차 있어야 한다.
 app.put('/me/letter', async (c) => {
   const phase = await getPhase()
-  if (phase === 'READY') return bad(c, '마니또가 정해지면 쓸 수 있어요', 409)
+  if (phase === 'READY') return bad(c, '챙길 사람이 정해지면 쓸 수 있어요', 409)
   if (phase === 'REVEAL') return bad(c, '공개일이 시작돼서 더 고칠 수 없어요', 409)
   const { body, submit } = await c.req.json<{ body: unknown; submit?: boolean }>()
   const letter = cleanLetter(body)
@@ -425,7 +425,7 @@ app.get('/treasure', async (c) => {
 
 app.post('/treasure/:spot/open', async (c) => {
   const me = c.get('me')
-  if (!treasureOpen(await getPhase())) return bad(c, '보물찾기는 마니또 시작과 함께 열려요', 409)
+  if (!treasureOpen(await getPhase())) return bad(c, '보물찾기는 산타 배정이 시작되면 열려요', 409)
   const s = spot(c.req.param('spot'))
   if (!s) return bad(c, '없는 자리예요', 404)
   const q = await db()
