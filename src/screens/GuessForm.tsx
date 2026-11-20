@@ -83,8 +83,8 @@ export function GuessForm({ onSaved }: { onSaved: () => void }) {
               </button>
             ))}
           </div>
-          <div className="stat-row">
-            <span className="muted small">확신도</span>
+          <div className="confidence-row">
+            <span>확신도</span>
             <input
               type="range"
               min={CONFIDENCE_MIN}
@@ -94,8 +94,8 @@ export function GuessForm({ onSaved }: { onSaved: () => void }) {
               onChange={(e) => set({ confidence: Number(e.target.value) })}
             />
             <b>{g.confidence}%</b>
+            <em>{confidenceLabel(g.confidence)}</em>
           </div>
-          <p className="q-help">{confidenceLabel(g.confidence)}</p>
         </section>
 
         <section>

@@ -510,3 +510,100 @@ body, p, li, input, textarea, select, .muted, td, th { font-weight: 400; }
 .reveal-summary h3 { margin: 0 0 6px; }
 .reveal-pairs { list-style: none; padding: 0; columns: 2; font-size: 17px; line-height: 1.9; text-align: left; }
 @media (max-width: 640px) { .reveal-summary { grid-template-columns: 1fr; } .reveal-pairs { columns: 1; } }
+
+/* ── 입력·칩·포커스 정돈 (모든 창 공통) ────────────────────────────
+   - 포커스: 브라우저 기본 파란 테두리 대신 마을 빨강의 은은한 링
+   - 입력창: 높이·테두리·여백을 하나로. 빈칸 채우기 문장은 밑줄형으로 문장처럼 읽히게
+   - 추천 칩: 테두리 없이 옅은 바탕 (입력창보다 눈에 덜 띄게) */
+:root {
+  --field-line: #e8ddcf;
+  --field-line-hover: #d6c6b2;
+  --ring: 0 0 0 3px rgba(192, 57, 43, 0.16);
+  --placeholder: #bdb1a3;
+}
+:focus { outline: none; }
+:focus-visible { outline: none; box-shadow: var(--ring); }
+input, textarea, select {
+  border: 1px solid var(--field-line); border-radius: 12px; background: #fff; color: var(--ink);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:not([type='range']):not([type='checkbox']), select { height: 42px; padding: 0 14px; }
+textarea { padding: 10px 14px; }
+input::placeholder, textarea::placeholder { color: var(--placeholder); }
+input:hover, textarea:hover, select:hover { border-color: var(--field-line-hover); }
+input:focus, textarea:focus, select:focus { border-color: var(--red); box-shadow: var(--ring); }
+input[type='range'] { height: auto; border: 0; box-shadow: none !important; background: none; accent-color: var(--red); cursor: pointer; }
+fieldset:disabled input, fieldset:disabled textarea { background: #faf6f0; color: var(--muted); }
+button:focus-visible { box-shadow: var(--ring); }
+
+/* 관찰 리포트·추리노트 폼: 문항 사이 간격과 구분선을 일정하게 */
+.letter-form section { margin: 0; padding: 18px 0; border-top: 1px solid #efe6da; }
+.letter-form section:first-child { border-top: 0; padding-top: 4px; }
+.letter-form h3 { margin: 0 0 4px; font-size: 15px; letter-spacing: -0.2px; }
+.q-help { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+.letter-form > section > input + input, .letter-form input.gap { margin-top: 8px; }
+
+/* 해시태그: # 을 입력창 안으로 */
+.kws { gap: 8px; }
+.kw {
+  display: flex; align-items: center; gap: 4px; height: 42px; padding: 0 12px; border-radius: 12px;
+  border: 1px solid var(--field-line); background: #fff; color: var(--red); font-weight: 800; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.kw:hover { border-color: var(--field-line-hover); }
+.kw:focus-within { border-color: var(--red); box-shadow: var(--ring); }
+.kw input:not([type='range']) { border: 0; height: 40px; padding: 0; box-shadow: none; background: none; min-width: 0; font-weight: 500; }
+
+/* 빈칸 채우기 문장: 밑줄 빈칸 */
+.sentence { line-height: 2.5; margin: 0; }
+.sentence input:not([type='range']) {
+  display: inline-block; width: 140px; height: 32px; padding: 0 4px; margin: 0 4px; vertical-align: baseline;
+  border: 0; border-bottom: 2px solid var(--field-line-hover); border-radius: 0; background: transparent;
+  text-align: center; font-weight: 600; color: var(--red); box-shadow: none;
+}
+.sentence input.wide { width: 240px; }
+.sentence input:hover { border-color: #c4b19a; }
+.sentence input:focus { border-color: var(--red); box-shadow: none; background: #fff6f2; }
+
+/* 캐릭터 스탯 줄 */
+.stat-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 46px; gap: 14px; margin-bottom: 8px; }
+.stat-row b { font-size: 15px; }
+
+/* 추천 칩 */
+.examples { gap: 6px; margin-top: 10px; }
+.examples .ghost {
+  border: 0; background: #f5eee5; color: #7a6c5e; border-radius: 999px; padding: 5px 11px; font-size: 12.5px; font-weight: 600;
+}
+.examples .ghost:hover:not(:disabled) { background: #efe2d2; color: var(--ink); }
+.examples .ghost:disabled { opacity: 0.35; }
+
+/* 카드 미리보기: 장식 줄이기 */
+.letter-card { border: 1px solid #efdcc2; background-image: none; box-shadow: 0 12px 32px rgba(120, 60, 20, 0.1); }
+.letter-card h5 { margin: 16px 0 6px; }
+.letter-card .quote { background: #fbf4ea; }
+.hint-box { background: #3a2f3f; }
+.card-toggle .ghost { border-radius: 999px; padding: 5px 12px; }
+
+/* 이름 고르기 버튼(추리노트·어워즈) */
+.kw-people .name { border-radius: 12px; height: 38px; padding: 0; transition: background 0.15s, border-color 0.15s; }
+.kw-people .name:hover:not(.on) { border-color: var(--field-line-hover); background: #fffaf3; }
+.kw-custom input { height: 40px; }
+.panel { word-break: keep-all; overflow-wrap: anywhere; }
+.letter-head { margin-bottom: 2px; }
+.panel.letter > .muted { margin: 6px 0 18px; }
+.panel.letter.guess { width: min(680px, 94vw); }
+.confidence-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 48px 110px; gap: 12px; align-items: center; margin-top: 14px; font-size: 14px; }
+.confidence-row > span { color: var(--muted); font-weight: 600; }
+.confidence-row b { color: var(--red); text-align: right; font-size: 15px; }
+.confidence-row em { font-style: normal; font-size: 13px; color: var(--muted); }
+
+/* ☃️ 눈덩이에 맞았을 때: 화면 가장자리에 눈이 묻었다가 녹는다 */
+.snow-hit {
+  position: fixed; inset: 0; pointer-events: none; z-index: 5;
+  background:
+    radial-gradient(circle at 8% 20%, rgba(255,255,255,0.95) 0 60px, transparent 120px),
+    radial-gradient(circle at 92% 70%, rgba(255,255,255,0.9) 0 50px, transparent 110px),
+    radial-gradient(circle at 70% 8%, rgba(255,255,255,0.85) 0 34px, transparent 80px),
+    radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(225,238,255,0.55) 100%);
+  animation: snow-hit 1.3s ease-out forwards;
+}
+@keyframes snow-hit { 0% { opacity: 0; transform: scale(1.08); } 10% { opacity: 1; transform: scale(1); } 70% { opacity: 0.8; } 100% { opacity: 0; } }
