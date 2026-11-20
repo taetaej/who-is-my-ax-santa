@@ -4,9 +4,11 @@ import { COOKIE, LOCK_MINUTES, MAX_FAILS, PIN_RE, hashPin, issue, read, verifyPi
 import { PHASES, db, getPhase, type Phase } from './db.js'
 import { awardFor, cleanGift, isEmptyGift, type Gift } from '../src/awards.js'
 import { cleanLook } from '../src/look.js'
-import { FIRST_DAY, QUESTIONS, cleanQuestions, isDay, questionDay, questionFor, treeDay } from '../src/questions.js'
+import { FIRST_DAY, QUESTIONS, cleanQuestions, isDay, kstDay, questionDay, questionFor, treeDay } from '../src/questions.js'
 import { EMPTY_LETTER, cleanLetter, missing } from './letter.js'
 import { makeCycle } from './matching.js'
+import { RESCUE_FROM, SPOTS, spot, tierOf } from '../src/treasure.js'
+import { REAL, dudLine } from './treasure.js'
 
 type Me = { id: number; name: string; is_admin: boolean }
 type Env = { Variables: { me: Me } }
@@ -29,10 +31,7 @@ async function requireLogin(c: Context<Env>, next: Next) {
   const s = read(getCookie(c, COOKIE))
   if (!s) return bad(c, '로그인이 필요해요', 401)
   const q = await db()
-  const [me] = await q<Me & { session_version: number }>(
-    `select id, name, is_admin, session_version from players where id = $1`,
-    [s.pid],
-  )
+  const [me] = await q<Me & { session_version: number }>(`select id, name, is_admin, session_version from players where id = $1`, [s.pid])
   // PIN 을 초기화하면 session_version 이 올라가 기존 쿠키가 무효가 된다
   if (!me || me.session_version !== s.v) return bad(c, '로그인이 필요해요', 401)
   c.set('me', { id: me.id, name: me.name, is_admin: me.is_admin })
@@ -47,9 +46,7 @@ async function requireAdmin(c: Context<Env>, next: Next) {
 // ── 공개 ───────────────────────────────────────────────────────
 app.get('/players', async (c) => {
   const q = await db()
-  const rows = await q<{ id: number; name: string; has_pin: boolean }>(
-    `select id, name, pin_hash is not null as has_pin from players order by name`,
-  )
+  const rows = await q<{ id: number; name: string; has_pin: boolean }>(`select id, name, pin_hash is not null as has_pin from players order by name`)
   return c.json(rows.map((r) => ({ id: r.id, name: r.name, hasPin: r.has_pin })))
 })
 
@@ -134,7 +131,7 @@ app.get('/me', async (c) => {
     profile: row.profile,
     letter: row.letter,
     look: row.look ? cleanLook(row.look, me.id) : null, // null = 아직 안 꾸밈 → 처음 들어올 때 꾸미기 창
-    todo: { tree: todo.tree, given: todo.given, people: todo.people },
+    todo: { tree: todo.tree, given: todo.given, people: todo.people, gift: await giftTodo(me.id) },
     // 실시간 마을: 키가 없으면 null → 화면은 혼자 돌아다니는 모드로 동작
     liveRoom: process.env.LIVEBLOCKS_SECRET_KEY ? LIVE_ROOM : null,
   })
@@ -199,10 +196,7 @@ app.post('/me/manito/open', async (c) => {
 // 쓴 사람 본인만 읽고 쓴다. 공개일(REVEAL)부터는 잠긴다.
 async function loadLetter(santaId: number) {
   const q = await db()
-  const [t] = await q<{ name: string }>(
-    `select p.name from matches m join players p on p.id = m.target_id where m.santa_id = $1`,
-    [santaId],
-  )
+  const [t] = await q<{ name: string }>(`select p.name from matches m join players p on p.id = m.target_id where m.santa_id = $1`, [santaId])
   const [l] = await q<{ body: unknown; submitted_at: string | null; updated_at: string }>(
     `select body, submitted_at, updated_at from letters where santa_id = $1`,
     [santaId],
@@ -268,10 +262,7 @@ app.get('/tree/summary', async (c) => {
   const q = await db()
   const today = treeDay() // 주말이면 금요일 (금요일 질문이 이어진다)
   const qs = await getQuestions()
-  const [r] = await q<{ total: number; today: number }>(
-    `select count(*)::int as total, count(*) filter (where day = $1)::int as today from messages`,
-    [today],
-  )
+  const [r] = await q<{ total: number; today: number }>(`select count(*)::int as total, count(*) filter (where day = $1)::int as today from messages`, [today])
   return c.json({ today, question: questionFor(today, qs.list, qs.start), total: r.total, todayCount: r.today })
 })
 
@@ -345,10 +336,9 @@ app.get('/awards', async (c) => {
   const q = await db()
   const phase = await getPhase()
   const players = await q<{ id: number; name: string }>(`select id, name from players order by name`)
-  const mine = await q<{ receiver_id: number; chips: string[]; custom: string | null }>(
-    `select receiver_id, chips, custom from keywords where giver_id = $1`,
-    [me.id],
-  )
+  const mine = await q<{ receiver_id: number; chips: string[]; custom: string | null }>(`select receiver_id, chips, custom from keywords where giver_id = $1`, [
+    me.id,
+  ])
   let results = null
   if (phase === 'REVEAL') {
     const all = await q<{ receiver_id: number; chips: string[]; custom: string | null }>(`select receiver_id, chips, custom from keywords`)
@@ -386,6 +376,74 @@ app.put('/awards/keywords', async (c) => {
     )
   }
   return c.json({ gift })
+})
+
+// ── 🎀 보물찾기 ───────────────────────────────────────────────
+// 마니또 시작(ACTIVE)부터. 진짜는 1인 1개·자리 하나에 한 사람. 꽝은 기회를 쓰지 않는다.
+// 어느 자리가 진짜인지는 서버만 안다 (REAL). 화면에는 "이미 누가 가져간 자리"와 "내가 연 꽝"만 내려준다.
+type Find = { spot: string; player_id: number; name: string; found_at: string }
+const treasureOpen = (phase: Phase) => phase !== 'READY'
+const rescue = () => kstDay() >= RESCUE_FROM
+const REAL_SPOTS = SPOTS.filter((s) => REAL[s.id])
+
+async function finds(): Promise<Find[]> {
+  const q = await db()
+  return q<Find>(`select f.spot, f.player_id, p.name, f.found_at from treasure_finds f join players p on p.id = f.player_id order by f.found_at`)
+}
+
+/** 엘프 잔소리용: 아직 못 찾았으면 남은 진짜 개수, 구제 기간엔 남은 진짜 하나의 위치 힌트 */
+async function giftTodo(pid: number): Promise<{ found: boolean; left: number; hint: string | null } | null> {
+  if (!treasureOpen(await getPhase())) return null
+  const all = await finds()
+  const left = REAL_SPOTS.filter((s) => !all.some((f) => f.spot === s.id))
+  const found = all.some((f) => f.player_id === pid)
+  const hint = !found && rescue() && left.length ? left[pid % left.length].place : null
+  return { found, left: left.length, hint }
+}
+
+app.use('/treasure', requireLogin)
+app.use('/treasure/*', requireLogin)
+
+app.get('/treasure', async (c) => {
+  const me = c.get('me')
+  if (!treasureOpen(await getPhase())) return c.json({ active: false, rescue: false, total: REAL_SPOTS.length, found: [], mine: null, duds: [], glow: [] })
+  const q = await db()
+  const all = await finds()
+  const mine = all.find((f) => f.player_id === me.id)
+  const duds = await q<{ spot: string }>(`select spot from treasure_duds where player_id = $1`, [me.id])
+  const left = REAL_SPOTS.filter((s) => !all.some((f) => f.spot === s.id))
+  return c.json({
+    active: true,
+    rescue: rescue(),
+    total: REAL_SPOTS.length,
+    found: all.map((f) => ({ spot: f.spot, name: f.name, at: f.found_at, tier: REAL[f.spot] })), // 누가 몇 등을 찾았는지는 모두에게 공개
+    mine: mine ? { spot: mine.spot, tier: REAL[mine.spot] } : null,
+    duds: duds.map((d) => d.spot),
+    glow: rescue() && !mine ? left.map((s) => s.id) : [], // 구제 기간에만: 남은 진짜 자리
+  })
+})
+
+app.post('/treasure/:spot/open', async (c) => {
+  const me = c.get('me')
+  if (!treasureOpen(await getPhase())) return bad(c, '보물찾기는 마니또 시작과 함께 열려요', 409)
+  const s = spot(c.req.param('spot'))
+  if (!s) return bad(c, '없는 자리예요', 404)
+  const q = await db()
+  const [already] = await q<{ spot: string }>(`select spot from treasure_finds where player_id = $1`, [me.id])
+  if (already) return bad(c, '숨은 선물은 1인 1개! 이미 찾았어요. 남은 건 동료들 몫이에요 🎄', 409)
+  const tier = REAL[s.id]
+  if (!tier) {
+    await q(`insert into treasure_duds (player_id, spot) values ($1, $2) on conflict do nothing`, [me.id, s.id])
+    return c.json({ kind: 'dud', spot: s.id, line: dudLine(s.id) })
+  }
+  let got: { spot: string }[] = []
+  try {
+    got = await q<{ spot: string }>(`insert into treasure_finds (spot, player_id) values ($1, $2) on conflict (spot) do nothing returning spot`, [s.id, me.id])
+  } catch {
+    return bad(c, '숨은 선물은 1인 1개! 이미 찾았어요. 남은 건 동료들 몫이에요 🎄', 409) // 같은 사람이 두 탭에서 동시에
+  }
+  if (!got.length) return bad(c, '앗, 방금 다른 동료가 먼저 열었어요! 다른 데를 찾아봐요 🔍', 409)
+  return c.json({ kind: 'gift', spot: s.id, tier })
 })
 
 // ── 운영자 (블라인드: 매칭과 남의 내용은 돌려주지 않는다, PRD 4.2) ─────
@@ -439,6 +497,22 @@ app.get('/admin/awards', async (c) => {
   return c.json({ people: rows.length - 1, players: rows })
 })
 
+// 보물찾기 현황: 선물 전달을 위해 운영자는 누가 어떤 선물을 찾았는지 본다 (진짜 자리만)
+app.get('/admin/treasure', async (c) => {
+  const all = await finds()
+  const q = await db()
+  const [{ n }] = await q<{ n: number }>(`select count(*)::int as n from treasure_duds`)
+  return c.json({
+    phase: await getPhase(),
+    spots: SPOTS.length,
+    duds: n,
+    boxes: REAL_SPOTS.map((s) => {
+      const f = all.find((x) => x.spot === s.id)
+      return { id: s.id, place: s.place, tier: REAL[s.id], gift: tierOf(REAL[s.id]).gift, finder: f?.name ?? null, at: f?.found_at ?? null }
+    }).sort((a, b) => a.tier - b.tier),
+  })
+})
+
 // 메시지 트리 질문 관리: 목록(한 줄에 하나)과 첫 질문이 나오는 날
 app.get('/admin/questions', async (c) => {
   const qs = await getQuestions()
@@ -473,6 +547,8 @@ app.post('/admin/reset-all', async (c) => {
     `delete from hearts`,
     `delete from messages`,
     `delete from keywords`,
+    `delete from treasure_finds`,
+    `delete from treasure_duds`,
     `delete from letters`,
     `delete from matches`,
     `update players set pin_hash = null, failed_attempts = 0, locked_until = null, session_version = session_version + 1,

@@ -3,7 +3,26 @@ import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 import type { Look } from '../look'
 import { Cookie, newCookieState, type CookieState } from './Cookie'
-import { AWARDS_ROT, COCOA_SIZE, ELF, FIRE_SEATS, PARTY, POST_SIZE, SPAWN, SPOT, actionAt, at, carolLevel, facadeView, inGallery, onIce, polar, resolve } from './world'
+import type { Treasure } from './Village'
+import { DIG_HITS, OPEN_RANGE, GLINT_RANGE, nearestSpot, needsDig } from '../treasure'
+import {
+  AWARDS_ROT,
+  COCOA_SIZE,
+  ELF,
+  FIRE_SEATS,
+  PARTY,
+  POST_SIZE,
+  SPAWN,
+  SPOT,
+  actionAt,
+  at,
+  carolLevel,
+  facadeView,
+  inGallery,
+  onIce,
+  polar,
+  resolve,
+} from './world'
 
 // 내 쿠키: 방향키/WASD 이동, Shift 달리기, Space 인사, E 상호작용(앉기·눕기·핫초코·소개서…).
 // 카메라는 화면 기준 고정 각도로 따라온다 (↑ 가 화면 위쪽).
@@ -11,11 +30,16 @@ import { AWARDS_ROT, COCOA_SIZE, ELF, FIRE_SEATS, PARTY, POST_SIZE, SPAWN, SPOT,
 const WALK = 3.2
 const RUN = 5.6
 const KEYS: Record<string, 'up' | 'down' | 'left' | 'right' | 'run'> = {
-  ArrowUp: 'up', KeyW: 'up',
-  ArrowDown: 'down', KeyS: 'down',
-  ArrowLeft: 'left', KeyA: 'left',
-  ArrowRight: 'right', KeyD: 'right',
-  ShiftLeft: 'run', ShiftRight: 'run',
+  ArrowUp: 'up',
+  KeyW: 'up',
+  ArrowDown: 'down',
+  KeyS: 'down',
+  ArrowLeft: 'left',
+  KeyA: 'left',
+  ArrowRight: 'right',
+  KeyD: 'right',
+  ShiftLeft: 'run',
+  ShiftRight: 'run',
 }
 
 const typing = (e: KeyboardEvent) => {
@@ -86,6 +110,9 @@ export function Player({
   talkingToElf,
   overview,
   share,
+  treasure,
+  dig,
+  onTreasure,
 }: {
   name: string
   seed: number
@@ -97,7 +124,13 @@ export function Player({
   talkingToElf?: boolean // 엘프와 대화 중이면 엘프를 클로즈업
   overview?: boolean // 마을 전경 보기
   share?: MutableRefObject<CookieState | null> // 실시간 공유용으로 내 상태를 밖에 알려준다
+  treasure?: MutableRefObject<Treasure | null> // 🎀 보물찾기
+  dig?: MutableRefObject<Map<string, number>> // 눈더미·얼음 판 횟수
+  onTreasure?: (spot: string) => void
 }) {
+  const treasureCb = useRef(onTreasure)
+  treasureCb.current = onTreasure
+  const glinted = useRef(new Set<string>()) // "뭔가 반짝인다…?" 는 자리마다 한 번만
   const state = useRef(newCookieState(SPAWN.x, SPAWN.z, SPAWN.rot))
   if (share) share.current = state.current
   // 개발 중 확인용: 콘솔에서 __me.x = … 로 순간이동 (배포 빌드에는 들어가지 않는다)
@@ -173,6 +206,21 @@ export function Player({
   function interact() {
     const s = state.current
     if (s.pose !== 'stand') return standUp()
+    const tr = treasure?.current
+    const sp = tr ? nearestSpot(s.x, s.z, tr.hidden) : null
+    if (sp && tr) {
+      if (tr.mine) return say('숨은 선물은 1인 1개! 양보해요 🎄')
+      const hits = dig?.current.get(sp.id) ?? 0
+      if (needsDig(sp.kind) && hits < DIG_HITS - 1) {
+        dig?.current.set(sp.id, hits + 1)
+        jumpAt.current = clock.elapsedTime
+        return say(sp.kind === 'ice' ? `쨍! 🧊 (${hits + 1}/${DIG_HITS})` : `파바박 ❄️ (${hits + 1}/${DIG_HITS})`)
+      }
+      dig?.current.delete(sp.id)
+      held.current.clear()
+      treasureCb.current?.(sp.id)
+      return
+    }
     const here = actionAt(s.x, s.z)
     if (!here) return
     switch (here.action) {
@@ -279,8 +327,27 @@ export function Player({
       if (ice && !wasOnIce.current) say(['으아 미끄러워! 🧊', '앗 차가워 🥶', '스케이트 타는 중 ⛸️'][Math.floor(t) % 3])
       wasOnIce.current = ice
 
+      const tr = treasure?.current
+      const sp = tr ? nearestSpot(s.x, s.z, tr.hidden) : null
+      const dud = tr && !sp ? nearestSpot(s.x, s.z, tr.duds, OPEN_RANGE * 0.8) : null
       const here = actionAt(s.x, s.z)
-      setPrompt(here ? (here.action === 'cocoa' && s.cup ? '☕ 핫초코를 들고 있어요 · 나눠주기는 곧!' : here.label) : null)
+      // 가까이 오면 한 번: "뭔가 반짝인다…?"
+      const glint = tr ? nearestSpot(s.x, s.z, tr.hidden, GLINT_RANGE) : null
+      if (glint && !glinted.current.has(glint.id) && !tr?.mine) {
+        glinted.current.add(glint.id)
+        say('뭔가 반짝인다…? ✨')
+      }
+      if (sp && tr) {
+        const hits = dig?.current.get(sp.id) ?? 0
+        setPrompt(
+          tr.mine
+            ? '🎀 숨은 선물 · 이미 하나 찾았어요 (1인 1개)'
+            : needsDig(sp.kind)
+              ? `E · ${sp.kind === 'ice' ? '🧊 얼음 깨기' : '❄️ 눈 파내기'} (${hits}/${DIG_HITS})`
+              : 'E · 🎀 뭐가 들었을까? 열어 보기',
+        )
+      } else if (dud) setPrompt('😝 꽝이었던 자리')
+      else setPrompt(here ? (here.action === 'cocoa' && s.cup ? '☕ 핫초코를 들고 있어요 · 나눠주기는 곧!' : here.label) : null)
     }
 
     // 캐롤 무대와의 거리 (0.05 단위로 바뀔 때만 알린다)

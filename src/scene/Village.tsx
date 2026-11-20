@@ -18,6 +18,7 @@ import { Festive } from './Festive'
 import { Elf } from './Elf'
 import { Timeline } from './Timeline'
 import { Party } from './Party'
+import { DecoyMounds, GiftBoxes, type Burst } from './GiftBoxes'
 import {
   GATE_ANGLE, ISLAND_R, LAMP_ANGLES, LAMP_R, PLAZA_R, POND_OUT, SNOWMAN, SPOT, VILLAGE_R,
   addTreeColliders, at, faceCenter, polar, type V3,
@@ -263,6 +264,8 @@ function OrbitRig() {
 }
 
 export type Resident = { id: number; name: string; look?: Look | null }
+/** 🎀 보물찾기: hidden = 아직 열 수 있는 자리, duds = 내가 열어 본 꽝, glow = 구제 기간에 반짝일 자리, mine = 이미 찾음 */
+export type Treasure = { hidden: string[]; duds: string[]; glow: string[]; mine: boolean; burst: Burst | null }
 
 export function Village({
   me,
@@ -275,6 +278,8 @@ export function Village({
   talking = false,
   overview = false,
   live = false,
+  treasure = null,
+  onTreasure,
 }: {
   me: Resident | null
   inputEnabled: MutableRefObject<boolean>
@@ -286,7 +291,12 @@ export function Village({
   talking?: boolean // 엘프와 대화 중 (카메라 클로즈업)
   overview?: boolean // 마을 전경 보기
   live?: boolean // true 면 LiveRoot 안에서 그려진다 (실시간 접속)
+  treasure?: Treasure | null // 🎁 보물찾기: 남은 상자, 반짝임, 내가 이미 찾았는지
+  onTreasure?: (box: string) => void // 상자 앞에서 E
 }) {
+  const treasureRef = useRef<Treasure | null>(treasure)
+  treasureRef.current = treasure
+  const dig = useRef(new Map<string, number>()) // 눈더미·얼음을 몇 번 팠는지 (Player 가 늘리고 GiftBoxes 가 그린다)
   const [online, setOnline] = useState<Set<number>>(() => new Set())
   const onOnline = useCallback((ids: Set<number>) => setOnline(ids), [])
   const myState = useRef<CookieState | null>(null)
@@ -322,6 +332,8 @@ export function Village({
         <Timeline />
         <Party />
         {elf && <Elf alert={elf.alert} chatter={elf.chatter} />}
+        {treasure && me && <DecoyMounds />}
+        {treasure && me && <GiftBoxes hidden={treasure.hidden} duds={treasure.duds} glow={treasure.glow} dig={dig} me={myState} burst={treasure.burst} />}
         <Fade x={at(SPOT.church)[0]} z={at(SPOT.church)[2]} r={2.4}>
           <group position={at(SPOT.church)} rotation={[0, faceCenter(SPOT.church.a), 0]}>
             <Batch>
@@ -344,7 +356,7 @@ export function Village({
         {!live && me && <CarolCount others={0} me={myState} />}
 
         {me ? (
-          <Player name={me.name} seed={me.id} look={me.look} enabled={inputEnabled} onPrompt={onPrompt} onOpen={onOpen} onCarol={onCarol} talkingToElf={talking} overview={overview} share={myState} />
+          <Player name={me.name} seed={me.id} look={me.look} enabled={inputEnabled} onPrompt={onPrompt} onOpen={onOpen} onCarol={onCarol} talkingToElf={talking} overview={overview} share={myState} treasure={treasureRef} dig={dig} onTreasure={onTreasure} />
         ) : (
           <OrbitRig />
         )}

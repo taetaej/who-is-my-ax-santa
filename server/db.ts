@@ -71,6 +71,18 @@ async function migrate(q: Query) {
     updated_at timestamptz not null default now(),
     primary key (giver_id, receiver_id)
   )`)
+  // 🎀 보물찾기: 진짜 선물. 자리 하나는 한 사람만(spot 기본 키), 한 사람은 하나만(player_id unique)
+  await q(`create table if not exists treasure_finds (
+    spot text primary key,
+    player_id int not null unique references players(id),
+    found_at timestamptz not null default now()
+  )`)
+  // 꽝: 누가 어느 자리를 열어 봤는지 (그 사람 화면에만 "열린 상자"로 남는다)
+  await q(`create table if not exists treasure_duds (
+    player_id int not null references players(id),
+    spot text not null,
+    primary key (player_id, spot)
+  )`)
   // 산타 → 마니또. 운영자 화면과 어떤 API 에서도 이 테이블 전체를 돌려주지 않는다 (PRD 4.2)
   await q(`create table if not exists matches (
     santa_id int primary key references players(id),

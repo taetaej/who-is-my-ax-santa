@@ -1,5 +1,6 @@
 import type { AwardCard, Gift } from './awards'
 import type { Look } from './look'
+import type { Tier } from './treasure'
 
 export type Phase = 'READY' | 'ACTIVE' | 'REVEAL'
 export type Player = { id: number; name: string; hasPin: boolean }
@@ -14,12 +15,32 @@ export type Me = {
   liveRoom: string | null
   letter: LetterStatus
   look: Look | null
-  todo: { tree: boolean; given: number; people: number } // given = 키워드를 준 동료 수, people = 나를 뺀 인원
+  todo: {
+    tree: boolean
+    given: number // 키워드를 준 동료 수
+    people: number // 나를 뺀 인원
+    gift: { found: boolean; left: number; hint: string | null } | null // 🎁 보물찾기 (마니또 시작 전엔 null)
+  }
 }
 export type Awards = {
   phase: Phase
   people: { id: number; name: string; gift: Gift }[] // 나를 뺀 동료와 내가 준 키워드
   results: ({ id: number; name: string } & AwardCard)[] | null // 공개일에만
+}
+export type TreasureState = {
+  active: boolean
+  rescue: boolean
+  total: number // 진짜 선물 수
+  found: { spot: string; name: string; at: string; tier: Tier }[] // 이미 누가 가져간 진짜 (누가 몇 등인지 공개)
+  mine: { spot: string; tier: Tier } | null
+  duds: string[] // 내가 열어 본 꽝
+  glow: string[] // 구제 기간: 남은 진짜 자리
+}
+export type AdminTreasure = {
+  phase: Phase
+  spots: number
+  duds: number
+  boxes: { id: string; place: string; tier: Tier; gift: string; finder: string | null; at: string | null }[]
 }
 export type LetterStatus = 'none' | 'draft' | 'submitted'
 export type Stat = { label: string; value: number }
@@ -84,6 +105,10 @@ export const api = {
   awards: () => call<Awards>('GET', '/awards'),
   giveKeywords: (receiverId: number, gift: Gift) => call<{ gift: Gift }>('PUT', '/awards/keywords', { receiverId, ...gift }),
   adminAwards: () => call<{ people: number; players: { name: string; given: number }[] }>('GET', '/admin/awards'),
+  treasure: () => call<TreasureState>('GET', '/treasure'),
+  openTreasure: (spot: string) =>
+    call<{ kind: 'gift'; spot: string; tier: Tier } | { kind: 'dud'; spot: string; line: string }>('POST', `/treasure/${spot}/open`),
+  adminTreasure: () => call<AdminTreasure>('GET', '/admin/treasure'),
   letter: () => call<LetterState>('GET', '/me/letter'),
   saveLetter: (body: Letter, submit = false) => call<LetterState>('PUT', '/me/letter', { body, submit }),
   adminStatus: () => call<AdminStatus>('GET', '/admin/status'),

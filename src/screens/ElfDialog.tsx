@@ -42,15 +42,24 @@ export function elfLines(me: Me, question: string | null, tipIndex: number): Lin
       go: { to: 'awards', label: '🏆 키워드 주러 가기' },
     })
   }
+  // 🎀 보물찾기: 구제 기간(힌트가 있을 때)엔 못 찾은 사람에게 위치 힌트를 잔소리로
+  const g = me.todo.gift
+  if (g && !g.found && g.hint) nags.push({ text: `🎀 아직 숨은 선물 못 찾았지? 특별히 힌트 줄게… "${g.hint}" 쪽을 잘 찾아봐! ✨` })
   if (me.phase === 'ACTIVE' && me.letter !== 'submitted') {
     nags.push({
-      text: me.letter === 'none' ? '💌 마니또 소개서는 시작도 안 했네… 공개일 전에 꼭 제출해야 해!' : '💌 소개서 쓰는 중이구나! 다 쓰면 제출 버튼 누르는 거 잊지 마.',
+      text:
+        me.letter === 'none'
+          ? '💌 마니또 소개서는 시작도 안 했네… 공개일 전에 꼭 제출해야 해!'
+          : '💌 소개서 쓰는 중이구나! 다 쓰면 제출 버튼 누르는 거 잊지 마.',
       go: { to: 'letter', label: '💌 소개서 쓰기' },
     })
   }
 
   const hello: Line = { text: `${me.name} 님 안녕! 나는 AX 엘프 🧝 우리 팀 명언 알지? "${MOTTO}"` }
-  const tip: Line = { text: TIPS[tipIndex % TIPS.length] }
+  const tip: Line =
+    g && !g.found && !g.hint && g.left > 0
+      ? { text: `🎀 쉿, 마을 어딘가에 숨은 선물이 ${g.left}개 있어! 한 사람에 하나, 먼저 여는 사람이 임자야 👀` }
+      : { text: TIPS[tipIndex % TIPS.length] }
   if (nags.length === 0) {
     return [hello, { text: '오… 오늘 할 일 다 했네?! 👏 그럼 명언대로… 내일 일 해라 ㅋㅋ 농담이고, 마을에서 놀다 가!' }, tip]
   }
@@ -63,6 +72,7 @@ export function elfChatter(me: Me): { alert: boolean; chatter: string[] } {
   if (!me.todo.tree) out.push('메시지 트리 썼어? 🎄')
   if (me.phase !== 'REVEAL' && me.todo.given < me.todo.people) out.push('키워드 다 줬어? 🏆')
   if (me.phase === 'ACTIVE' && me.letter !== 'submitted') out.push('소개서는…? 💌')
+  if (me.todo.gift && !me.todo.gift.found && me.todo.gift.hint) out.push('숨은 선물 찾았어? 🎀')
   if (me.phase === 'ACTIVE' && !me.manitoOpened) out.unshift('마니또 상자 열었어? 🎁')
   return out.length ? { alert: true, chatter: out } : { alert: false, chatter: [`"${MOTTO}" 🧝`] }
 }

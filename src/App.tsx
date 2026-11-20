@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ApiError, api, type Me, type TreeSummary } from './api'
+import { ApiError, api, type Me, type TreasureState, type TreeSummary } from './api'
+import { SPOTS, TIERS, tierOf, type Tier } from './treasure'
+import type { Burst } from './scene/GiftBoxes'
 import { Village } from './scene/Village'
 import { LiveRoot } from './scene/live'
 import { Admin } from './screens/Admin'
@@ -14,7 +16,7 @@ import { clearEntered, enteredThisTab } from './entry'
 import { ProfileForm } from './screens/ProfileForm'
 import { CarolPlayer } from './screens/CarolPlayer'
 
-type Modal = 'manito' | 'profile' | 'letter' | 'look' | 'tree' | 'awards' | 'elf' | 'admin' | null
+type Modal = 'manito' | 'profile' | 'letter' | 'look' | 'tree' | 'awards' | 'elf' | 'admin' | 'treasure' | null
 
 const LETTER_CHIP = { none: '작성 전', draft: '쓰는 중', submitted: '제출 ✓' } as const
 
@@ -43,8 +45,7 @@ export function App() {
       if (e instanceof ApiError && e.status === 401) {
         clearEntered()
         setMe(null)
-      }
-      else throw e
+      } else throw e
     }
   }, [])
 
@@ -91,6 +92,62 @@ export function App() {
     const t = setInterval(loadTree, 30_000)
     return () => clearInterval(t)
   }, [loggedIn, loadTree])
+  // 🎀 보물찾기: 15초마다 누가 찾았는지 확인 → 찾은 자리는 사라지고, 새로 찾은 사람은 마을에 알림
+  const [treasure, setTreasure] = useState<TreasureState | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const [giftOpened, setGiftOpened] = useState<Tier | null>(null) // 방금 연 진짜 선물의 등수 (축하 창)
+  const [burst, setBurst] = useState<Burst | null>(null)
+  const seen = useRef<Set<string> | null>(null)
+  const loadTreasure = useCallback(async () => {
+    const t = await api.treasure().catch(() => null)
+    if (!t) return
+    const before = seen.current
+    seen.current = new Set(t.found.map((f) => f.spot))
+    if (before) {
+      const fresh = t.found.filter((f) => !before.has(f.spot) && f.spot !== t.mine?.spot)
+      if (fresh.length)
+        setToast(`🎉 ${fresh.map((f) => `${f.name}님이 ${tierOf(f.tier).label}`).join(', ')}을 찾았어요! 남은 선물 ${t.total - t.found.length}개`)
+    }
+    setTreasure(t)
+  }, [])
+  useEffect(() => {
+    if (!loggedIn) return
+    seen.current = null
+    void loadTreasure()
+    const t = setInterval(loadTreasure, 15_000)
+    return () => clearInterval(t)
+  }, [loggedIn, loadTreasure])
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 7000)
+    return () => clearTimeout(t)
+  }, [toast])
+  const openTreasure = useCallback(
+    async (spot: string) => {
+      try {
+        const r = await api.openTreasure(spot)
+        setBurst({ spot, kind: r.kind, key: Date.now() })
+        if (r.kind === 'gift')
+          setTimeout(() => setGiftOpened(r.tier), 900) // 반짝이가 먼저 터지고 축하 창
+        else setToast(r.line)
+      } catch (e) {
+        setToast((e as Error).message)
+      }
+      await loadTreasure()
+      void refresh()
+    },
+    [loadTreasure, refresh],
+  )
+  const treasureScene = treasure?.active
+    ? {
+        hidden: SPOTS.map((s) => s.id).filter((id) => !treasure.found.some((f) => f.spot === id) && !treasure.duds.includes(id)),
+        duds: treasure.duds,
+        glow: treasure.glow,
+        mine: !!treasure.mine,
+        burst,
+      }
+    : null
+
   // 엘프 NPC: 할 일이 남았으면 ❗ 와 혼잣말
   const elf = me ? elfChatter(me) : null
   const giftWaiting = me && me.phase === 'ACTIVE' && !me.manitoOpened
@@ -99,10 +156,35 @@ export function App() {
     <>
       {me?.liveRoom ? (
         <LiveRoot room={me.liveRoom}>
-          <Village me={{ id: me.id, name: me.name, look: me.look }} inputEnabled={inputEnabled} onPrompt={setPrompt} onOpen={openPanel} onCarol={setCarol} tree={tree} elf={elf} talking={modal === 'elf'} overview={overview && modal === null} live />
+          <Village
+            me={{ id: me.id, name: me.name, look: me.look }}
+            inputEnabled={inputEnabled}
+            onPrompt={setPrompt}
+            onOpen={openPanel}
+            onCarol={setCarol}
+            tree={tree}
+            elf={elf}
+            talking={modal === 'elf'}
+            overview={overview && modal === null}
+            treasure={treasureScene}
+            onTreasure={openTreasure}
+            live
+          />
         </LiveRoot>
       ) : (
-        <Village me={me ? { id: me.id, name: me.name, look: me.look } : null} inputEnabled={inputEnabled} onPrompt={setPrompt} onOpen={openPanel} onCarol={setCarol} tree={tree} elf={elf} talking={modal === 'elf'} overview={overview && modal === null} />
+        <Village
+          me={me ? { id: me.id, name: me.name, look: me.look } : null}
+          inputEnabled={inputEnabled}
+          onPrompt={setPrompt}
+          onOpen={openPanel}
+          onCarol={setCarol}
+          tree={tree}
+          elf={elf}
+          talking={modal === 'elf'}
+          overview={overview && modal === null}
+          treasure={treasureScene}
+          onTreasure={openTreasure}
+        />
       )}
       <div className="ui">
         <header className="topbar">
@@ -130,6 +212,38 @@ export function App() {
               </button>
             )}
             {prompt && modal === null && <div className="prompt">{prompt}</div>}
+            {treasure?.active && !firstVisit && (
+              <button className="treasure-hud" onClick={() => setModal('treasure')} title="숨은 선물 현황">
+                🎀 남은 선물{' '}
+                {TIERS.map((t) => (
+                  <span key={t.tier}>
+                    {t.label.split(' ')[0]}
+                    {t.count - treasure.found.filter((f) => f.tier === t.tier).length}
+                  </span>
+                ))}
+              </button>
+            )}
+            {toast && modal === null && (
+              <div className="toast" role="status">
+                {toast}
+              </div>
+            )}
+            {giftOpened && (
+              <div className="backdrop" onClick={(e) => e.target === e.currentTarget && setGiftOpened(null)}>
+                <div className="modal">
+                  <div className="panel gift-found">
+                    <div className="gift-burst">🎀</div>
+                    <h2>숨은 선물을 찾았어요!</h2>
+                    <p className="gift-name">{tierOf(giftOpened).label}</p>
+                    <p className="gift-prize">{tierOf(giftOpened).gift}</p>
+                    <p className="muted">선물은 운영자가 따로 전달해 드려요. 숨은 선물은 1인 1개라, 이제 다른 동료들이 찾을 차례예요 🎄</p>
+                    <button className="primary" onClick={() => setGiftOpened(null)}>
+                      좋아요!
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             <CarolPlayer level={carol} />
 
             <div className="help">
@@ -140,7 +254,10 @@ export function App() {
               <span className="who">🍪 {me.name}</span>
               <button onClick={() => setModal('manito')}>🎁 나의 마니또</button>
               <button onClick={() => setModal('letter')}>
-                💌 소개서 <span className={`chip ${me.letter === 'submitted' ? 'ok' : me.phase === 'ACTIVE' && me.letter === 'none' ? 'warn' : ''}`}>{LETTER_CHIP[me.letter]}</span>
+                💌 소개서{' '}
+                <span className={`chip ${me.letter === 'submitted' ? 'ok' : me.phase === 'ACTIVE' && me.letter === 'none' ? 'warn' : ''}`}>
+                  {LETTER_CHIP[me.letter]}
+                </span>
               </button>
               <button onClick={() => setModal('tree')}>🎄 메시지 트리</button>
               <button onClick={() => setModal('awards')}>
@@ -157,12 +274,12 @@ export function App() {
                 🗺️ 전경
               </button>
               <button onClick={() => setModal('look')}>🎨 꾸미기</button>
-              <button className="quiet" onClick={logout}>로그아웃</button>
+              <button className="quiet" onClick={logout}>
+                로그아웃
+              </button>
             </nav>
 
-            {modal === 'elf' && (
-              <ElfDialog me={me} question={tree?.question ?? null} onGo={(to: ElfGo) => setModal(to)} onClose={() => setModal(null)} />
-            )}
+            {modal === 'elf' && <ElfDialog me={me} question={tree?.question ?? null} onGo={(to: ElfGo) => setModal(to)} onClose={() => setModal(null)} />}
 
             {modal && modal !== 'elf' && (
               <div className="backdrop" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
@@ -202,6 +319,7 @@ export function App() {
                   )}
                   {modal === 'awards' && <AwardsPanel meId={me.id} onChange={refresh} />}
                   {modal === 'letter' && <LetterForm meName={me.name} onSaved={refresh} />}
+                  {modal === 'treasure' && treasure && <TreasureBoard t={treasure} />}
                   {modal === 'admin' && me.isAdmin && <Admin onPhaseChange={refresh} onQuestions={loadTree} />}
                 </div>
               </div>
@@ -210,5 +328,41 @@ export function App() {
         )}
       </div>
     </>
+  )
+}
+
+// 🎀 숨은 선물 현황: 등수마다 무슨 선물이 몇 개 남았고 누가 찾았는지 (모두에게 공개)
+function TreasureBoard({ t }: { t: TreasureState }) {
+  const left = t.total - t.found.length
+  return (
+    <div className="panel treasure-board">
+      <h2>🎀 숨은 선물 현황</h2>
+      <p className="muted">
+        마을 곳곳에 진짜 선물과 꽝이 숨어 있어요. 진짜는 1인 1개! 지금 <b>{left}개</b> 남았어요.
+        {t.mine && (
+          <>
+            {' '}
+            나는 <b>{tierOf(t.mine.tier).label}</b>을 찾았어요 🎉
+          </>
+        )}
+      </p>
+      <div className="tier-list">
+        {TIERS.map((tier) => {
+          const got = t.found.filter((f) => f.tier === tier.tier)
+          return (
+            <section key={tier.tier} className={`tier ${got.length >= tier.count ? 'done' : ''}`}>
+              <div className="tier-head">
+                <b>{tier.label}</b>
+                <span className="chip">
+                  {tier.count - got.length}/{tier.count} 남음
+                </span>
+              </div>
+              <p className="tier-gift">{tier.gift}</p>
+              <p className="muted small">{got.length ? `찾은 사람: ${got.map((f) => f.name).join(', ')}` : '아직 아무도 못 찾았어요'}</p>
+            </section>
+          )
+        })}
+      </div>
+    </div>
   )
 }

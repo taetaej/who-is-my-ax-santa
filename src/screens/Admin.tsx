@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, type AdminStatus, type Phase } from '../api'
+import { api, type AdminStatus, type AdminTreasure, type Phase } from '../api'
 import { KEYWORDS } from '../awards'
+import { tierOf } from '../treasure'
 import { QUESTIONS_LIMIT, QUESTION_MAX, cleanQuestions, questionDay } from '../questions'
 
 const NEXT: Partial<Record<Phase, { to: Phase; label: string; confirm: string }>> = {
@@ -14,7 +15,7 @@ const NEXT: Partial<Record<Phase, { to: Phase; label: string; confirm: string }>
 
 // A1 운영 대시보드 + A3 PIN 초기화. 매칭과 남의 내용은 보여주지 않는다 (블라인드 어드민)
 export function Admin({ onPhaseChange, onQuestions }: { onPhaseChange: () => void; onQuestions: () => void }) {
-  const [tab, setTab] = useState<'status' | 'questions' | 'awards'>('status')
+  const [tab, setTab] = useState<'status' | 'questions' | 'awards' | 'treasure'>('status')
   return (
     <div className="panel wide">
       <div className="admin-tabs">
@@ -27,10 +28,14 @@ export function Admin({ onPhaseChange, onQuestions }: { onPhaseChange: () => voi
         <button className={tab === 'awards' ? 'on' : ''} onClick={() => setTab('awards')}>
           🏆 어워즈
         </button>
+        <button className={tab === 'treasure' ? 'on' : ''} onClick={() => setTab('treasure')}>
+          🎀 보물찾기
+        </button>
       </div>
       {tab === 'status' && <Status onPhaseChange={onPhaseChange} />}
       {tab === 'questions' && <Questions onSaved={onQuestions} />}
       {tab === 'awards' && <AwardsAdmin />}
+      {tab === 'treasure' && <TreasureAdmin />}
     </div>
   )
 }
@@ -77,6 +82,48 @@ function AwardsAdmin() {
       <p className="muted small">
         키워드 칩 {KEYWORDS.length}개: {KEYWORDS.map((k) => k.chip).join(' · ')}
       </p>
+    </div>
+  )
+}
+
+// 보물찾기 현황: 선물을 전달해야 하니 누가 어떤 선물을 찾았는지 보여 준다
+function TreasureAdmin() {
+  const [data, setData] = useState<AdminTreasure | null>(null)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    api.adminTreasure().then(setData, (e: Error) => setError(e.message))
+  }, [])
+  if (!data) return <p className="muted">{error || '불러오는 중…'}</p>
+  const found = data.boxes.filter((b) => b.finder).length
+  const time = (at: string) => new Date(at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return (
+    <div className="questions">
+      <p className="muted">
+        진짜 선물 {data.boxes.length}개 중 <b>{found}개</b>를 찾았어요. 마을에는 꽝을 합쳐 {data.spots}곳이 숨어 있고, 지금까지 꽝을 {data.duds}번 열었어요.
+        선물 상자는 <b>마니또 시작</b>과 함께 마을에 나타나고
+        {data.phase === 'READY' ? ' (지금은 아직 숨겨져 있어요)' : ''}, 12/14부터는 남은 상자가 반짝이며 엘프가 위치 힌트를 줘요. 진짜 자리와 등수는{' '}
+        <code>server/treasure.ts</code>, 등수별 선물 이름과 숨긴 위치는 <code>src/treasure.ts</code> 에서 바꿔요.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>등수</th>
+            <th>숨긴 곳</th>
+            <th>선물</th>
+            <th>찾은 사람</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.boxes.map((b) => (
+            <tr key={b.id}>
+              <td>{tierOf(b.tier).label}</td>
+              <td>{b.place}</td>
+              <td>{b.gift}</td>
+              <td className={b.finder ? 'ok-text' : 'muted'}>{b.finder ? `${b.finder} · ${time(b.at!)}` : '아직'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

@@ -415,7 +415,7 @@ textarea {
    본문: 페이퍼로지. 말풍선·명언·메시지 카드처럼 사람 말투인 곳만 손글씨 Gaegu. */
 h1, h2, h3, h4, h5, b, strong, button, kbd, label.kw,
 .tag, .bubble, .banner, .spot-label, .spot-count, .online-count, .prompt, .notice, .chip, .who,
-.dock, .help, .milestone, .tree-q, .tree-day, .award-name, .award-result b, .cert-title, .cert-kicker, .cloud span, .tl-fun, .tl-month,
+.dock, .help, .toast, .gift-name, .treasure-hud, .tier-head b, .milestone, .tree-q, .tree-day, .award-name, .award-result b, .cert-title, .cert-kicker, .cloud span, .tl-fun, .tl-month,
 .dialog-name, .elf-bubble, .elf-tag, .look-name, .card-top, .card-kws span, .ms-month, .tree-label, .ok-text,
 .letter-card h4, .letter-card h5, .stat b, .stat-row b, .hint-box span, .tl-dot, .carol-head b, .names .name {
   font-family: var(--font-display);
@@ -449,3 +449,26 @@ body, p, li, input, textarea, select, .muted, td, th { font-weight: 400; }
 .welcome-back { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .welcome-back p { margin: 0; }
 .welcome-back .quiet { font-size: 13px; padding: 4px 10px; }
+
+/* 🎁 보물찾기 */
+.toast {
+  position: absolute; top: 64px; left: 50%; transform: translateX(-50%); z-index: 5;
+  background: #2a2230; color: #fff; padding: 10px 18px; border-radius: 999px; font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); animation: pop 0.25s ease-out; --tx: -50%; max-width: 92vw; text-align: center;
+}
+.gift-found { text-align: center; width: min(420px, 92vw); }
+.gift-burst { font-size: 64px; animation: gift-pop 0.6s ease-out; }
+@keyframes gift-pop { 0% { transform: scale(0.3) rotate(-20deg); } 70% { transform: scale(1.2) rotate(8deg); } 100% { transform: none; } }
+.gift-name { font-size: 24px; font-weight: 800; color: var(--red); margin: 6px 0 10px; }
+.gift-prize { font-size: 17px; font-weight: 700; margin: -4px 0 10px; }
+.treasure-hud {
+  position: absolute; top: 96px; left: 16px; z-index: 4; display: flex; gap: 8px; align-items: center;
+  background: rgba(255, 255, 255, 0.92); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 13px;
+}
+.treasure-hud span { font-weight: 800; }
+.treasure-board { width: min(520px, 94vw); }
+.tier-list { display: grid; gap: 8px; margin-top: 10px; }
+.tier { padding: 10px 14px; border-radius: 14px; background: #fff; border: 1px solid var(--line); }
+.tier.done { opacity: 0.55; }
+.tier-head { display: flex; justify-content: space-between; align-items: center; }
+.tier-gift { margin: 4px 0 2px; font-weight: 700; }
