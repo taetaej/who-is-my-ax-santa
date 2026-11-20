@@ -24,7 +24,7 @@ const TIPS = [
 export function elfLines(me: Me, question: string | null, tipIndex: number): Line[] {
   const nags: Line[] = []
   if (me.phase === 'ACTIVE' && !me.manitoOpened) {
-    nags.push({ text: '🎁 잠깐! 아직 마니또 선물 상자도 안 열었어?! 누굴 챙길지는 알아야지!', go: { to: 'manito', label: '🎁 상자 열러 가기' } })
+    nags.push({ text: '🤫 잠깐! 아직 내 마니또도 확인 안 했어?! 누굴 챙길지는 알아야지!', go: { to: 'manito', label: '🤫 마니또 확인하러 가기' } })
   }
   if (!me.todo.tree) {
     nags.push({

@@ -47,9 +47,9 @@ export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => 
     }
     return (
       <div className="panel center">
-        <h2>선물 상자가 도착했어요 🎁</h2>
-        <p className="muted">열면 내가 몰래 챙길 사람이 나와요. 주변에 보는 사람이 없는지 확인해 주세요!</p>
-        <button className="primary big" onClick={open}>상자 열기</button>
+        <h2>내 마니또가 정해졌어요 🤫</h2>
+        <p className="muted">이번 크리스마스에 몰래 챙길 사람이에요. 주변에 보는 사람이 없는지 먼저 살펴 주세요!</p>
+        <button className="primary big" onClick={open}>마니또 확인하기</button>
         {error && <p className="error">{error}</p>}
       </div>
     )
@@ -69,7 +69,7 @@ export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => 
       ) : (
         manito && <p className="muted">아직 프로필을 적지 않았어요. 직접 관찰해 볼까요?</p>
       )}
-      <p className="hint">미션, 관찰 수첩, 소개서는 다음 단계에서 붙여요.</p>
+      <p className="hint">💌 공개일 전까지 📮 AX 우편함에서 소개서를 써 주세요!</p>
       {error && <p className="error">{error}</p>}
     </div>
   )

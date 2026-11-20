@@ -208,7 +208,7 @@ export function App() {
 
             {giftWaiting && modal === null && !firstVisit && (
               <button className="notice" onClick={() => setModal('manito')}>
-                🎁 선물 상자가 도착했어요 · 열어 보기
+                🤫 내 마니또가 정해졌어요 · 확인하기
               </button>
             )}
             {prompt && modal === null && <div className="prompt">{prompt}</div>}
