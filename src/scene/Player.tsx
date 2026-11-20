@@ -5,6 +5,7 @@ import type { Look } from '../look'
 import { Cookie, newCookieState, type CookieState } from './Cookie'
 import type { Treasure } from './Village'
 import { DIG_HITS, OPEN_RANGE, GLINT_RANGE, nearestSpot, needsDig } from '../treasure'
+import { THROW_COOLDOWN, inSnowField, snow, throwBall } from './snowball'
 import {
   AWARDS_ROT,
   COCOA_SIZE,
@@ -24,7 +25,7 @@ import {
   resolve,
 } from './world'
 
-// 내 쿠키: 방향키/WASD 이동, Shift 달리기, Space 인사, E 상호작용(앉기·눕기·핫초코·소개서…).
+// 내 쿠키: 방향키/WASD 이동, Shift 달리기, Space 인사, E 상호작용(앉기·눕기·핫초코·소개서…), 눈밭에서 F 눈덩이.
 // 카메라는 화면 기준 고정 각도로 따라온다 (↑ 가 화면 위쪽).
 
 const WALK = 3.2
@@ -160,6 +161,17 @@ export function Player({
     state.current.say = text
     sayUntil.current = clock.elapsedTime + secs
   }
+  // ☃️ 눈싸움: 눈덩이 저장소에 나를 알려 둔다 (맞았는지 판단, 말풍선)
+  const thrownAt = useRef(-10)
+  snow.me = { id: seed, name, s: state.current }
+  snow.say = (text) => say(text, 1.6)
+  useEffect(
+    () => () => {
+      snow.me = null
+      snow.say = null
+    },
+    [],
+  )
 
   const standUp = () => {
     const s = state.current
@@ -185,6 +197,7 @@ export function Player({
         say('안녕! 👋')
       }
       if (e.code === 'KeyE' && !e.repeat) interact()
+      if (e.code === 'KeyF' && !e.repeat) throwSnow()
     }
     const up = (e: KeyboardEvent) => {
       const k = KEYS[e.code]
@@ -202,6 +215,16 @@ export function Player({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  function throwSnow() {
+    const s = state.current
+    if (s.pose !== 'stand' || !inSnowField(s.x, s.z)) return
+    const t = clock.elapsedTime
+    if (t - thrownAt.current < THROW_COOLDOWN) return
+    thrownAt.current = t
+    s.waveUntil = t + 0.35 // 팔을 휘두른다
+    throwBall({ id: seed, name, s })
+  }
 
   function interact() {
     const s = state.current

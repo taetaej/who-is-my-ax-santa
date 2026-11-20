@@ -9,7 +9,8 @@ import { Church } from './Church'
 import { type CookieState } from './Cookie'
 import { Batch } from './Batch'
 import { Fade } from './Fade'
-import { LiveCarolCount, LivePeers, LivePublisher } from './live'
+import { LiveCarolCount, LivePeers, LivePublisher, LiveSnow } from './live'
+import { SnowHitOverlay, Snowballs } from './Snowballs'
 import { M, rng } from './materials'
 import { Player, type PanelAction } from './Player'
 import { Bench, BigTree, Bridge, FenceRing, Lamp, PineTree, Present, Snowman } from './props'
@@ -332,6 +333,7 @@ export function Village({
         <Timeline />
         <Party />
         {elf && <Elf alert={elf.alert} chatter={elf.chatter} />}
+        {me && <Snowballs />}
         {treasure && me && <DecoyMounds />}
         {treasure && me && <GiftBoxes hidden={treasure.hidden} duds={treasure.duds} glow={treasure.glow} dig={dig} me={myState} burst={treasure.burst} />}
         <Fade x={at(SPOT.church)[0]} z={at(SPOT.church)[2]} r={2.4}>
@@ -351,6 +353,7 @@ export function Village({
             <LivePeers meId={me.id} onOnline={onOnline} />
             <LivePublisher state={myState} look={me.look ?? null} />
             <LiveCarolCount meId={me.id} me={myState} />
+            <LiveSnow />
           </>
         )}
         {!live && me && <CarolCount others={0} me={myState} />}
@@ -370,6 +373,7 @@ export function Village({
         </EffectComposer>
       </Canvas>
       {live && me && <div className="online-count">🍪 지금 마을에 {here}명</div>}
+      {me && <SnowHitOverlay />}
     </div>
   )
 }

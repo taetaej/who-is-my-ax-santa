@@ -1,4 +1,4 @@
-import { LiveblocksProvider, RoomProvider, useOther, useOthers, useUpdateMyPresence } from '@liveblocks/react'
+import { LiveblocksProvider, RoomProvider, useBroadcastEvent, useEventListener, useOther, useOthers, useUpdateMyPresence } from '@liveblocks/react'
 import { shallow } from '@liveblocks/client'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef, type MutableRefObject, type ReactNode } from 'react'
@@ -6,9 +6,10 @@ import type { Look } from '../look'
 import { Cookie, newCookieState, type CookieState, type Pose } from './Cookie'
 import { CarolCount } from './Spots'
 import { inCarol } from './world'
+import { receive, snow, type SnowMsg } from './snowball'
 
 // 실시간 마을 (Liveblocks presence).
-// 주고받는 것은 위치·방향·속도·자세·핫초코·인사뿐이다. 매칭이나 개인 정보는 보내지 않는다.
+// 주고받는 것은 위치·방향·속도·자세·핫초코·인사, 그리고 ☃️ 눈덩이 이벤트뿐이다. 매칭이나 개인 정보는 보내지 않는다.
 
 type Presence = {
   x: number
@@ -26,6 +27,7 @@ declare global {
   interface Liveblocks {
     Presence: Presence
     UserMeta: { id: string; info: { name: string } }
+    RoomEvent: SnowMsg
   }
 }
 
@@ -76,6 +78,19 @@ export function LivePublisher({ state, look }: { state: MutableRefObject<CookieS
   return null
 }
 
+/** ☃️ 눈덩이를 실시간으로 주고받는다 (던짐 · 맞음) */
+export function LiveSnow() {
+  const broadcast = useBroadcastEvent()
+  useEffect(() => {
+    snow.send = (m) => broadcast(m)
+    return () => {
+      snow.send = null
+    }
+  }, [broadcast])
+  useEventListener(({ event }) => receive(event))
+  return null
+}
+
 /** 캐롤 무대 앞에 모인 사람 수 (같은 사람이 창을 여러 개 열어도 한 명) */
 export function LiveCarolCount({ meId, me }: { meId: number; me: MutableRefObject<CookieState | null> }) {
   const others = useOthers((list) => new Set(list.filter((o) => Number(o.id) !== meId && o.presence && inCarol(o.presence.x, o.presence.z)).map((o) => o.id)).size)
@@ -114,6 +129,11 @@ function Peer({ connectionId }: { connectionId: number }) {
   const jumpAt = useRef(-10)
   const target = useRef(other.p)
   target.current = other.p
+  // ☃️ 눈덩이가 이 사람에게 맞았는지 보이게 위치를 알려 둔다
+  useEffect(() => {
+    snow.peers.set(connectionId, { id: other.id, name: other.name, s: state.current })
+    return () => void snow.peers.delete(connectionId)
+  }, [connectionId, other.id, other.name])
 
   useFrame(({ clock }, dt) => {
     const s = state.current

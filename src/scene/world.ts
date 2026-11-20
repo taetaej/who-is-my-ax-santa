@@ -26,7 +26,7 @@ export const SPOT = {
   post: { a: UP - 0.82, r: 11.4 }, // AX 우편함: 소개서 쓰기
   church: { a: -0.12, r: 14.9 }, // 오른쪽 끝 (앞쪽에 높은 건물이 있으면 카메라를 가린다)
   cocoa: { a: UP + 0.82, r: 11.4 }, // AX 카페: 핫초코
-  field: { a: 0.28, r: 11.3 }, // 눈밭: 눕기, (다음) 눈싸움
+  field: { a: 0.28, r: 11.3 }, // 눈밭: 눕기, 눈싸움 (snowball.ts)
   fire: { a: Math.PI - 0.28, r: 11.1 }, // 불멍 회의실: 모닥불에 둘러앉아 캐롤 듣기
   awards: { a: 1.0, r: 10.6 }, // 🏆 어워즈 키워드 부스 (앞 오른쪽)
   board: { a: Math.PI / 2 + 0.5, r: 5.1 }, // 마니또 게시판 (광장, 카메라 쪽을 본다)
@@ -109,7 +109,7 @@ export function actionAt(x: number, z: number): { action: Action; label: string 
   if (Math.hypot(x, z) < 4.3) return { action: 'tree', label: 'E · 🎄 메시지 트리 보기 · 쓰기' } // 광장 큰 트리
   if (near(SPOT.cocoa, 1.5, COCOA_SIZE.d / 2 + 0.55)) return { action: 'cocoa', label: 'E · ☕ AX 카페 핫초코 받기' }
   if (FIRE_SEATS.some((s) => Math.hypot(s.x - x, s.z - z) < 0.9)) return { action: 'sit', label: 'E · 🔥 불멍하러 앉기' }
-  if (near(SPOT.field, 3.4)) return { action: 'lie', label: 'E · ❄️ 눈밭에 눕기' }
+  if (near(SPOT.field, 3.4)) return { action: 'lie', label: 'F · ☃️ 눈덩이 던지기 · E · ❄️ 눕기' }
   return null
 }
 
