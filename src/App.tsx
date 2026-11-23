@@ -246,7 +246,7 @@ export function App() {
                 </div>
               </div>
             )}
-            <CarolPlayer level={carol} />
+            <CarolPlayer level={carol} onSongChange={setToast} />
 
             <div className="help">
               <kbd>←↑↓→</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>Space</kbd> 인사 · <kbd>E</kbd> 말 걸기·앉기 등 · <kbd>F</kbd> 눈밭에서 눈덩이 · <kbd>M</kbd> 전경

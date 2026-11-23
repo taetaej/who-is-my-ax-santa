@@ -1,21 +1,37 @@
 import { describe, expect, it } from 'vitest'
-import { syncedPosition, youtubeId } from './carol'
+import { mmss, onAir, parseSongFile, songsFrom } from './carol'
 
-describe('youtubeId', () => {
-  it('여러 모양의 유튜브 주소에서 ID 를 뽑는다', () => {
-    expect(youtubeId('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10s')).toBe('dQw4w9WgXcQ')
-    expect(youtubeId('https://youtu.be/dQw4w9WgXcQ?si=abc')).toBe('dQw4w9WgXcQ')
-    expect(youtubeId('https://www.youtube.com/shorts/dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ')
-    expect(youtubeId(' dQw4w9WgXcQ ')).toBe('dQw4w9WgXcQ')
-    expect(youtubeId('')).toBeNull()
-    expect(youtubeId('https://example.com')).toBeNull()
+describe('📻 곡 목록', () => {
+  it('파일 이름 → 제목과 작곡자 (앞 번호·확장자는 떼고, 마지막 " - " 뒤가 작곡자)', () => {
+    expect(parseSongFile('01 2026 Christmas Carol - 김민지.mp3')).toEqual({ title: '2026 Christmas Carol', composer: '김민지' })
+    expect(parseSongFile('2-눈 오는 AX.m4a')).toEqual({ title: '눈 오는 AX', composer: null })
+    expect(parseSongFile('03 Jingle - Bell - 서보라.mp3')).toEqual({ title: 'Jingle - Bell', composer: '서보라' })
+  })
+  it('파일 이름 순서 (번호는 숫자로 비교)', () => {
+    const s = songsFrom({ './carols/10 c.mp3': 'u10', './carols/2 b.mp3': 'u2', './carols/01 a.mp3': 'u1' })
+    expect(s.map((x) => x.title)).toEqual(['a', 'b', 'c'])
+    expect(s[0]).toEqual({ file: '01 a.mp3', title: 'a', composer: null, url: 'u1' })
   })
 })
 
-describe('syncedPosition', () => {
-  it('같은 시각이면 누구나 같은 위치, 곡 길이 안에서 돈다', () => {
-    expect(syncedPosition(200, 1_000_000)).toBe(1000 % 200)
-    expect(syncedPosition(180, 1_234_567)).toBeCloseTo(1234.567 % 180)
-    expect(syncedPosition(0, 5000)).toBe(0)
+describe('📻 라디오', () => {
+  const songs = [
+    { t: 'a', d: 100 },
+    { t: 'b', d: 0 }, // 길이를 모르면 건너뛴다
+    { t: 'c', d: 50 },
+  ]
+  const d = (s: { d: number }) => s.d
+  it('같은 시각이면 누구나 같은 곡의 같은 위치', () => {
+    expect(onAir(songs, d, 30_000)).toMatchObject({ song: { t: 'a' }, pos: 30, left: 70, next: { t: 'c' } })
+    expect(onAir(songs, d, 120_000)).toMatchObject({ song: { t: 'c' }, pos: 20, next: { t: 'a' } })
+    expect(onAir(songs, d, 160_000)).toMatchObject({ song: { t: 'a' }, pos: 10 }) // 150초마다 한 바퀴
+  })
+  it('곡이 없거나 길이를 모르면 null', () => {
+    expect(onAir([], d)).toBeNull()
+    expect(onAir([{ t: 'x', d: 0 }], d)).toBeNull()
+  })
+  it('mm:ss', () => {
+    expect(mmss(205)).toBe('3:25')
+    expect(mmss(9)).toBe('0:09')
   })
 })

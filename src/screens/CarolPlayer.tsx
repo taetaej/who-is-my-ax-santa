@@ -1,51 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
-import { CAROL, syncedPosition, youtubeId } from '../carol'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { labelHue, mmss, onAir, songsFrom, type Song } from '../carol'
+import { music } from '../scene/music'
 
-// 캐롤 무대 근처에 오면 유튜브 곡이 흐른다. 무대에 가까울수록 크게, 멀어지면 작아지다 멈춘다.
-// 다같이 같은 부분을 듣도록 재생 위치는 지금 시각으로 맞춘다 (carol.ts syncedPosition).
+// 📻 AX 캐롤 라디오 (🔥 불멍 회의실). 무대 근처에 오면 소리가 나고, 가까울수록 크다.
+// - 곡은 src/carols/ 폴더의 음원 파일. 라디오처럼 모두 같은 곡의 같은 부분을 듣는다 (carol.ts onAir).
+// - 소리를 분석해 박자를 3D 장면(스피커·불·전구)에 알려 준다 (scene/music.ts).
 
-type YTPlayer = {
-  playVideo(): void
-  pauseVideo(): void
-  seekTo(s: number, allowSeekAhead: boolean): void
-  setVolume(v: number): void
-  getDuration(): number
-  getPlayerState(): number
-  destroy(): void
-}
-type YTNamespace = {
-  Player: new (
-    el: HTMLElement,
-    opts: {
-      videoId: string
-      width: number
-      height: number
-      playerVars: Record<string, number | string>
-      events: { onReady: () => void; onStateChange: (e: { data: number }) => void; onError: (e: { data: number }) => void }
-    },
-  ) => YTPlayer
-}
-declare global {
-  interface Window {
-    YT?: YTNamespace
-    onYouTubeIframeAPIReady?: () => void
-  }
-}
-
-const PLAYING = 1
-const ENDED = 0
-
-let apiLoading: Promise<YTNamespace> | null = null
-function loadApi(): Promise<YTNamespace> {
-  apiLoading ??= new Promise((resolve) => {
-    if (window.YT?.Player) return resolve(window.YT)
-    window.onYouTubeIframeAPIReady = () => resolve(window.YT!)
-    const s = document.createElement('script')
-    s.src = 'https://www.youtube.com/iframe_api'
-    document.head.appendChild(s)
-  })
-  return apiLoading
-}
+const FILES = import.meta.glob('../carols/*.{mp3,m4a,ogg,wav,aac,MP3,M4A}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>
+export const SONGS: Song[] = songsFrom(FILES)
 
 const MUTE_KEY = 'santa-carol-muted'
 const readMuted = () => {
@@ -56,66 +18,119 @@ const readMuted = () => {
   }
 }
 
-export function CarolPlayer({ level }: { level: number }) {
-  const id = youtubeId(CAROL.youtube)
-  const host = useRef<HTMLDivElement>(null)
-  const player = useRef<YTPlayer | null>(null)
-  const [ready, setReady] = useState(false)
+/** 곡 길이를 미리 읽어 둔다 (파일 앞부분만). 모두 같은 파일이라 모두 같은 길이 → 같은 라디오 시간표 */
+function useDurations(songs: Song[], enabled: boolean) {
+  const [d, setD] = useState<Record<string, number>>({})
+  useEffect(() => {
+    if (!enabled) return
+    const els = songs.map((s) => {
+      const a = new Audio()
+      a.preload = 'metadata'
+      a.onloadedmetadata = () => setD((prev) => ({ ...prev, [s.file]: a.duration }))
+      a.onerror = () => setD((prev) => ({ ...prev, [s.file]: 0 }))
+      a.src = s.url
+      return a
+    })
+    return () => els.forEach((a) => (a.src = ''))
+  }, [songs, enabled])
+  return d
+}
+
+/** 소리 분석기를 붙인다 (처음 재생할 때 한 번). 못 붙이면 3D 는 가짜 박자로 움직인다 */
+function attachAnalyser(a: HTMLAudioElement) {
+  try {
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    const ctx = new Ctx()
+    const src = ctx.createMediaElementSource(a)
+    const an = ctx.createAnalyser()
+    an.fftSize = 256
+    an.smoothingTimeConstant = 0.6
+    src.connect(an)
+    an.connect(ctx.destination)
+    const bins = new Uint8Array(an.frequencyBinCount)
+    music.read = () => {
+      an.getByteFrequencyData(bins)
+      let bass = 0
+      for (let i = 1; i < 6; i++) bass += bins[i]
+      let all = 0
+      for (let i = 1; i < 64; i++) all += bins[i]
+      return { bass: bass / (5 * 255), level: Math.min(1, (all / (63 * 255)) * 2.2) }
+    }
+    return ctx
+  } catch {
+    return null
+  }
+}
+
+export function CarolPlayer({ level, onSongChange }: { level: number; onSongChange?: (text: string) => void }) {
+  const near = level > 0
+  const [seen, setSeen] = useState(false) // 한 번이라도 무대 근처에 왔는지 (그 전엔 길이도 안 읽는다)
+  useEffect(() => {
+    if (near) setSeen(true)
+  }, [near])
+  const durations = useDurations(SONGS, seen)
+  const audio = useRef<HTMLAudioElement | null>(null)
+  const ctx = useRef<AudioContext | null | undefined>(undefined)
   const [muted, setMuted] = useState(readMuted)
   const [blocked, setBlocked] = useState(false) // 브라우저가 자동재생을 막은 경우
-  const [broken, setBroken] = useState<number | null>(null) // 유튜브 오류 코드 (101·150 = 퍼가기 막힘)
-  const near = level > 0
+  const [listOpen, setListOpen] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
+  const lastFile = useRef<string | null>(null)
+  const songChange = useRef(onSongChange)
+  songChange.current = onSongChange
 
-  // 처음 무대 근처에 왔을 때 플레이어를 만든다
+  // 1초마다 시계 → 지금 흐르는 곡
   useEffect(() => {
-    if (!near || !id || player.current || !host.current) return
-    let cancelled = false
-    loadApi().then((YT) => {
-      if (cancelled || !host.current) return
-      // 유튜브가 이 요소를 iframe 으로 바꿔치기하므로, React 가 모르는 자식 요소를 따로 만들어 넘긴다
-      const el = document.createElement('div')
-      host.current.appendChild(el)
-      player.current = new YT.Player(el, {
-        videoId: id,
-        width: 224,
-        height: 126,
-        playerVars: { controls: 0, playsinline: 1, rel: 0, modestbranding: 1, disablekb: 1, origin: window.location.origin },
-        events: {
-          onReady: () => setReady(true),
-          onError: (e) => setBroken(e.data),
-          onStateChange: (e) => {
-            if (e.data === PLAYING) setBlocked(false)
-            if (e.data === ENDED) {
-              // 다 끝나면 처음부터 (모두 같은 시각에 끝나므로 계속 맞는다)
-              player.current?.seekTo(0, true)
-              player.current?.playVideo()
-            }
-          },
-        },
-      })
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [near, id])
+    if (!near) return
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [near])
+  const air = useMemo(() => onAir(SONGS, (s) => durations[s.file] ?? 0, now), [durations, now])
 
-  // 거리와 끄기 버튼에 맞춰 재생·볼륨을 조절한다
+  const play = (a: HTMLAudioElement) => {
+    if (ctx.current === undefined) ctx.current = attachAnalyser(a)
+    void ctx.current?.resume()
+    a.play().then(
+      () => {
+        setBlocked(false)
+        music.playing = true
+      },
+      () => {
+        setBlocked(true)
+        music.playing = false
+      },
+    )
+  }
+
+  // 곡이 바뀌면 그 곡을 그 위치부터. 같은 곡이면 너무 어긋났을 때만 맞춘다
   useEffect(() => {
-    const p = player.current
-    if (!p || !ready) return
-    if (near && !muted) {
-      p.setVolume(Math.round(15 + level * 85))
-      if (p.getPlayerState() !== PLAYING) {
-        p.seekTo(syncedPosition(p.getDuration()), true)
-        p.playVideo()
-        // 잠시 뒤에도 재생 중이 아니면 자동재생이 막힌 것
-        const t = setTimeout(() => player.current && player.current.getPlayerState() !== PLAYING && setBlocked(true), 1500)
-        return () => clearTimeout(t)
-      }
-    } else {
-      p.pauseVideo()
+    const a = (audio.current ??= new Audio())
+    music.song = near && air ? { title: air.song.title, composer: air.song.composer } : null
+    if (!near || muted || !air) {
+      a.pause()
+      music.playing = false
+      return
     }
-  }, [near, muted, level, ready])
+    a.volume = Math.min(1, 0.15 + level * 0.85)
+    const changed = lastFile.current !== air.song.file
+    if (changed) {
+      if (lastFile.current !== null) songChange.current?.(`🎶 다음 곡: ${air.song.title}${air.song.composer ? ` — ${air.song.composer}` : ''}`)
+      lastFile.current = air.song.file
+      a.src = air.song.url
+      a.currentTime = air.pos
+    } else if (Math.abs(a.currentTime - air.pos) > 2.5) a.currentTime = air.pos
+    if (a.paused) play(a)
+    music.playing = !a.paused
+  }, [near, muted, level, air])
+
+  useEffect(
+    () => () => {
+      audio.current?.pause()
+      music.playing = false
+      music.song = null
+    },
+    [],
+  )
 
   const toggle = () => {
     const m = !muted
@@ -126,48 +141,74 @@ export function CarolPlayer({ level }: { level: number }) {
       /* 저장 못 해도 괜찮다 */
     }
   }
-
   const playNow = () => {
-    const p = player.current
-    if (!p) return
-    p.seekTo(syncedPosition(p.getDuration()), true)
-    p.playVideo()
+    const a = audio.current
+    if (!a || !air) return
+    a.currentTime = air.pos
+    play(a)
   }
+
+  const playing = near && !muted && !blocked && !!air
+  const hue = air ? labelHue(air.song.title) : 8
 
   return (
     <div className={`carol ${near ? 'on' : ''}`} aria-hidden={!near}>
-      <div className="carol-head">
-        <span className="carol-eq" data-playing={near && !muted && !blocked}>
-          <i />
-          <i />
-          <i />
-        </span>
-        <div>
-          <b>{CAROL.title}</b>
-          <span className="muted small">작곡 · {CAROL.by}</span>
-        </div>
-        <button className="ghost small" onClick={toggle} title={muted ? '소리 켜기' : '소리 끄기'}>
+      <p className="carol-kicker">
+        📻 AX 캐롤 라디오 {SONGS.length > 0 && <span>· {SONGS.length}곡</span>}
+        <button className="carol-mute" onClick={toggle} title={muted ? '소리 켜기' : '소리 끄기'}>
           {muted ? '🔇' : '🔊'}
         </button>
+      </p>
+      <div className="carol-now">
+        <div className={`vinyl ${playing ? 'spin' : ''}`} style={{ '--hue': hue } as CSSProperties}>
+          <i />
+        </div>
+        <div className="carol-meta">
+          <b>{air ? air.song.title : SONGS.length ? '곡을 불러오는 중…' : '곡이 아직 없어요'}</b>
+          <span>{air ? (air.song.composer ? `🎼 ${air.song.composer}` : 'AX 팀원 작곡') : SONGS.length ? '' : '팀원들의 캐롤을 기다리는 중 🎄'}</span>
+          {air && (
+            <div className="carol-progress">
+              <div className="bar">
+                <i style={{ width: `${(air.pos / (air.pos + air.left)) * 100}%` }} />
+              </div>
+              <span>
+                {mmss(air.pos)} / {mmss(air.pos + air.left)}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
-      {id ? (
-        <div className="carol-video" ref={host} />
-      ) : (
-        <p className="muted small">곡 링크가 아직 없어요 (src/carol.ts)</p>
-      )}
-      {broken !== null && (
-        <p className="error small">
-          {broken === 101 || broken === 150 || broken === 153
-            ? '이 영상은 다른 사이트에서 재생할 수 없게 막혀 있어요. 유튜브 스튜디오에서 "퍼가기 허용"을 켜 주세요.'
-            : `영상을 불러오지 못했어요 (오류 ${broken})`}
-        </p>
-      )}
-      {blocked && !muted && broken === null && (
-        <button className="ghost small" onClick={playNow}>
+      {blocked && !muted && air && (
+        <button className="ghost small carol-play" onClick={playNow}>
           ▶ 눌러서 같이 듣기
         </button>
       )}
-      <p className="muted small">🎧 무대 가까이 갈수록 크게 들려요</p>
+      {air?.next && air.next.file !== air.song.file && (
+        <p className="carol-next">
+          다음 곡 · {air.next.title}
+          {air.next.composer && <span> — {air.next.composer}</span>}
+        </p>
+      )}
+      {SONGS.length > 0 && (
+        <button className="carol-list-toggle" onClick={() => setListOpen((v) => !v)}>
+          {listOpen ? '플레이리스트 접기 ▴' : `🎵 플레이리스트 ${SONGS.length}곡 ▾`}
+        </button>
+      )}
+      {listOpen && (
+        <ol className="carol-list">
+          {SONGS.map((s) => (
+            <li key={s.file} className={air?.song.file === s.file ? 'on' : ''}>
+              <span className="dot" style={{ '--hue': labelHue(s.title) } as CSSProperties} />
+              <span className="t">
+                {s.title}
+                {s.composer && <em> {s.composer}</em>}
+              </span>
+              <span className="d">{durations[s.file] ? mmss(durations[s.file]) : ''}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <p className="carol-foot">🔥 불가에 앉아서 들어 보세요 · 가까울수록 크게</p>
     </div>
   )
 }

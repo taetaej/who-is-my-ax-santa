@@ -1,9 +1,10 @@
-import { Html } from '@react-three/drei'
+import { Html, Sparkles } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef, useState, type MutableRefObject, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from 'react'
 import type { CookieState } from './Cookie'
-import { CAROL } from '../carol'
 import { TextSign } from './TextSign'
+import { music, tickMusic } from './music'
+import { labelHue } from '../carol'
 import * as THREE from 'three'
 import { Batch } from './Batch'
 import { Fade } from './Fade'
@@ -205,13 +206,15 @@ function CocoaStall() {
 function Fire() {
   const flames = useRef<THREE.Group>(null)
   const light = useRef<THREE.PointLight>(null)
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, dt) => {
     const t = clock.elapsedTime
+    tickMusic(t, Math.min(dt, 0.05)) // 📻 박자 계산은 여기서 프레임마다 한 번
+    const k = music.kick
     flames.current?.children.forEach((c, i) => {
-      c.scale.y = 1 + Math.sin(t * (7 + i * 2.3) + i) * 0.25
+      c.scale.y = 1 + Math.sin(t * (7 + i * 2.3) + i) * 0.25 + k * 0.35
       c.rotation.y = t * (0.5 + i * 0.2)
     })
-    if (light.current) light.current.intensity = 14 + Math.sin(t * 13) * 2 + Math.sin(t * 7.3) * 1.6
+    if (light.current) light.current.intensity = 14 + Math.sin(t * 13) * 2 + Math.sin(t * 7.3) * 1.6 + k * 6 + music.level * 3
   })
   return (
     <group>
@@ -386,7 +389,7 @@ function Board() {
   )
 }
 
-// ── 🎵 모닥불 캐롤: 스피커 두 대 + 김민지 앨범 입간판. 불가에 모이면 다같이 리듬을 탄다 ─────
+// ── 📻 모닥불 AX 캐롤 라디오: 스피커 두 대 + 턴테이블 부스 + 전구 줄 + 지금 나오는 곡. 불가에 모이면 다같이 리듬을 탄다 ─────
 // 모닥불 기준 상대 위치 (x: 화면 오른쪽, z: 화면 아래). 불 뒤편(화면 위쪽)에 둬서 불을 가리지 않는다
 const FIRE_AT = at(SPOT.fire)
 const SPEAKERS = [
@@ -401,16 +404,16 @@ const SPEAKERS = [
 const STANDEE = (() => {
   const x = FIRE_AT[0] + 2.45
   const z = FIRE_AT[2] - 2.25
-  addRotBox(x, z, 0.35, 0.7, 0.25)
+  addRotBox(x, z, 0.35, 0.72, 0.36) // 턴테이블 부스
   return { x, z, rot: 0.35 }
 })()
 
 function Speaker() {
   const cone = useRef<THREE.Group>(null)
   useFrame(({ clock }) => {
-    // 쿵짝쿵짝 우퍼가 들썩
+    // 쿵짝쿵짝 우퍼가 들썩: 음악이 나오면 실제 저음에 맞춰, 아니면 아주 살짝
     const t = clock.elapsedTime
-    cone.current?.scale.setScalar(1 + Math.max(0, Math.sin(t * 8.4)) * 0.12)
+    cone.current?.scale.setScalar(music.playing ? 1 + music.kick * 0.2 + music.level * 0.05 : 1 + Math.max(0, Math.sin(t * 2)) * 0.02)
   })
   return (
     <group>
@@ -441,40 +444,148 @@ function Speaker() {
   )
 }
 
-function AlbumStandee() {
+// 턴테이블 부스: 음악이 나오면 LP 가 돌고, 라벨 색은 곡마다 다르다
+const VINYL_LABEL = new THREE.MeshStandardMaterial({ color: '#e0563c', roughness: 0.5 })
+const VINYL = new THREE.MeshStandardMaterial({ color: '#141016', roughness: 0.25, metalness: 0.3 })
+const CRATE_LPS = [M.ribbon, M.gold, M.presents[0], M.presents[1], M.trim]
+function TurntableBooth() {
+  const platter = useRef<THREE.Group>(null)
+  const arm = useRef<THREE.Group>(null)
+  const lastTitle = useRef<string | null>(null)
+  useFrame((_, dt) => {
+    const on = music.playing
+    if (platter.current && on) platter.current.rotation.y -= dt * 3.5 // 33⅓ rpm 쯤
+    if (arm.current) arm.current.rotation.y += ((on ? -0.42 : 0.1) - arm.current.rotation.y) * Math.min(1, dt * 3)
+    const title = music.song?.title ?? null
+    if (title !== lastTitle.current) {
+      lastTitle.current = title
+      VINYL_LABEL.color.setHSL((title ? labelHue(title) : 8) / 360, 0.7, 0.55)
+    }
+  })
   return (
     <group>
       <Batch>
-        {[-0.5, 0.5].map((px) => (
-          <mesh key={px} position={[px, 0.75, -0.08]} rotation={[-0.12, 0, 0]} material={M.woodDark} castShadow>
-            <boxGeometry args={[0.07, 1.6, 0.07]} />
-          </mesh>
-        ))}
-        <mesh position={[0, 1.35, 0]} rotation={[-0.12, 0, 0]} material={M.coal} castShadow>
-          <boxGeometry args={[1.3, 1.3, 0.06]} />
+        {/* 나무 테이블 */}
+        <mesh position={[0, 0.72, 0]} material={M.wood} castShadow receiveShadow>
+          <boxGeometry args={[1.25, 0.08, 0.62]} />
         </mesh>
-        <mesh position={[0, 2.04, -0.02]} material={M.snow} scale={[1, 0.3, 1]}>
-          <boxGeometry args={[1.32, 0.12, 0.16]} />
+        <mesh position={[0, 0.36, 0]} material={M.woodDark} castShadow>
+          <boxGeometry args={[1.15, 0.68, 0.5]} />
+        </mesh>
+        {/* 턴테이블 몸체 */}
+        <mesh position={[-0.12, 0.81, 0]} material={M.coal} castShadow>
+          <boxGeometry args={[0.66, 0.1, 0.5]} />
+        </mesh>
+        {/* 눈 */}
+        <mesh position={[0, 0.77, -0.27]} material={M.snow} scale={[1, 0.25, 0.4]}>
+          <sphereGeometry args={[0.6, 12, 6]} />
+        </mesh>
+        {/* LP 상자 */}
+        <mesh position={[0.43, 0.88, 0.02]} material={M.kraft} castShadow>
+          <boxGeometry args={[0.3, 0.24, 0.34]} />
         </mesh>
       </Batch>
-      <group position={[0, 1.35, 0]} rotation={[-0.12, 0, 0]}>
-        <TextSign
-          w={1.24}
-          h={1.24}
-          position={[0, 0, 0.035]}
-          bg="#1b2448"
-          radius={0.04}
-          glow
-          lines={[
-            { text: '✦ NEW ALBUM ✦', size: 0.08, color: '#ffcf4a', weight: 900, gap: 0.02 },
-            { text: '🎄', size: 0.3 },
-            { text: CAROL.by, size: 0.16, color: '#ffffff', weight: 900 },
-            { text: CAROL.title, size: 0.095, color: '#ffd9a0', weight: 800, gap: 0.03 },
-            { text: '🔥 불멍 회의실 가까이 오면 크게 들려요', size: 0.05, color: '#b9c6ea', weight: 600 },
-          ]}
-        />
+      {CRATE_LPS.map((m, i) => (
+        <mesh key={i} position={[0.33 + i * 0.045, 1.0, 0.02]} rotation={[0, 0, 0.08 - i * 0.04]} material={m}>
+          <boxGeometry args={[0.012, 0.3, 0.3]} />
+        </mesh>
+      ))}
+      <group ref={platter} position={[-0.2, 0.87, 0]}>
+        <mesh material={VINYL} castShadow>
+          <cylinderGeometry args={[0.2, 0.2, 0.012, 32]} />
+        </mesh>
+        <mesh position={[0, 0.008, 0]} material={VINYL_LABEL}>
+          <cylinderGeometry args={[0.07, 0.07, 0.006, 20]} />
+        </mesh>
+        <mesh position={[0.04, 0.012, 0]} material={M.snow}>
+          <boxGeometry args={[0.03, 0.002, 0.01]} />
+        </mesh>
       </group>
-      <pointLight position={[0, 1.6, 0.9]} color="#ffd9a0" intensity={2.5} distance={3} decay={2} />
+      {/* 톤암 */}
+      <group ref={arm} position={[0.1, 0.9, -0.16]} rotation={[0, 0.1, 0]}>
+        <mesh position={[0, 0.02, 0.13]} material={M.iron}>
+          <boxGeometry args={[0.02, 0.02, 0.28]} />
+        </mesh>
+        <mesh material={M.gold}>
+          <cylinderGeometry args={[0.035, 0.035, 0.05, 12]} />
+        </mesh>
+      </group>
+      {/* 앞판 간판 */}
+      <TextSign
+        w={1.05}
+        h={0.36}
+        position={[0, 0.42, 0.26]}
+        bg="#2b1e34"
+        radius={0.05}
+        glow
+        lines={[
+          { text: '📻 AX 캐롤 라디오', size: 0.11, color: '#ffffff', weight: 900, kr: true },
+          { text: '● ON AIR', size: 0.07, color: '#ff8a6a', weight: 900, gap: 0.02 },
+        ]}
+      />
+    </group>
+  )
+}
+
+// 불가를 감싸는 전구 줄: 음악 소리에 맞춰 밝아졌다 어두워졌다
+const FESTOON_BULB = new THREE.MeshStandardMaterial({ color: '#ffe2a8', emissive: '#ffb45a', emissiveIntensity: 1.6, toneMapped: false })
+const FESTOON_POLES = [
+  { dx: -3.5, dz: 0.9 },
+  { dx: -2.9, dz: -2.4 },
+  { dx: -0.6, dz: -3.7 },
+  { dx: 2.2, dz: -3.4 },
+  { dx: 3.6, dz: -0.9 },
+].map(({ dx, dz }) => {
+  const x = FIRE_AT[0] + dx
+  const z = FIRE_AT[2] + dz
+  addCircle(x, z, 0.12)
+  return { x, z }
+})
+const POLE_H = 2.5
+function FestoonLights() {
+  const { strand, bulbs } = useMemo(() => {
+    const pts: THREE.Vector3[] = []
+    const bulbs: THREE.Vector3[] = []
+    for (let i = 0; i < FESTOON_POLES.length - 1; i++) {
+      const a = FESTOON_POLES[i]
+      const b = FESTOON_POLES[i + 1]
+      for (let k = 0; k <= 12; k++) {
+        const t = k / 12
+        const p = new THREE.Vector3(a.x + (b.x - a.x) * t, POLE_H - Math.sin(t * Math.PI) * 0.45, a.z + (b.z - a.z) * t)
+        if (k < 12 || i === FESTOON_POLES.length - 2) pts.push(p)
+        if (k % 2 === 1) bulbs.push(p.clone().add(new THREE.Vector3(0, -0.07, 0)))
+      }
+    }
+    return { strand: new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 120, 0.018, 5), bulbs }
+  }, [])
+  const bulbRef = useRef<THREE.InstancedMesh>(null)
+  useEffect(() => {
+    const m = bulbRef.current
+    if (!m) return
+    const o = new THREE.Object3D()
+    bulbs.forEach((p, i) => {
+      o.position.copy(p)
+      o.updateMatrix()
+      m.setMatrixAt(i, o.matrix)
+    })
+    m.instanceMatrix.needsUpdate = true
+  }, [bulbs])
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime
+    FESTOON_BULB.emissiveIntensity = music.playing ? 1.3 + music.level * 1.6 + music.kick * 1.4 : 1.4 + Math.sin(t * 1.3) * 0.15
+  })
+  const bulbGeo = useMemo(() => new THREE.SphereGeometry(0.07, 8, 6), [])
+  return (
+    <group>
+      <mesh geometry={strand} material={M.iron} />
+      <instancedMesh ref={bulbRef} args={[bulbGeo, FESTOON_BULB, bulbs.length]} />
+      <Batch>
+        {FESTOON_POLES.map((p, i) => (
+          <mesh key={i} position={[p.x, POLE_H / 2, p.z]} material={M.woodDark} castShadow>
+            <cylinderGeometry args={[0.045, 0.06, POLE_H, 8]} />
+          </mesh>
+        ))}
+      </Batch>
     </group>
   )
 }
@@ -496,16 +607,38 @@ function Notes({ position }: { position: V3 }) {
 /** 모닥불 위에 "🎧 N명 듣는 중" (나 + 불가에 모인 다른 사람) */
 export function CarolCount({ others, me }: { others: number; me: MutableRefObject<CookieState | null> }) {
   const [mine, setMine] = useState(false)
+  // 📻 지금 나오는 곡 (무대 근처에서 소리가 날 때만)
+  const [song, setSong] = useState<typeof music.song>(null)
+  const songKey = useRef('')
   useFrame(() => {
     const s = me.current
     const v = !!s && inCarol(s.x, s.z)
     if (v !== mine) setMine(v)
+    const now = music.playing ? music.song : null
+    const k = now ? `${now.title}|${now.composer ?? ''}` : ''
+    if (k !== songKey.current) {
+      songKey.current = k
+      setSong(now)
+    }
   })
   const n = others + (mine ? 1 : 0)
-  if (n === 0) return null
+  if (n === 0 && !song) return null
   return (
     <Html position={[FIRE_AT[0], 2.75, FIRE_AT[2]]} center distanceFactor={10} zIndexRange={[5, 0]} style={{ pointerEvents: 'none' }}>
-      <div className="spot-count">🎧 {n}명 같이 듣는 중</div>
+      {song ? (
+        <div className="now-playing">
+          <span className="eq">
+            <i />
+            <i />
+            <i />
+          </span>
+          {song.title}
+          {song.composer && <em>— {song.composer}</em>}
+          {n > 0 && <small>🎧 {n}명</small>}
+        </div>
+      ) : (
+        <div className="spot-count">🎧 {n}명 같이 듣는 중</div>
+      )}
     </Html>
   )
 }
@@ -519,9 +652,12 @@ function FireCarol() {
         </group>
       ))}
       <group position={[STANDEE.x, 0, STANDEE.z]} rotation={[0, STANDEE.rot, 0]}>
-        <AlbumStandee />
+        <TurntableBooth />
       </group>
+      <FestoonLights />
       <Notes position={[FIRE_AT[0], 1.6, FIRE_AT[2]]} />
+      {/* 불티처럼 떠오르는 따뜻한 빛 */}
+      <Sparkles count={36} scale={[4.5, 2.6, 4.5]} position={[FIRE_AT[0], 1.5, FIRE_AT[2]]} size={3.2} speed={0.35} opacity={0.75} color="#ffbe7a" />
     </group>
   )
 }
@@ -668,7 +804,7 @@ export function Spots({ tree }: { tree: TreeInfo | null }) {
 
       <SpotLabel position={polar(SPOT.post.a, SPOT.post.r, 3.6)} text="📮 AX 우편함 · 관찰 리포트" />
       <SpotLabel position={polar(SPOT.cocoa.a, SPOT.cocoa.r, 3.3)} text="☕ AX 카페" />
-      <SpotLabel position={polar(SPOT.fire.a, SPOT.fire.r, 2.2)} text="🔥 불멍 회의실 · 🎵 캐롤" />
+      <SpotLabel position={polar(SPOT.fire.a, SPOT.fire.r, 2.2)} text="🔥 불멍 회의실 · 📻 캐롤 라디오" />
       <SpotLabel position={polar(SPOT.field.a, SPOT.field.r, 1.9)} text="❄️ 눈밭" />
       <SpotLabel position={polar(SPOT.awards.a, SPOT.awards.r, 2.6)} text="🏆 AX 어워즈" />
       <SpotLabel position={polar(SPOT.board.a, SPOT.board.r, 2.15)} text="📋 산타 게시판" />

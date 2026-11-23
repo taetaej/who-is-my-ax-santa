@@ -28,7 +28,7 @@ AX팀 연말 마니또 웹 서비스. 기획 문서는 `docs/`(PRD, IA, VILLAGE)
 | API | Hono 4 | `server/app.ts` 하나. Vercel 에서는 함수(`api/index.ts`), 로컬에서는 Node 서버(`server/dev.ts`) |
 | DB | Postgres — 배포: **Neon**, 로컬: **PGlite** | 같은 SQL 을 그대로 쓴다. 로컬은 설치 없이 `.data/pglite` 파일에 저장 |
 | 실시간 | **Liveblocks** (presence) | 다른 사람의 위치·자세·꾸미기·인사를 실시간으로 |
-| 음악 | YouTube IFrame API | 불멍 회의실 캐롤. 거리 따라 볼륨, 모두 같은 소절 |
+| 음악 | HTML Audio + Web Audio 분석 | 📻 AX 캐롤 라디오: `src/carols/` 음원 파일(`번호 제목 - 작곡자.mp3`)을 차례로. 거리 따라 볼륨, 모두 같은 곡·같은 소절, 박자에 맞춰 무대가 반응 |
 | 서체 | Sora(영문 제목) · 페이퍼로지(한글) · 서툰이야기 Poor Story(말풍선 손글씨) | Google Fonts + 눈누 CDN |
 | 테스트 | Vitest | 매칭, 관찰 리포트·꾸미기·질문·어워즈 키워드 상 규칙, 엘프 잔소리 로직 |
 | 배포 | Vercel (Hobby) | `main` 푸시 → 자동 배포. 환경변수: `DATABASE_URL`, `SESSION_SECRET`, `LIVEBLOCKS_SECRET_KEY` |
