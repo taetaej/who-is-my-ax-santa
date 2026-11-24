@@ -16,6 +16,7 @@ import { Login } from './screens/Login'
 import { clearEntered, enteredThisTab } from './entry'
 import { ProfileForm } from './screens/ProfileForm'
 import { CarolPlayer } from './screens/CarolPlayer'
+import { EmoteBar } from './screens/EmoteBar'
 
 type Modal = 'manito' | 'profile' | 'letter' | 'guess' | 'look' | 'tree' | 'awards' | 'elf' | 'admin' | 'treasure' | null
 
@@ -247,9 +248,10 @@ export function App() {
               </div>
             )}
             <CarolPlayer level={carol} onSongChange={setToast} />
+            <EmoteBar show={modal === null && !firstVisit} />
 
             <div className="help">
-              <kbd>←↑↓→</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>Space</kbd> 인사 · <kbd>E</kbd> 말 걸기·앉기 등 · <kbd>F</kbd> 눈밭에서 눈덩이 · <kbd>M</kbd> 전경
+              <kbd>←↑↓→</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>Space</kbd> 인사 · <kbd>E</kbd> 말 걸기·앉기·썰매 등 · <kbd>F</kbd> 눈밭에서 눈덩이 · <kbd>1~8</kbd> 반응 · <kbd>M</kbd> 전경
             </div>
 
             <nav className="dock">

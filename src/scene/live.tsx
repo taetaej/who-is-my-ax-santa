@@ -3,13 +3,14 @@ import { shallow } from '@liveblocks/client'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useRef, type MutableRefObject, type ReactNode } from 'react'
 import type { Look } from '../look'
-import { Cookie, newCookieState, type CookieState, type Pose } from './Cookie'
+import { Cookie, newCookieState, popOn, type CookieState, type Pose } from './Cookie'
+import { emoteOf, emotes, type EmoteOut } from './emote'
 import { CarolCount } from './Spots'
-import { inCarol } from './world'
+import { groundY, inCarol } from './world'
 import { receive, snow, type SnowMsg } from './snowball'
 
 // 실시간 마을 (Liveblocks presence).
-// 주고받는 것은 위치·방향·속도·자세·핫초코·인사, 그리고 ☃️ 눈덩이 이벤트뿐이다. 매칭이나 개인 정보는 보내지 않는다.
+// 주고받는 것은 위치·방향·속도·자세·핫초코·인사·💬 반응, 그리고 ☃️ 눈덩이 이벤트뿐이다. 매칭이나 개인 정보는 보내지 않는다.
 
 type Presence = {
   x: number
@@ -21,6 +22,7 @@ type Presence = {
   look: Look | null
   wave: number // 인사할 때마다 바뀌는 값
   say: string | null
+  emote: EmoteOut | null // 💬 반응 (n 이 바뀔 때마다 한 번)
 }
 
 declare global {
@@ -31,7 +33,7 @@ declare global {
   }
 }
 
-const initialPresence: Presence = { x: 0, z: 0, rot: 0, speed: 0, pose: 'stand', cup: false, look: null, wave: 0, say: null }
+const initialPresence: Presence = { x: 0, z: 0, rot: 0, speed: 0, pose: 'stand', cup: false, look: null, wave: 0, say: null, emote: null }
 
 export function LiveRoot({ room, children }: { room: string; children: ReactNode }) {
   // 무료 플랜 배지: 오른쪽 아래면 좁은 화면에서 로그아웃 버튼을 가려서 왼쪽 아래로
@@ -68,6 +70,7 @@ export function LivePublisher({ state, look }: { state: MutableRefObject<CookieS
       cup: s.cup,
       wave: s.waveUntil,
       say: s.say,
+      emote: s.emote,
     }
     const key = JSON.stringify(p)
     if (key === last.current) return
@@ -126,6 +129,7 @@ function Peer({ connectionId }: { connectionId: number }) {
   const other = useOther(connectionId, (o) => ({ p: o.presence, id: Number(o.id), name: o.info?.name ?? '', look: o.presence.look ?? null }), shallow)
   const state = useRef<CookieState>(newCookieState(other.p.x, other.p.z, other.p.rot))
   const seenWave = useRef(other.p.wave)
+  const seenEmote = useRef(other.p.emote?.n ?? 0) // 들어오기 전에 보낸 반응은 다시 띄우지 않는다
   const jumpAt = useRef(-10)
   const target = useRef(other.p)
   target.current = other.p
@@ -159,8 +163,23 @@ function Peer({ connectionId }: { connectionId: number }) {
         jumpAt.current = t
       }
     }
+    // 💬 반응: 머리 위 이모지, 받는 사람이 있으면 그 사람 머리 위에도
+    const e = p.emote
+    if (e && e.n !== seenEmote.current) {
+      seenEmote.current = e.n
+      const def = emoteOf(e.id)
+      if (def) {
+        popOn(s, def.icon)
+        if (e.to != null && e.to === snow.me?.id) {
+          popOn(snow.me.s, def.icon)
+          emotes.onGot?.({ id: other.id, name: other.name, x: s.x, z: s.z }, def.id)
+        } else if (e.to != null) {
+          for (const peer of snow.peers.values()) if (peer.id === e.to) popOn(peer.s, def.icon)
+        }
+      }
+    }
     const jt = t - jumpAt.current
-    s.y = jt < 0.45 ? Math.sin((jt / 0.45) * Math.PI) * 0.35 : 0
+    s.y = (jt < 0.45 ? Math.sin((jt / 0.45) * Math.PI) * 0.35 : 0) + groundY(s.x, s.z)
     s.say = p.say
     s.pose = p.pose ?? 'stand'
     s.cup = !!p.cup

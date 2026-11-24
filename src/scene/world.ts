@@ -92,8 +92,64 @@ export function onIce(x: number, z: number): boolean {
   return r > ISLAND_R + 0.05 && r < POND_OUT - 0.05 && Math.abs(x) > 0.55
 }
 
+// ── 🛷 눈썰매장 ────────────────────────────────────────────────
+// 왼쪽 뒤(모닥불과 우편함 사이). 울타리 쪽 꼭대기에서 광장 쪽으로 미끄러져 내려온다.
+// 언덕 위치는 숨은 선물 자리(s42, s44)를 비켜서 정했다.
+// s = 꼭대기 출발점에서 내려온 거리, w = 옆으로 비킨 거리
+export const SLED = {
+  a: 3.425, // 언덕이 놓인 각도
+  top: 14.3, // 꼭대기 출발점까지 거리 (중심에서)
+  h: 2.6, // 언덕 높이
+  len: 5.0, // 비탈 길이
+  back: 1.9, // 꼭대기 뒤로 내려가는 길이 (울타리 쪽)
+  deck: 0.9, // 꼭대기 평평한 곳 (출발점 뒤로)
+  track: 0.85, // 썰매 길 반폭
+  half: 2.0, // 언덕 반폭
+  run: 2.9, // 비탈 끝에서 평지로 미끄러지는 최대 거리 (더 가면 광장 가로등)
+  gate: 0.9, // 비탈 끝에서 타는 곳까지
+} as const
+/** 내려가는 방향 (마을 중심 쪽) */
+export const SLED_DIR = { x: -Math.cos(SLED.a), z: -Math.sin(SLED.a) }
+const SLED_SIDE = { x: -SLED_DIR.z, z: SLED_DIR.x }
+const SLED_TOP = { x: Math.cos(SLED.a) * SLED.top, z: Math.sin(SLED.a) * SLED.top }
+/** 썰매 방향 (CookieState.rot): 내려갈 때 */
+export const SLED_ROT = Math.atan2(SLED_DIR.x, SLED_DIR.z)
+export const sledPoint = (s: number, w = 0) => ({ x: SLED_TOP.x + SLED_DIR.x * s + SLED_SIDE.x * w, z: SLED_TOP.z + SLED_DIR.z * s + SLED_SIDE.z * w })
+export function sledLocal(x: number, z: number) {
+  const dx = x - SLED_TOP.x
+  const dz = z - SLED_TOP.z
+  return { s: dx * SLED_DIR.x + dz * SLED_DIR.z, w: dx * SLED_SIDE.x + dz * SLED_SIDE.z }
+}
+const smooth = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t))
+/** 언덕 가운데 줄의 높이 */
+export function sledProfile(s: number): number {
+  if (s >= SLED.len) return 0
+  if (s >= 0) return SLED.h * (0.5 + 0.5 * Math.cos((Math.PI * s) / SLED.len))
+  if (s >= -SLED.deck) return SLED.h
+  return SLED.h * (1 - smooth((-s - SLED.deck) / SLED.back))
+}
+/** 언덕 단면: 썰매 길은 평평하고, 양옆은 둥글게 내려간다 */
+const sledSide = (w: number) => 1 - smooth((Math.abs(w) - SLED.track - 0.35) / (SLED.half - SLED.track - 0.35))
+/** 땅 높이 (언덕 위면 그 높이, 아니면 0) */
+export function groundY(x: number, z: number): number {
+  const { s, w } = sledLocal(x, z)
+  if (s < -SLED.deck - SLED.back || s > SLED.len || Math.abs(w) > SLED.half) return 0
+  return sledProfile(s) * sledSide(w)
+}
+/** 썰매가 앞으로 기울어지는 각도 (내려가는 비탈) */
+export function sledTilt(x: number, z: number): number {
+  const { s } = sledLocal(x, z)
+  const d = 0.05
+  return Math.atan((sledProfile(s - d) - sledProfile(s + d)) / (2 * d))
+}
+/** 썰매 미끄럼 길 (언덕 + 평지 끝까지): 위장 눈더미를 두지 않는다 */
+export function onSledRun(x: number, z: number) {
+  const { s, w } = sledLocal(x, z)
+  return s > -SLED.deck - SLED.back && s < SLED.len + SLED.run + 0.6 && Math.abs(w) < SLED.half + 0.4
+}
+
 // ── 상호작용 지점 ───────────────────────────────────────────────
-export type Action = 'letter' | 'manito' | 'tree' | 'awards' | 'elf' | 'cake' | 'cocoa' | 'sit' | 'lie'
+export type Action = 'letter' | 'manito' | 'tree' | 'awards' | 'elf' | 'cake' | 'cocoa' | 'sit' | 'lie' | 'sled'
 
 /** 지금 서 있는 곳에서 E 로 할 수 있는 일 */
 export function actionAt(x: number, z: number): { action: Action; label: string } | null {
@@ -109,6 +165,10 @@ export function actionAt(x: number, z: number): { action: Action; label: string 
   if (Math.hypot(x, z) < 4.3) return { action: 'tree', label: 'E · 🎄 메시지 트리 보기 · 쓰기' } // 광장 큰 트리
   if (near(SPOT.cocoa, 1.5, COCOA_SIZE.d / 2 + 0.55)) return { action: 'cocoa', label: 'E · ☕ AX 카페 핫초코 받기' }
   if (FIRE_SEATS.some((s) => Math.hypot(s.x - x, s.z - z) < 0.9)) return { action: 'sit', label: 'E · 🔥 불멍하러 앉기' }
+  {
+    const g = sledPoint(SLED.len + SLED.gate)
+    if (Math.hypot(g.x - x, g.z - z) < 1.3) return { action: 'sled', label: 'E · 🛷 눈썰매 타기' }
+  }
   if (near(SPOT.field, 3.4)) return { action: 'lie', label: 'F · ☃️ 눈덩이 던지기 · E · ❄️ 눕기' }
   return null
 }
@@ -140,6 +200,11 @@ circles.push({ x: ELF.x, z: ELF.z, r: 0.35 }) // 엘프
 {
   const [x, , z] = at(SPOT.fire)
   circles.push({ x, z, r: 0.75 }) // 불
+}
+{
+  // 🛷 눈썰매 언덕 (걸어서는 못 올라간다. 탈 때만 위로)
+  const c = sledPoint((-SLED.deck - SLED.back + SLED.len * 0.8) / 2)
+  boxes.push({ x: c.x, z: c.z, rot: SLED_ROT, hw: SLED.half - 0.2, hd: (SLED.deck + SLED.back + SLED.len * 0.8) / 2 })
 }
 for (const a of LAMP_ANGLES) {
   const [x, , z] = polar(a, LAMP_R)

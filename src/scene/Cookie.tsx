@@ -4,7 +4,9 @@ import { useMemo, useRef, type MutableRefObject, type RefObject } from 'react'
 import * as THREE from 'three'
 import { DOUGHS, cleanLook, defaultLook, type Look } from '../look'
 import { rng } from './materials'
-import { inCarol } from './world'
+import type { EmoteOut } from './emote'
+import { Sled } from './SledHill'
+import { inCarol, sledTilt } from './world'
 
 // 진저브레드 쿠키 주민. 모델이 정적이라 걷기·인사는 코드로 팔다리를 흔들어 표현한다 (PRD 1.6).
 
@@ -19,11 +21,15 @@ export type CookieState = {
   say: string | null
   pose: Pose
   cup: boolean // 핫초코를 들고 있는지
+  emote: EmoteOut | null // 💬 내가 보낸 반응 (실시간으로 보낸다)
+  pop: { icon: string; n: number } | null // 머리 위에 떠오르는 이모지 (n 이 바뀔 때마다)
 }
 
-export type Pose = 'stand' | 'sit' | 'lie'
+export type Pose = 'stand' | 'sit' | 'lie' | 'sled'
 
-export const newCookieState = (x = 0, z = 0, rot = 0): CookieState => ({ x, z, y: 0, rot, speed: 0, waveUntil: 0, say: null, pose: 'stand', cup: false })
+export const newCookieState = (x = 0, z = 0, rot = 0): CookieState => ({ x, z, y: 0, rot, speed: 0, waveUntil: 0, say: null, pose: 'stand', cup: false, emote: null, pop: null })
+/** 머리 위에 이모지를 띄운다 */
+export const popOn = (s: CookieState, icon: string) => void (s.pop = { icon, n: (s.pop?.n ?? 0) + 1 })
 
 const ICING = new THREE.MeshStandardMaterial({ color: '#fffaf2', roughness: 0.4 })
 const CHOCO = new THREE.MeshStandardMaterial({ color: '#3a1d0e', roughness: 0.5 })
@@ -195,6 +201,9 @@ export function Cookie({
   const armR = useRef<THREE.Group>(null)
   const bubble = useRef<HTMLDivElement>(null)
   const tag = useRef<HTMLDivElement>(null)
+  const pop = useRef<HTMLDivElement>(null)
+  const popSeen = useRef(state.current.pop?.n ?? 0)
+  const sled = useRef<THREE.Group>(null)
   const phase = useRef(0)
 
   const lookKey = custom ? JSON.stringify(custom) : ''
@@ -283,11 +292,33 @@ export function Cookie({
       legL.current!.rotation.z = -flap * 0.45
       legR.current!.rotation.z = flap * 0.45
       body.current!.position.y = 0
+    } else if (s.pose === 'sled') {
+      // 🛷 썰매에 앉아 다리는 앞으로, 두 팔은 만세
+      pg.position.set(0, 0.02, 0)
+      pg.rotation.x = sledTilt(s.x, s.z)
+      legL.current!.rotation.x = -1.45
+      legR.current!.rotation.x = -1.4
+      armL.current!.rotation.x = 0
+      armR.current!.rotation.x = 0
+      armL.current!.rotation.z = -2.5 - Math.sin(t * 9 + seed) * 0.25
+      armR.current!.rotation.z = 2.5 + Math.sin(t * 9 + seed + 1) * 0.25
+      body.current!.position.y = Math.abs(Math.sin(t * 14)) * 0.015
+      body.current!.rotation.z = 0
     } else {
       pg.position.set(0, 0, 0)
       pg.rotation.x = 0
     }
-    if (cup.current) cup.current.visible = s.cup && s.pose !== 'lie'
+    if (sled.current) sled.current.visible = s.pose === 'sled'
+    if (cup.current) cup.current.visible = s.cup && s.pose !== 'lie' && s.pose !== 'sled'
+    // 💬 반응 이모지: 새 값이 오면 애니메이션을 처음부터
+    if (pop.current && s.pop && s.pop.n !== popSeen.current) {
+      popSeen.current = s.pop.n
+      const el = pop.current
+      el.textContent = s.pop.icon
+      el.classList.remove('go')
+      void el.offsetWidth
+      el.classList.add('go')
+    }
 
     if (bubble.current) {
       bubble.current.style.opacity = s.say ? '1' : '0'
@@ -298,6 +329,9 @@ export function Cookie({
   return (
     <group ref={root}>
       <group ref={posed}>
+      <group ref={sled} position={[0, -0.02, -0.05]} visible={false}>
+        <Sled />
+      </group>
       <group ref={body}>
         {/* 다리 (엉덩이 축): 짧고 통통하게 */}
         {[
@@ -555,6 +589,7 @@ export function Cookie({
             {me ? `${name} (나)` : name}
           </div>
           <div ref={bubble} className="bubble" />
+          <div ref={pop} className="emote-pop" />
         </Html>
       )}
     </group>

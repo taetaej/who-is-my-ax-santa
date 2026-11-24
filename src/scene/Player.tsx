@@ -2,7 +2,8 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 import type { Look } from '../look'
-import { Cookie, newCookieState, type CookieState } from './Cookie'
+import { Cookie, newCookieState, popOn, type CookieState } from './Cookie'
+import { EMOTES, EMOTE_COOLDOWN, PUSH_SPEED, REACT_RANGE, emoteOf, emotes, type EmoteId } from './emote'
 import type { Treasure } from './Village'
 import { DIG_HITS, OPEN_RANGE, GLINT_RANGE, nearestSpot, needsDig } from '../treasure'
 import { THROW_COOLDOWN, inSnowField, snow, throwBall } from './snowball'
@@ -13,19 +14,26 @@ import {
   FIRE_SEATS,
   PARTY,
   POST_SIZE,
+  SLED,
+  SLED_DIR,
+  SLED_ROT,
   SPAWN,
   SPOT,
   actionAt,
   at,
   carolLevel,
   facadeView,
+  groundY,
   inGallery,
   onIce,
   polar,
   resolve,
+  sledLocal,
+  sledPoint,
+  sledProfile,
 } from './world'
 
-// 내 쿠키: 방향키/WASD 이동, Shift 달리기, Space 인사, E 상호작용(앉기·눕기·핫초코·소개서…), 눈밭에서 F 눈덩이.
+// 내 쿠키: 방향키/WASD 이동, Shift 달리기, Space 인사, E 상호작용(앉기·눕기·핫초코·썰매…), 눈밭에서 F 눈덩이, 1~8 반응.
 // 카메라는 화면 기준 고정 각도로 따라온다 (↑ 가 화면 위쪽).
 
 const WALK = 3.2
@@ -63,6 +71,9 @@ function viewFor(s: CookieState, talking: boolean, overview: boolean, orbit: num
     // 대화창이 화면 아래를 덮으니, 아래쪽을 보게 해서 두 캐릭터가 화면 위쪽에 오게 한다
     return { cam: [mx + 1.9, 2.3, mz + 3.6], look: [mx, 0.25, mz + 0.3], slow: true }
   }
+  // 🛷 썰매: 언덕 위쪽 뒤에서 내려가는 쪽을 본다
+  if (s.pose === 'sled' || groundY(s.x, s.z) > 0.25)
+    return { cam: [s.x - SLED_DIR.x * 4.2, s.y + 2.4, s.z - SLED_DIR.z * 4.2 + 0.6], look: [s.x + SLED_DIR.x * 2.5, s.y * 0.5 + 0.2, s.z + SLED_DIR.z * 2.5] }
   // ❄️ 눈밭에 누우면: 바로 위에서 내려다본다 (스노우엔젤이 잘 보이게)
   if (s.pose === 'lie') return { cam: [s.x, 5.0, s.z + 1.0], look: [s.x, 0, s.z - 0.1], slow: true }
   // 🔥 불가에 앉으면: 자리 뒤 낮은 곳에서 불을 바라본다
@@ -142,6 +153,10 @@ export function Player({
   const sayUntil = useRef(0)
   const posedAt = useRef(0)
   const warmed = useRef(false)
+  const knock = useRef({ x: 0, z: 0 }) // 🫸 밀린 속도 (점점 줄어든다)
+  const emotedAt = useRef(-10)
+  // 🛷 썰매: up = 언덕 오르기, ready = 꼭대기에서 출발 준비, down = 내려가기
+  const ride = useRef<{ phase: 'up' | 'ready' | 'down'; s: number; w: number; v: number; at: number; wow: boolean } | null>(null)
   const wasOnIce = useRef(false)
   const prompt = useRef<string | null>(null)
   const open = useRef(onOpen)
@@ -173,6 +188,63 @@ export function Player({
     [],
   )
 
+  // 💬 반응: 가까운 동료가 있으면 그 사람에게
+  function emote(id: EmoteId) {
+    const s = state.current
+    const t = clock.elapsedTime
+    const def = emoteOf(id)
+    if (!def || t - emotedAt.current < EMOTE_COOLDOWN) return
+    emotedAt.current = t
+    let to: { id: number; name: string; s: CookieState } | null = null
+    let best = REACT_RANGE
+    for (const p of snow.peers.values()) {
+      const d = Math.hypot(p.s.x - s.x, p.s.z - s.z)
+      if (d < best) {
+        best = d
+        to = p
+      }
+    }
+    s.emote = { id, n: (s.emote?.n ?? 0) + 1, to: to?.id ?? null }
+    popOn(s, def.icon)
+    if (to) {
+      popOn(to.s, def.icon)
+      s.rot = Math.atan2(to.s.x - s.x, to.s.z - s.z) // 그 사람 쪽을 본다
+    }
+    say(to ? def.to(to.name) : def.say[Math.floor(Math.random() * def.say.length)], 2)
+    if (id === 'hi' || id === 'fire') {
+      if (s.pose === 'stand') jumpAt.current = t
+      s.waveUntil = t + 1.4
+    }
+  }
+  const emoteRef = useRef(emote)
+  emoteRef.current = emote
+  // 누가 나에게 반응을 보냈을 때
+  function got(from: { id: number; name: string; x: number; z: number }, id: EmoteId) {
+    const s = state.current
+    const def = emoteOf(id)
+    if (!def) return
+    emotes.toast?.(def.got(from.name))
+    if (id === 'move' && !ride.current) {
+      standUp()
+      const dx = s.x - from.x
+      const dz = s.z - from.z
+      const d = Math.hypot(dx, dz) || 1
+      knock.current = { x: (dx / d) * PUSH_SPEED, z: (dz / d) * PUSH_SPEED }
+      say(['으악 밀려났다 😵', '헉 비켜드릴게요 🙇', '왜 밀어요ㅋㅋ 😤'][Math.floor(Math.random() * 3)], 1.8)
+    } else if (id === 'heart') say('💗 두근', 1.6)
+    else if (id === 'skull') say('💀 …(영혼 가출)', 1.6)
+  }
+  const gotRef = useRef(got)
+  gotRef.current = got
+  useEffect(() => {
+    emotes.fire = (id) => enabled.current && emoteRef.current(id)
+    emotes.onGot = (from, id) => gotRef.current(from, id)
+    return () => {
+      emotes.fire = null
+      emotes.onGot = null
+    }
+  }, [enabled])
+
   const standUp = () => {
     const s = state.current
     if (s.pose === 'stand') return
@@ -198,6 +270,9 @@ export function Player({
       }
       if (e.code === 'KeyE' && !e.repeat) interact()
       if (e.code === 'KeyF' && !e.repeat) throwSnow()
+      // 💬 숫자키 1~8: 반응
+      const n = /^Digit([1-8])$/.exec(e.code)
+      if (n && !e.repeat) emoteRef.current(EMOTES[Number(n[1]) - 1].id)
     }
     const up = (e: KeyboardEvent) => {
       const k = KEYS[e.code]
@@ -228,6 +303,7 @@ export function Player({
 
   function interact() {
     const s = state.current
+    if (ride.current) return
     if (s.pose !== 'stand') return standUp()
     const tr = treasure?.current
     const sp = tr ? nearestSpot(s.x, s.z, tr.hidden) : null
@@ -278,6 +354,12 @@ export function Player({
         vel.current = { x: 0, z: 0 }
         break
       }
+      case 'sled':
+        // 타는 곳에서 꼭대기까지 언덕길을 따라 올라간다 (영차영차)
+        ride.current = { phase: 'up', s: Math.min(SLED.len + SLED.gate, sledLocal(s.x, s.z).s), w: 0, v: 0, at: clock.elapsedTime, wow: false }
+        s.cup = false
+        say('영차영차 🧗', 1.6)
+        break
       case 'lie':
         s.pose = 'lie'
         s.rot = 0 // 머리가 화면 위쪽, 얼굴이 하늘을 보게
@@ -311,8 +393,61 @@ export function Player({
     }
     const len = Math.hypot(dx, dz)
 
+    // 🛷 썰매 타는 중: 정해진 길을 따라 움직인다 (←→ 로 살짝 방향)
+    const r = ride.current
+    if (r) {
+      if (r.phase === 'up') {
+        r.s -= dt * 3.4
+        const p = sledPoint(r.s)
+        s.x = p.x
+        s.z = p.z
+        s.rot = SLED_ROT + Math.PI // 언덕 위쪽을 보고 걷는다
+        s.speed = 3
+        if (r.s <= -0.5) {
+          r.phase = 'ready'
+          r.at = t
+          s.pose = 'sled'
+          s.rot = SLED_ROT
+          s.speed = 0
+          say('출발~! 🛷', 1.2)
+        }
+      } else if (r.phase === 'ready') {
+        if (t - r.at > 0.9) {
+          r.phase = 'down'
+          r.v = 0.8
+        }
+      } else {
+        const slope = (sledProfile(r.s - 0.05) - sledProfile(r.s + 0.05)) / 0.1
+        const flat = r.s > SLED.len
+        r.v = Math.max(0, r.v + (5.8 * slope - (flat ? 3.4 : 0.3) - 0.05 * r.v * r.v) * dt)
+        if (r.s < 0.8) r.v = Math.max(r.v, 1.5) // 출발: 평평한 꼭대기에서 발로 밀어 준다
+        r.s += r.v * dt
+        // 방향키: 내려가는 방향의 옆으로
+        const side = dx * -SLED_DIR.z + dz * SLED_DIR.x
+        r.w = Math.max(-(flat ? 1.3 : SLED.track - 0.1), Math.min(flat ? 1.3 : SLED.track - 0.1, r.w + side * dt * 2.2))
+        const p = sledPoint(r.s, r.w)
+        s.x = p.x
+        s.z = p.z
+        s.rot = SLED_ROT + side * 0.25
+        if (r.v > 4 && !r.wow) {
+          r.wow = true
+          say(['와아아아~ 🎢', '꺄아아악 ❄️', '슝~~~ 🛷'][Math.floor(Math.random() * 3)], 1.6)
+        }
+        if ((flat && r.v < 0.3) || r.s >= SLED.len + SLED.run) {
+          ride.current = null
+          s.pose = 'stand'
+          const q = resolve(s.x, s.z)
+          s.x = q.x
+          s.z = q.z
+          vel.current = { x: 0, z: 0 }
+          say(['한 번 더?! 🛷', '꺄 재밌다 ❄️', '눈 맛 봤다 😝', '멀미나… 🌀'][Math.floor(Math.random() * 4)], 2)
+        }
+      }
+      setPrompt(r.phase === 'down' ? '←→ 방향 살짝' : null)
+    }
+
     // 앉거나 누워 있을 때: 방향키를 누르면 일어난다
-    if (s.pose !== 'stand') {
+    if (s.pose !== 'stand' && !r) {
       if (len) standUp()
       else {
         s.speed = 0
@@ -324,7 +459,7 @@ export function Player({
       }
     }
 
-    if (s.pose === 'stand') {
+    if (s.pose === 'stand' && !r) {
       const speed = len ? (h.has('run') ? RUN : WALK) : 0
       if (len) {
         dx /= len
@@ -338,12 +473,17 @@ export function Player({
       const k = Math.min(1, dt * grip)
       v.x += (dx * speed * (ice ? 1.15 : 1) - v.x) * k
       v.z += (dz * speed * (ice ? 1.15 : 1) - v.z) * k
-      const p = resolve(s.x + v.x * dt, s.z + v.z * dt)
+      // 🫸 밀렸으면 그만큼 더 (점점 줄어든다)
+      const kn = knock.current
+      const p = resolve(s.x + (v.x + kn.x) * dt, s.z + (v.z + kn.z) * dt)
       // 부딪혔으면 그 방향 속도는 잃는다
       if (dt > 0) {
-        v.x = (p.x - s.x) / dt
-        v.z = (p.z - s.z) / dt
+        v.x = (p.x - s.x) / dt - kn.x
+        v.z = (p.z - s.z) / dt - kn.z
       }
+      const decay = Math.exp(-dt * 5)
+      kn.x *= decay
+      kn.z *= decay
       s.x = p.x
       s.z = p.z
       s.speed = len ? speed : 0 // 얼음 위에서 손을 떼면 발은 멈춘 채 쭉 미끄러진다
@@ -382,7 +522,7 @@ export function Player({
 
     // 점프 (인사)
     const jt = t - jumpAt.current
-    s.y = s.pose === 'stand' && jt < 0.45 ? Math.sin((jt / 0.45) * Math.PI) * 0.35 : 0
+    s.y = (s.pose === 'stand' && jt < 0.45 ? Math.sin((jt / 0.45) * Math.PI) * 0.35 : 0) + groundY(s.x, s.z)
     if (s.say && t > sayUntil.current) s.say = null
 
     // 카메라: 평소엔 뒤 위에서 따라가고, 특별한 곳에서는 그 장면을 바라보는 시점으로 부드럽게 바뀐다

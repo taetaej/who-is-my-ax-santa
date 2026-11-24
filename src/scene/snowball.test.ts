@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { CookieState } from './Cookie'
 import { FIELD, TARGETS, inSnowField, receive, snow, spawnBall, stepSnow, throwBall } from './snowball'
 
-const newCookieState = (x = 0, z = 0): CookieState => ({ x, z, y: 0, rot: 0, speed: 0, waveUntil: 0, say: null, pose: 'stand', cup: false })
+const newCookieState = (x = 0, z = 0): CookieState => ({ x, z, y: 0, rot: 0, speed: 0, waveUntil: 0, say: null, pose: 'stand', cup: false, emote: null, pop: null })
 const run = (secs: number) => {
   for (let t = 0; t < secs; t += 1 / 60) stepSnow(1 / 60)
 }

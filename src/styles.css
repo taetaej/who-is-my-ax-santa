@@ -677,3 +677,42 @@ button:focus-visible { box-shadow: var(--ring); }
 .card-edit { display: grid; gap: 6px; }
 .card-edit input, .card-edit textarea { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); width: 100%; box-sizing: border-box; }
 .card-edit textarea { resize: vertical; min-height: 64px; }
+
+/* ── 💬 반응 (이모지·한마디) ─────────────────────── */
+.emote-bar {
+  position: fixed; left: 14px; top: 50%; transform: translateY(-50%); z-index: 3;
+  display: flex; flex-direction: column; gap: 5px; padding: 7px; border-radius: 18px;
+  background: rgba(255, 252, 247, 0.82); box-shadow: 0 8px 24px rgba(40, 30, 60, 0.16);
+}
+.emote-bar button {
+  width: 50px; padding: 4px 0 3px; border-radius: 12px; background: transparent; border: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 0; line-height: 1.1;
+}
+.emote-bar button:hover { background: #fff; transform: scale(1.08); }
+.emote-bar button:active { transform: scale(0.94); }
+.emote-icon { font-size: 22px; }
+.emote-label { font-size: 10.5px; color: var(--muted); white-space: nowrap; font-family: var(--font-display); font-weight: 700; }
+.emote-hint { font-size: 9.5px; color: var(--muted); text-align: center; width: 50px; line-height: 1.2; word-break: keep-all; }
+.emote-ping {
+  position: fixed; left: 50%; top: 112px; transform: translateX(-50%); z-index: 6; --tx: -50%;
+  background: #fff; color: #2a2230; padding: 9px 18px; border-radius: 999px; font-weight: 800; font-size: 15px;
+  font-family: var(--font-display); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22); animation: pop 0.22s ease-out; white-space: nowrap;
+}
+/* 쿠키 머리 위로 떠오르는 이모지 */
+.emote-pop {
+  position: absolute; left: 50%; bottom: 64px; font-size: 44px; line-height: 1; opacity: 0;
+  transform: translateX(-50%); pointer-events: none; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25));
+}
+.emote-pop.go { animation: emote-float 1.8s ease-out forwards; }
+@keyframes emote-float {
+  0% { opacity: 0; transform: translate(-50%, 10px) scale(0.3); }
+  14% { opacity: 1; transform: translate(-50%, -6px) scale(1.3); }
+  26% { transform: translate(-50%, 0) scale(1); }
+  75% { opacity: 1; transform: translate(-50%, -26px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -44px) scale(0.9); }
+}
+@media (max-width: 640px) {
+  .emote-bar { top: 136px; transform: none; flex-direction: row; flex-wrap: wrap; width: 232px; left: 8px; padding: 5px; gap: 2px; }
+  .emote-bar button { width: 50px; }
+  .emote-hint { display: none; }
+}

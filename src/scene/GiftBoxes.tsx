@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { DIG_HITS, GLINT_RANGE, SPOTS, spot, type Kind, type Spot } from '../treasure'
 import type { CookieState } from './Cookie'
 import { M, rng } from './materials'
-import { resolve } from './world'
+import { onSledRun, resolve } from './world'
 import { Bow, Present } from './props'
 
 // 🎀 보물찾기: 마을 곳곳에 숨은 선물 (진짜와 꽝이 똑같이 생겼다).
@@ -210,6 +210,7 @@ export function DecoyMounds() {
       const p = resolve(x, z, 0.6)
       if (Math.hypot(p.x - x, p.z - z) > 0.01) continue // 건물·나무·울타리와 겹침
       if (z > 15 && Math.abs(x) < 2.2) continue // 대문 길은 비운다
+      if (onSledRun(x, z)) continue // 🛷 썰매 길도
       if (SPOTS.some((s) => Math.hypot(s.x - x, s.z - z) < 1.3)) continue
       if (out.some((o) => Math.hypot(o.x - x, o.z - z) < 1.6)) continue
       out.push({ x, z, rot: rand() * 6, size: 0.85 + rand() * 0.4 })

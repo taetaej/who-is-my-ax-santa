@@ -11,6 +11,7 @@ import { Batch } from './Batch'
 import { Fade } from './Fade'
 import { LiveCarolCount, LivePeers, LivePublisher, LiveSnow } from './live'
 import { SnowHitOverlay, Snowballs } from './Snowballs'
+import { SledHill } from './SledHill'
 import { M, rng } from './materials'
 import { Player, type PanelAction } from './Player'
 import { Bench, BigTree, Bridge, FenceRing, Lamp, PineTree, Present, Snowman } from './props'
@@ -22,7 +23,7 @@ import { Party } from './Party'
 import { DecoyMounds, GiftBoxes, type Burst } from './GiftBoxes'
 import {
   GATE_ANGLE, ISLAND_R, LAMP_ANGLES, LAMP_R, PLAZA_R, POND_OUT, SNOWMAN, SPOT, VILLAGE_R,
-  addTreeColliders, at, faceCenter, polar, type V3,
+  addTreeColliders, at, faceCenter, onSledRun, polar, type V3,
 } from './world'
 
 // 눈 덮인 산타마을. 집 없이 다같이 모이는 광장과 놀이 장소로 이루어져 있다 (world.ts 배치 참고)
@@ -178,8 +179,10 @@ const FOREST = (() => {
     if (Math.abs(a - Math.PI / 2) < 0.3) continue // 입구 길 앞은 비운다
     outside.push({ p: polar(a, 19 + r() * 22), h: 2.5 + r() * 3.5, seed: 300 + i })
   }
-  addTreeColliders(list)
-  return [...list, ...outside]
+  // 🛷 눈썰매장 자리의 나무는 뺀다 (뽑는 순서는 그대로 둬야 다른 나무 자리가 안 바뀐다)
+  const kept = list.filter((t) => !onSledRun(t.p[0], t.p[2]))
+  addTreeColliders(kept)
+  return [...kept, ...outside]
 })()
 
 function Forest() {
@@ -334,6 +337,7 @@ export function Village({
         <Party />
         {elf && <Elf alert={elf.alert} chatter={elf.chatter} />}
         {me && <Snowballs />}
+        <SledHill />
         {treasure && me && <DecoyMounds />}
         {treasure && me && <GiftBoxes hidden={treasure.hidden} duds={treasure.duds} glow={treasure.glow} dig={dig} me={myState} burst={treasure.burst} />}
         <Fade x={at(SPOT.church)[0]} z={at(SPOT.church)[2]} r={2.4}>
