@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 import type { Look } from '../look'
 import { Cookie, newCookieState, popOn, type CookieState } from './Cookie'
+import { POWER_MAX, POWER_TAP, READY_SECS, bump, newRide, sledDistance, sledRecord, stepDown, type Ride } from './sledRide'
 import { EMOTES, EMOTE_COOLDOWN, PUSH_SPEED, REACT_RANGE, emoteOf, emotes, type EmoteId } from './emote'
 import type { Treasure } from './Village'
 import { DIG_HITS, OPEN_RANGE, GLINT_RANGE, nearestSpot, needsDig } from '../treasure'
@@ -30,7 +31,6 @@ import {
   resolve,
   sledLocal,
   sledPoint,
-  sledProfile,
 } from './world'
 
 // 내 쿠키: 방향키/WASD 이동, Shift 달리기, Space 인사, E 상호작용(앉기·눕기·핫초코·썰매…), 눈밭에서 F 눈덩이, 1~8 반응.
@@ -156,7 +156,7 @@ export function Player({
   const knock = useRef({ x: 0, z: 0 }) // 🫸 밀린 속도 (점점 줄어든다)
   const emotedAt = useRef(-10)
   // 🛷 썰매: up = 언덕 오르기, ready = 꼭대기에서 출발 준비, down = 내려가기
-  const ride = useRef<{ phase: 'up' | 'ready' | 'down'; s: number; w: number; v: number; at: number; wow: boolean } | null>(null)
+  const ride = useRef<Ride | null>(null)
   const wasOnIce = useRef(false)
   const prompt = useRef<string | null>(null)
   const open = useRef(onOpen)
@@ -264,6 +264,15 @@ export function Player({
         e.preventDefault()
         ;(document.activeElement as HTMLElement | null)?.blur?.()
         const t = clock.elapsedTime
+        // 🛷 꼭대기에서 Space 연타 = 출발 힘 모으기
+        const r = ride.current
+        if (r?.phase === 'ready') {
+          r.power = Math.min(POWER_MAX, r.power + POWER_TAP)
+          const n = Math.round((r.power / POWER_MAX) * 5)
+          say(`💪 ${'●'.repeat(n)}${'○'.repeat(5 - n)}`, 1)
+          return
+        }
+        if (r) return
         if (state.current.pose === 'stand') jumpAt.current = t
         state.current.waveUntil = t + 1.6
         say('안녕! 👋')
@@ -356,7 +365,7 @@ export function Player({
       }
       case 'sled':
         // 타는 곳에서 꼭대기까지 언덕길을 따라 올라간다 (영차영차)
-        ride.current = { phase: 'up', s: Math.min(SLED.len + SLED.gate, sledLocal(s.x, s.z).s), w: 0, v: 0, at: clock.elapsedTime, wow: false }
+        ride.current = newRide(Math.min(SLED.len + SLED.gate, sledLocal(s.x, s.z).s), clock.elapsedTime)
         s.cup = false
         say('영차영차 🧗', 1.6)
         break
@@ -409,41 +418,50 @@ export function Player({
           s.pose = 'sled'
           s.rot = SLED_ROT
           s.speed = 0
-          say('출발~! 🛷', 1.2)
+          say('Space 연타! 💪', 1.4)
         }
       } else if (r.phase === 'ready') {
-        if (t - r.at > 0.9) {
+        if (t - r.at > READY_SECS) {
           r.phase = 'down'
-          r.v = 0.8
+          say(r.power >= POWER_MAX ? '풀파워 출발!! 🚀' : '출발~! 🛷', 1.2)
         }
       } else {
-        const slope = (sledProfile(r.s - 0.05) - sledProfile(r.s + 0.05)) / 0.1
-        const flat = r.s > SLED.len
-        r.v = Math.max(0, r.v + (5.8 * slope - (flat ? 3.4 : 0.3) - 0.05 * r.v * r.v) * dt)
-        if (r.s < 0.8) r.v = Math.max(r.v, 1.5) // 출발: 평평한 꼭대기에서 발로 밀어 준다
-        r.s += r.v * dt
         // 방향키: 내려가는 방향의 옆으로
-        const side = dx * -SLED_DIR.z + dz * SLED_DIR.x
-        r.w = Math.max(-(flat ? 1.3 : SLED.track - 0.1), Math.min(flat ? 1.3 : SLED.track - 0.1, r.w + side * dt * 2.2))
+        const side = Math.max(-1, Math.min(1, dx * -SLED_DIR.z + dz * SLED_DIR.x))
+        // 다른 썰매와 쿵
+        for (const p of snow.peers.values()) {
+          if (p.s.pose !== 'sled') continue
+          if (bump(r, sledLocal(p.s.x, p.s.z), t)) {
+            popOn(s, '💥')
+            say(['쿵! 💥', '비켜어어 💥', '범퍼카냐ㅋㅋ 💥'][Math.floor(Math.random() * 3)], 1.2)
+          }
+        }
+        const res = stepDown(r, dt, side)
         const p = sledPoint(r.s, r.w)
         s.x = p.x
         s.z = p.z
-        s.rot = SLED_ROT + side * 0.25
+        s.rot = SLED_ROT + side * 0.25 + r.wv * 0.08
         if (r.v > 4 && !r.wow) {
           r.wow = true
           say(['와아아아~ 🎢', '꺄아아악 ❄️', '슝~~~ 🛷'][Math.floor(Math.random() * 3)], 1.6)
         }
-        if ((flat && r.v < 0.3) || r.s >= SLED.len + SLED.run) {
+        if (res !== 'go') {
           ride.current = null
           s.pose = 'stand'
           const q = resolve(s.x, s.z)
           s.x = q.x
           s.z = q.z
           vel.current = { x: 0, z: 0 }
-          say(['한 번 더?! 🛷', '꺄 재밌다 ❄️', '눈 맛 봤다 😝', '멀미나… 🌀'][Math.floor(Math.random() * 4)], 2)
+          const dist = sledDistance(r.s)
+          if (res === 'crash') {
+            popOn(s, '💫')
+            knock.current = { x: -SLED_DIR.x * 3, z: -SLED_DIR.z * 3 }
+            say(`쾅! 가로등이랑 뽀뽀 💫 ${dist}m`, 2.4)
+          } else say(`${dist}m! ${['🛷', '❄️', '😝', '🌀'][Math.floor(Math.random() * 4)]}`, 2.4)
+          sledRecord.finish?.(dist, res === 'crash')
         }
       }
-      setPrompt(r.phase === 'down' ? '←→ 방향 살짝' : null)
+      setPrompt(r.phase === 'ready' ? `Space 연타로 힘 모으기 💪 ${Math.max(0, READY_SECS - (t - r.at)).toFixed(1)}초` : r.phase === 'down' ? '←→ 가로등 피하기!' : null)
     }
 
     // 앉거나 누워 있을 때: 방향키를 누르면 일어난다

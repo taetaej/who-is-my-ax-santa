@@ -49,3 +49,50 @@ describe('💬 반응', () => {
     }
   })
 })
+
+import { POWER_MAX, SLED_FAR, SLED_LAMPS, bump, newRide, sledDistance, stepDown } from './sledRide'
+
+/** 꼭대기에서 출발해 끝날 때까지. aim = 평지에서 맞출 옆 위치 */
+function slide(power: number, aim: number) {
+  const r = newRide(-0.5, 0)
+  r.phase = 'down'
+  r.power = power
+  let res: 'go' | 'stop' | 'crash' = 'go'
+  for (let i = 0; i < 60 * 20 && res === 'go'; i++) {
+    const side = r.s > 5 ? Math.max(-1, Math.min(1, (aim - r.w) * 4)) : 0
+    res = stepDown(r, 1 / 60, side)
+  }
+  return { res, dist: sledDistance(r.s) }
+}
+
+describe('🛷 썰매 기록', () => {
+  it('썰매 길에 광장 가로등이 하나 서 있다', () => {
+    expect(SLED_LAMPS).toHaveLength(1)
+  })
+  it('힘을 안 모으면 가로등 앞에서 멈춘다', () => {
+    const { res, dist } = slide(0, 0)
+    expect(res).toBe('stop')
+    expect(dist).toBeLessThan(SLED_LAMPS[0].s - 0.5)
+  })
+  it('풀파워로 똑바로 가면 가로등에 박는다', () => {
+    expect(slide(POWER_MAX, 0).res).toBe('crash')
+  })
+  it('힘을 모으고 가로등을 살짝 피하면 더 멀리, 크게 틀수록 덜 간다', () => {
+    const near = slide(POWER_MAX, 0.2)
+    const wide = slide(POWER_MAX, -1.2)
+    expect(near.res).toBe('stop')
+    expect(near.dist).toBeGreaterThan(slide(0, 0).dist + 1.5)
+    expect(near.dist).toBeGreaterThan(wide.dist)
+    expect(near.dist).toBeLessThanOrEqual(SLED_FAR)
+  })
+  it('썰매끼리 부딪히면 옆으로 튕기고, 뒤에서 박은 쪽은 느려진다', () => {
+    const r = newRide(3, 0)
+    r.phase = 'down'
+    r.v = 4
+    expect(bump(r, { s: 3.3, w: 0.2 }, 1)).toBe(true)
+    expect(r.wv).toBeLessThan(0)
+    expect(r.v).toBeLessThan(4)
+    expect(bump(r, { s: 3.3, w: 0.2 }, 1.1)).toBe(false) // 잠깐은 다시 안 튕긴다
+    expect(bump(r, { s: 9, w: 0 }, 5)).toBe(false) // 멀면 안 부딪힘
+  })
+})

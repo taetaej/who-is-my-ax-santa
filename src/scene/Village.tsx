@@ -11,7 +11,7 @@ import { Batch } from './Batch'
 import { Fade } from './Fade'
 import { LiveCarolCount, LivePeers, LivePublisher, LiveSnow } from './live'
 import { SnowHitOverlay, Snowballs } from './Snowballs'
-import { SledHill } from './SledHill'
+import { SledBoard, SledHill } from './SledHill'
 import { M, rng } from './materials'
 import { Player, type PanelAction } from './Player'
 import { Bench, BigTree, Bridge, FenceRing, Lamp, PineTree, Present, Snowman } from './props'
@@ -338,6 +338,7 @@ export function Village({
         {elf && <Elf alert={elf.alert} chatter={elf.chatter} />}
         {me && <Snowballs />}
         <SledHill />
+        {me && <SledBoard />}
         {treasure && me && <DecoyMounds />}
         {treasure && me && <GiftBoxes hidden={treasure.hidden} duds={treasure.duds} glow={treasure.glow} dig={dig} me={myState} burst={treasure.burst} />}
         <Fade x={at(SPOT.church)[0]} z={at(SPOT.church)[2]} r={2.4}>

@@ -112,6 +112,13 @@ async function migrate(q: Query) {
     body jsonb not null,
     updated_at timestamptz not null default now()
   )`)
+  // 🛷 눈썰매 기록판: 사람마다 최고 기록과 탄 횟수
+  await q(`create table if not exists sled_runs (
+    player_id int primary key references players(id),
+    best real not null,
+    runs int not null default 1,
+    updated_at timestamptz not null default now()
+  )`)
   await q(`create table if not exists settings (key text primary key, value text not null)`)
   await q(`insert into settings (key, value) values ('phase', 'READY') on conflict (key) do nothing`)
   for (const name of ROSTER) {

@@ -12,6 +12,7 @@ import { EMPTY_GUESS, cleanGuess, guessDone, type Guess, type GuessStatus } from
 import { makeCycle } from './matching.js'
 import { RESCUE_FROM, SPOTS, spot, tierOf } from '../src/treasure.js'
 import { REAL, dudLine } from './treasure.js'
+import { SLED_FAR } from '../src/scene/sledRide.js'
 
 type Me = { id: number; name: string; is_admin: boolean }
 type Env = { Variables: { me: Me } }
@@ -366,6 +367,39 @@ app.post('/tree/:id/heart', async (c) => {
   return c.json({ liked: removed.length === 0 })
 })
 
+// ── 🛷 눈썰매 기록판 ─────────────────────────────────────────────
+// 한 번 탈 때마다 거리(m)를 올린다. 최고 기록만 남고, 탄 횟수는 센다. 기록은 그냥 재미 (상품 없음)
+app.use('/sled', requireLogin)
+app.use('/sled/*', requireLogin)
+
+async function sledBoard(meId: number) {
+  const q = await db()
+  const rows = await q<{ id: number; name: string; best: number; runs: number }>(
+    `select p.id, p.name, s.best, s.runs from sled_runs s join players p on p.id = s.player_id order by s.best desc, s.updated_at asc`,
+  )
+  const list = rows.map((r, i) => ({ rank: i + 1, name: r.name, best: Math.round(Number(r.best) * 10) / 10, runs: r.runs, me: r.id === meId }))
+  return { top: list.slice(0, 5), mine: list.find((r) => r.me) ?? null }
+}
+
+app.get('/sled', async (c) => c.json(await sledBoard(c.get('me').id)))
+
+app.post('/sled/run', async (c) => {
+  const { dist } = await c.req.json<{ dist?: unknown }>().catch(() => ({ dist: undefined }))
+  if (typeof dist !== 'number' || !Number.isFinite(dist) || dist < 0 || dist > SLED_FAR + 0.05) return bad(c, '이상한 기록이에요')
+  const me = c.get('me')
+  const d = Math.round(dist * 10) / 10
+  const q = await db()
+  const [before] = await q<{ best: number }>(`select best from sled_runs where player_id = $1`, [me.id])
+  await q(
+    `insert into sled_runs (player_id, best) values ($1, $2)
+     on conflict (player_id) do update set runs = sled_runs.runs + 1, best = greatest(sled_runs.best, excluded.best),
+       updated_at = case when excluded.best > sled_runs.best then now() else sled_runs.updated_at end`,
+    [me.id, d],
+  )
+  const newBest = !before || d > Number(before.best) + 1e-6
+  return c.json({ ...(await sledBoard(me.id)), dist: d, newBest })
+})
+
 // ── 🏆 AX 어워즈: 엘프 인터뷰로 만드는 상장 ────────────────────────────────
 // 나를 뺀 모두에게 키워드를 준다. 공개일 전까지는 내가 준 것만 보이고, 공개일에 받은 사람별로 합친 상이 열린다.
 // 누가 어떤 키워드를 줬는지는 끝까지 아무에게도(운영자 포함) 보여 주지 않는다.
@@ -703,6 +737,7 @@ app.post('/admin/reset-all', async (c) => {
     `delete from letters`,
     `delete from guesses`,
     `delete from matches`,
+    `delete from sled_runs`,
     `update players set pin_hash = null, failed_attempts = 0, locked_until = null, session_version = session_version + 1,
        manito_opened_at = null, profile = null, look = null`,
     `delete from settings where key in ('questions', 'questions_start', 'awards')`,

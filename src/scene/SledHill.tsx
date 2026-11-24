@@ -1,6 +1,10 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
+import { api, type SledBoard as SledBoardData } from '../api'
+import { emotes } from './emote'
 import { M } from './materials'
+import { sledRecord } from './sledRide'
+import { TextSign, type TextLine } from './TextSign'
 import { SpotLabel } from './Spots'
 import { SLED, SLED_ROT, groundY, sledPoint, sledProfile } from './world'
 
@@ -8,7 +12,8 @@ import { SLED, SLED_ROT, groundY, sledPoint, sledProfile } from './world'
 
 const SLED_RED = new THREE.MeshStandardMaterial({ color: '#c8352b', roughness: 0.5 })
 const RUNNER = new THREE.MeshStandardMaterial({ color: '#d9dde3', roughness: 0.3, metalness: 0.7 })
-const TRACK = new THREE.MeshStandardMaterial({ color: '#e4ecf7', roughness: 0.35 })
+// 광장 돌길(바닥에서 0.012~0.016) 위를 지나가니 그보다 확실히 위에, 그리고 앞에 그려지게 (겹치면 깜빡인다)
+const TRACK = new THREE.MeshStandardMaterial({ color: '#e4ecf7', roughness: 0.35, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })
 const FLAG_COLORS = ['#c62a24', '#2e7d4f', '#e0a21a', '#2f62b0'].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, side: THREE.DoubleSide }))
 const POLE = new THREE.MeshStandardMaterial({ color: '#f6f1e7', roughness: 0.5 })
 const STRIPE = new THREE.MeshStandardMaterial({ color: '#c8231f', roughness: 0.5 })
@@ -65,7 +70,7 @@ function useHillGeometry(from: number, to: number, half: number, lift = 0) {
 
 export function SledHill() {
   const hill = useHillGeometry(-SLED.deck - SLED.back, SLED.len, SLED.half)
-  const track = useHillGeometry(-SLED.deck, SLED.len + SLED.run, SLED.track, 0.012)
+  const track = useHillGeometry(-SLED.deck, SLED.len + SLED.run, SLED.track, 0.03)
   const flags = useMemo(() => {
     const out: { x: number; z: number; y: number; i: number }[] = []
     for (let k = 0; k < 6; k++) {
@@ -118,6 +123,60 @@ export function SledHill() {
       ))}
       <SpotLabel position={[label.x, SLED.h + 1.6, label.z]} text="🛷 AX 눈썰매장" />
       <SpotLabel position={[gate.x, 1.4, gate.z]} text="🛷 타는 곳" />
+    </group>
+  )
+}
+
+const BOARD_POST = new THREE.MeshStandardMaterial({ color: '#6a4428', roughness: 0.8 })
+const MEDALS = ['🥇', '🥈', '🥉', '4.', '5.']
+
+/** 🏆 썰매 기록판: 타는 곳 옆 나무 판. 다 타고 나면 기록을 올리고 판을 새로 그린다 */
+export function SledBoard() {
+  const [board, setBoard] = useState<SledBoardData | null>(null)
+  useEffect(() => {
+    let alive = true
+    const load = () => void api.sled().then((b) => alive && setBoard(b)).catch(() => {})
+    load()
+    const t = setInterval(load, 30_000)
+    sledRecord.finish = (dist, crashed) => {
+      void api
+        .sledRun(dist)
+        .then((b) => {
+          if (!alive) return
+          setBoard(b)
+          const me = b.mine
+          if (b.newBest && me) emotes.toast?.(`🏆 ${crashed ? '박았지만 ' : ''}내 최고 기록 ${b.dist}m! 지금 ${me.rank}위`)
+          else if (me) emotes.toast?.(`🛷 ${b.dist}m · 내 최고 ${me.best}m (${me.rank}위)`)
+        })
+        .catch(() => {})
+    }
+    return () => {
+      alive = false
+      clearInterval(t)
+      sledRecord.finish = null
+    }
+  }, [])
+
+  const lines: TextLine[] = [
+    { text: '🏆 썰매 기록판', size: 0.16, color: '#ffe7a8', weight: 900, kr: true, gap: 0.06 },
+    ...(board?.top.length
+      ? board.top.map((r, i) => ({ text: `${MEDALS[i]} ${r.name}  ${r.best.toFixed(1)}m`, size: 0.12, color: r.me ? '#ffcf4a' : '#ffffff', weight: 800, kr: true, gap: 0.03 }))
+      : [{ text: '아직 기록이 없어요', size: 0.11, color: '#ffffff', kr: true }]),
+    ...(board?.mine && board.mine.rank > 5 ? [{ text: `나 ${board.mine.rank}위 ${board.mine.best.toFixed(1)}m`, size: 0.1, color: '#ffcf4a', weight: 800, kr: true, gap: 0.04 }] : []),
+    { text: 'Space 연타 · 가로등 조심!', size: 0.085, color: '#c9d6ff', kr: true, gap: 0.06 },
+  ]
+  const p = sledPoint(SLED.len + SLED.gate + 0.3, -(SLED.track + 1.5))
+  return (
+    <group position={[p.x, 0, p.z]} rotation={[0, -0.35, 0]}>
+      {[-0.75, 0.75].map((x) => (
+        <mesh key={x} position={[x, 0.75, -0.03]} material={BOARD_POST} castShadow>
+          <cylinderGeometry args={[0.05, 0.05, 1.5, 8]} />
+        </mesh>
+      ))}
+      <mesh position={[0, 1.2, -0.04]} material={BOARD_POST} castShadow>
+        <boxGeometry args={[1.75, 1.15, 0.05]} />
+      </mesh>
+      <TextSign lines={lines} w={1.65} h={1.05} position={[0, 1.2, 0]} bg="#2b2238" radius={0.06} glow />
     </group>
   )
 }

@@ -108,7 +108,12 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   return data as T
 }
 
+export type SledRow = { rank: number; name: string; best: number; runs: number; me: boolean }
+export type SledBoard = { top: SledRow[]; mine: SledRow | null }
+
 export const api = {
+  sled: () => call<SledBoard>('GET', '/sled'),
+  sledRun: (dist: number) => call<SledBoard & { dist: number; newBest: boolean }>('POST', '/sled/run', { dist }),
   players: () => call<Player[]>('GET', '/players'),
   setupPin: (playerId: number, pin: string) => call('POST', '/auth/setup-pin', { playerId, pin }),
   login: (playerId: number, pin: string) => call('POST', '/auth/login', { playerId, pin }),
