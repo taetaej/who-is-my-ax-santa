@@ -1,7 +1,8 @@
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useEffect, useRef, useState } from 'react'
+import { Canvas, useFrame } from '@react-three/fiber'
+import { useRef, useState } from 'react'
+import * as THREE from 'three'
 import { api } from '../api'
-import { COLORS, DOUGHS, EXTRAS, HATS, defaultLook, type Look } from '../look'
+import { CHEEKS, COLORED_HATS, COLORS, DECOS, DOUGHS, EXTRAS, EYES, HATS, MOUTHS, defaultLook, randomLook, type Look } from '../look'
 import { Cookie, newCookieState } from '../scene/Cookie'
 
 // 쿠키 꾸미기. 처음 마을에 들어올 때 한 번 나오고, 아래 메뉴 🎨 로 언제든 바꿀 수 있다.
@@ -9,10 +10,27 @@ import { Cookie, newCookieState } from '../scene/Cookie'
 const COLOR_NAMES = ['빨강', '초록', '파랑', '노랑', '보라', '분홍', '청록', '하양', '검정']
 const keys = <T extends object>(o: T) => Object.keys(o) as (keyof T)[]
 
-/** 카메라가 쿠키 몸 가운데를 보게 */
-function AimAt({ y }: { y: number }) {
-  const camera = useThree((s) => s.camera)
-  useEffect(() => camera.lookAt(0, y, 0), [camera, y])
+type Tab = 'body' | 'face' | 'head' | 'extra'
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'body', label: '🍪 몸' },
+  { key: 'face', label: '😊 얼굴' },
+  { key: 'head', label: '🎩 머리' },
+  { key: 'extra', label: '🎀 소품' },
+]
+
+/** 얼굴 탭에서는 얼굴로 다가가고, 나머지는 전신. 부드럽게 옮긴다 */
+const SHOTS: Record<'full' | 'face', { pos: THREE.Vector3; aim: THREE.Vector3 }> = {
+  full: { pos: new THREE.Vector3(0, 0.75, 2.9), aim: new THREE.Vector3(0, 0.55, 0) },
+  face: { pos: new THREE.Vector3(0, 0.82, 1.45), aim: new THREE.Vector3(0, 0.74, 0) },
+}
+function Rig({ shot }: { shot: 'full' | 'face' }) {
+  const aim = useRef(SHOTS.full.aim.clone())
+  useFrame(({ camera }, dt) => {
+    const k = Math.min(1, dt * 6)
+    camera.position.lerp(SHOTS[shot].pos, k)
+    aim.current.lerp(SHOTS[shot].aim, k)
+    camera.lookAt(aim.current)
+  })
   return null
 }
 
@@ -34,15 +52,12 @@ function Turntable({ look, seed }: { look: Look; seed: number }) {
 
 export function LookEditor({ seed, name, current, first, onDone }: { seed: number; name: string; current: Look | null; first: boolean; onDone: () => void }) {
   const [look, setLook] = useState<Look>(current ?? defaultLook(seed))
+  const [tab, setTab] = useState<Tab>('body')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const set = (patch: Partial<Look>) => setLook({ ...look, ...patch })
-  const hatColored = look.hat === 'beanie' || look.hat === 'earmuffs'
-
-  const random = () => {
-    const pick = <T,>(a: readonly T[]) => a[Math.floor(Math.random() * a.length)]
-    setLook({ dough: pick(keys(DOUGHS)), hat: pick(keys(HATS)), hatColor: pick(COLORS), scarf: pick(COLORS), extra: pick(keys(EXTRAS)) })
-  }
+  const set = (patch: Partial<Look>) => setLook((l) => ({ ...l, ...patch }))
+  const hatColored = COLORED_HATS.includes(look.hat)
+  const random = () => setLook(randomLook())
 
   const save = async () => {
     setBusy(true)
@@ -63,55 +78,73 @@ export function LookEditor({ seed, name, current, first, onDone }: { seed: numbe
 
       <div className="look-body">
         <div className="look-stage">
-          <Canvas camera={{ position: [0, 0.75, 2.6], fov: 30 }} dpr={[1, 2]}>
-            <AimAt y={0.5} />
+          <Canvas camera={{ position: [0, 0.75, 2.9], fov: 30 }} dpr={[1, 2]}>
+            <Rig shot={tab === 'face' ? 'face' : 'full'} />
             <ambientLight intensity={0.9} />
             <directionalLight position={[2, 3, 3]} intensity={1.8} />
             <pointLight position={[-2, 1, 1]} intensity={6} color="#ffb070" />
-            <group position={[0, 0, 0]}>
-              <Turntable look={look} seed={seed} />
-            </group>
+            <Turntable look={look} seed={seed} />
           </Canvas>
           <div className="look-name">{name}</div>
         </div>
 
         <div className="look-options">
-          <h3>반죽</h3>
-          <div className="chips">
-            {keys(DOUGHS).map((k) => (
-              <button key={k} className={`chip-btn ${look.dough === k ? 'on' : ''}`} onClick={() => set({ dough: k })}>
-                <i className="dot" style={{ background: DOUGHS[k].color }} />
-                {DOUGHS[k].label}
+          <div className="look-tabs" role="tablist">
+            {TABS.map((t) => (
+              <button key={t.key} role="tab" aria-selected={tab === t.key} className={tab === t.key ? 'on' : ''} onClick={() => setTab(t.key)}>
+                {t.label}
               </button>
             ))}
           </div>
 
-          <h3>머리</h3>
-          <div className="chips">
-            {keys(HATS).map((k) => (
-              <button key={k} className={`chip-btn ${look.hat === k ? 'on' : ''}`} onClick={() => set({ hat: k })}>
-                {HATS[k]}
-              </button>
-            ))}
-          </div>
-          {hatColored && (
+          {tab === 'body' && (
             <>
-              <h3>{look.hat === 'beanie' ? '비니 색' : '귀마개 색'}</h3>
-              <Swatches value={look.hatColor} onPick={(c) => set({ hatColor: c })} />
+              <h3>반죽</h3>
+              <div className="chips">
+                {keys(DOUGHS).map((k) => (
+                  <button key={k} className={`chip-btn ${look.dough === k ? 'on' : ''}`} onClick={() => set({ dough: k })}>
+                    <i className="dot" style={{ background: DOUGHS[k].color }} />
+                    {DOUGHS[k].label}
+                  </button>
+                ))}
+              </div>
+              <Pick title="배 장식" options={DECOS} value={look.deco} onPick={(deco) => set({ deco })} />
+              <h3>목도리 색</h3>
+              <Swatches value={look.scarf} onPick={(c) => set({ scarf: c })} />
             </>
           )}
 
-          <h3>목도리 색</h3>
-          <Swatches value={look.scarf} onPick={(c) => set({ scarf: c })} />
+          {tab === 'face' && (
+            <>
+              <Pick title="눈" options={EYES} value={look.eyes} onPick={(eyes) => set({ eyes })} />
+              <Pick title="입" options={MOUTHS} value={look.mouth} onPick={(mouth) => set({ mouth })} />
+              <Pick title="볼" options={CHEEKS} value={look.cheek} onPick={(cheek) => set({ cheek })} />
+            </>
+          )}
 
-          <h3>소품</h3>
-          <div className="chips">
-            {keys(EXTRAS).map((k) => (
-              <button key={k} className={`chip-btn ${look.extra === k ? 'on' : ''}`} onClick={() => set({ extra: k })}>
-                {EXTRAS[k]}
-              </button>
-            ))}
-          </div>
+          {tab === 'head' && (
+            <>
+              <Pick title="머리" options={HATS} value={look.hat} onPick={(hat) => set({ hat })} />
+              {hatColored && (
+                <>
+                  <h3>{HATS[look.hat].replace(/^\S+\s/, '')} 색</h3>
+                  <Swatches value={look.hatColor} onPick={(c) => set({ hatColor: c })} />
+                </>
+              )}
+            </>
+          )}
+
+          {tab === 'extra' && (
+            <>
+              <Pick title="소품" options={EXTRAS} value={look.extra} onPick={(extra) => set({ extra })} />
+              {(look.extra === 'mittens' || look.extra === 'cape') && (
+                <>
+                  <h3>{look.extra === 'mittens' ? '장갑' : '망토'} 색 (목도리와 같은 색)</h3>
+                  <Swatches value={look.scarf} onPick={(c) => set({ scarf: c })} />
+                </>
+              )}
+            </>
+          )}
         </div>
       </div>
 
@@ -125,6 +158,21 @@ export function LookEditor({ seed, name, current, first, onDone }: { seed: numbe
       </div>
       {error && <p className="error">{error}</p>}
     </div>
+  )
+}
+
+function Pick<K extends string>({ title, options, value, onPick }: { title: string; options: Record<K, string>; value: K; onPick: (k: K) => void }) {
+  return (
+    <>
+      <h3>{title}</h3>
+      <div className="chips">
+        {keys(options).map((k) => (
+          <button key={k} className={`chip-btn ${value === k ? 'on' : ''}`} onClick={() => onPick(k)}>
+            {options[k]}
+          </button>
+        ))}
+      </div>
+    </>
   )
 }
 

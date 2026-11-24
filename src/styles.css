@@ -256,6 +256,15 @@ textarea {
 }
 .look-options h3 { margin: 12px 0 6px; font-size: 14px; color: var(--muted); }
 .look-options h3:first-child { margin-top: 0; }
+.look-options { min-height: 340px; }
+.look-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: rgba(0, 0, 0, 0.05); margin-bottom: 14px; }
+.look-tabs button { flex: 1; border: 0; background: transparent; padding: 8px 4px; border-radius: 10px; font-weight: 700; font-size: 14px; color: var(--muted); }
+.look-tabs button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
+@media (max-width: 640px) {
+  .look-body { grid-template-columns: 1fr; gap: 14px; }
+  .look-stage { height: 240px; }
+  .look-options { min-height: 0; }
+}
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip-btn { background: #fff; border-color: var(--line); padding: 6px 11px; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 .chip-btn.on { background: var(--ink); color: #fff; border-color: var(--ink); }
