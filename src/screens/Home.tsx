@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, type Manito, type Me } from '../api'
+import { PROFILE_FIELDS } from '../profile'
 
 // H0 마을 홈 / P0-2 시작 대기 / H1·H2 마니또 개봉과 카드 (연출은 자리만 잡아 둠)
 export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => void; onEditProfile: () => void }) {
@@ -61,10 +62,14 @@ export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => 
       <h2 className="manito">{manito?.name ?? '…'}</h2>
       {manito?.profile ? (
         <dl className="profile">
-          <dt>좌석</dt><dd>{manito.profile.seat || '-'}</dd>
-          <dt>좋아하는 것</dt><dd>{manito.profile.snack || '-'}</dd>
-          <dt>스타일</dt><dd>{manito.profile.style || '-'}</dd>
-          <dt>피하고 싶은 것</dt><dd>{manito.profile.avoid || '-'}</dd>
+          {PROFILE_FIELDS.map((f) => (
+            <div key={f.key} className="profile-row">
+              <dt>
+                {f.emoji} {f.label}
+              </dt>
+              <dd>{manito.profile![f.key] || '-'}</dd>
+            </div>
+          ))}
         </dl>
       ) : (
         manito && <p className="muted">아직 프로필을 적지 않았어요. 직접 관찰해 볼까요?</p>

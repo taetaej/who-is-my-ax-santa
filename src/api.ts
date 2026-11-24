@@ -1,11 +1,13 @@
 import type { AwardCard, Gift } from './awards'
+import type { QA } from './interview'
 import type { Guess, GuessStatus } from './guess'
 import type { Look } from './look'
+import type { Profile } from './profile'
 import type { Tier } from './treasure'
 
 export type Phase = 'READY' | 'ACTIVE' | 'REVEAL'
+export type { Profile }
 export type Player = { id: number; name: string; hasPin: boolean }
-export type Profile = { seat: string; snack: string; style: string; avoid: string }
 export type Me = {
   id: number
   name: string
@@ -26,8 +28,14 @@ export type Me = {
 }
 export type Awards = {
   phase: Phase
-  people: { id: number; name: string; gift: Gift }[] // 나를 뺀 동료와 내가 준 키워드
-  results: ({ id: number; name: string } & AwardCard)[] | null // 공개일에만
+  people: { id: number; name: string; fresh: boolean; gift: Gift; chat: QA[] | null }[] // 나를 뺀 동료 (fresh = 둘 중 한 명이 새로 온 사람 → 첫인상 질문), 내가 준 키워드와 내 인터뷰 답 (null = 인터뷰 전)
+  results: ({ id: number; name: string; citation: string | null } & AwardCard)[] | null // 공개일에만
+}
+export type AwardCardRow = { id: number; title: string | null; citation: string | null }
+export type AdminAwards = {
+  people: number
+  players: { id: number; name: string; newcomer: boolean; given: number }[]
+  cards: (AwardCardRow & { name: string })[]
 }
 export type TreasureState = {
   active: boolean
@@ -116,7 +124,11 @@ export const api = {
   heart: (id: number) => call<{ liked: boolean }>('POST', `/tree/${id}/heart`),
   awards: () => call<Awards>('GET', '/awards'),
   giveKeywords: (receiverId: number, gift: Gift) => call<{ gift: Gift }>('PUT', '/awards/keywords', { receiverId, ...gift }),
-  adminAwards: () => call<{ people: number; players: { name: string; given: number }[] }>('GET', '/admin/awards'),
+  interview: (receiverId: number, chat: QA[], finish = false) =>
+    call<{ done: false; question: string } | { done: true; gift: Gift; chat: QA[] }>('POST', '/awards/interview', { receiverId, chat, finish }),
+  adminAwards: () => call<AdminAwards>('GET', '/admin/awards'),
+  setNewcomer: (id: number, newcomer: boolean) => call<{ id: number; newcomer: boolean }>('PUT', `/admin/players/${id}/newcomer`, { newcomer }),
+  saveCard: (id: number, title: string, citation: string) => call<AwardCardRow>('PUT', `/admin/awards/cards/${id}`, { title, citation }),
   treasure: () => call<TreasureState>('GET', '/treasure'),
   openTreasure: (spot: string) =>
     call<{ kind: 'gift'; spot: string; tier: Tier } | { kind: 'dud'; spot: string; line: string }>('POST', `/treasure/${spot}/open`),

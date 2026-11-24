@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Me } from '../api'
 import { MOTTO } from '../team'
 
-// 🧝 AX 엘프와의 대화. 내 할 일(마니또 상자, 메시지 트리, 어워즈 키워드, 소개서)을 확인해서 잔소리하고,
+// 🧝 AX 엘프와의 대화. 내 할 일(마니또 상자, 메시지 트리, 어워즈 인터뷰, 소개서)을 확인해서 잔소리하고,
 // 마을에서 할 수 있는 것을 하나씩 알려 준다. E·Space·Enter 로 넘기고 Esc 로 닫는다.
 
 export type ElfGo = 'manito' | 'tree' | 'awards' | 'letter' | 'guess' | 'look'
@@ -38,9 +38,9 @@ export function elfLines(me: Me, question: string | null, tipIndex: number): Lin
     nags.push({
       text:
         me.todo.given === 0
-          ? `🏆 동료들한테 키워드 하나도 안 줬더라? 네가 준 키워드로 다들 상을 받는다고!`
-          : `🏆 키워드 ${me.todo.given}/${me.todo.people}명… ${left}명 남았어, 마저 주자!`,
-      go: { to: 'awards', label: '🏆 키워드 주러 가기' },
+          ? `🏆 어워즈 인터뷰 아직 하나도 안 했더라? 네 이야기로 다들 상장을 받는다고! 1분이면 돼`
+          : `🏆 인터뷰 ${me.todo.given}/${me.todo.people}명… ${left}명 남았어, 마저 들려줘!`,
+      go: { to: 'awards', label: '🏆 인터뷰하러 가기' },
     })
   }
   // 🎀 보물찾기: 구제 기간(힌트가 있을 때)엔 못 찾은 사람에게 위치 힌트를 잔소리로
@@ -80,7 +80,7 @@ export function elfLines(me: Me, question: string | null, tipIndex: number): Lin
 export function elfChatter(me: Me): { alert: boolean; chatter: string[] } {
   const out: string[] = []
   if (!me.todo.tree) out.push('메시지 트리 썼어? 🎄')
-  if (me.phase !== 'REVEAL' && me.todo.given < me.todo.people) out.push('키워드 다 줬어? 🏆')
+  if (me.phase !== 'REVEAL' && me.todo.given < me.todo.people) out.push('어워즈 인터뷰 다 했어? 🏆')
   if (me.phase === 'ACTIVE' && me.letter !== 'submitted') out.push('관찰 리포트는…? 🕵️')
   if (me.phase === 'ACTIVE' && me.guess !== 'done') out.push('내 산타는 누구 같아? 🔍')
   if (me.todo.gift && !me.todo.gift.found && me.todo.gift.hint) out.push('숨은 선물 찾았어? 🎀')

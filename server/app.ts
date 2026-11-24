@@ -3,6 +3,8 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { COOKIE, LOCK_MINUTES, MAX_FAILS, PIN_RE, hashPin, issue, read, verifyPin } from './auth.js'
 import { PHASES, db, getPhase, type Phase } from './db.js'
 import { awardFor, cleanGift, isEmptyGift, type Gift } from '../src/awards.js'
+import { readProfile } from '../src/profile.js'
+import { INTERVIEW_MAX, cleanChat, nickname, questions, type QA } from '../src/interview.js'
 import { cleanLook } from '../src/look.js'
 import { FIRST_DAY, QUESTIONS, cleanQuestions, isDay, kstDay, questionDay, questionFor, treeDay } from '../src/questions.js'
 import { EMPTY_LETTER, cleanLetter, missing } from './letter.js'
@@ -129,7 +131,7 @@ app.get('/me', async (c) => {
     isAdmin: me.is_admin,
     phase: await getPhase(),
     manitoOpened: !!row.manito_opened_at,
-    profile: row.profile,
+    profile: row.profile ? readProfile(row.profile) : null,
     letter: row.letter,
     guess: await guessStatus(me.id),
     look: row.look ? cleanLook(row.look, me.id) : null, // null = 아직 안 꾸밈 → 처음 들어올 때 꾸미기 창
@@ -164,13 +166,11 @@ app.put('/me/look', async (c) => {
   return c.json(look)
 })
 
-const PROFILE_KEYS = ['seat', 'snack', 'style', 'avoid'] as const // PRD 5.2 가정 항목
 
 app.put('/me/profile', async (c) => {
   if ((await getPhase()) === 'REVEAL') return bad(c, '공개일 이후에는 바꿀 수 없어요', 409)
-  const body = await c.req.json<Record<string, unknown>>()
-  // 받는 항목을 고정해서 임의 데이터가 저장되지 않게 한다
-  const profile = Object.fromEntries(PROFILE_KEYS.map((k) => [k, String(body[k] ?? '').slice(0, 200)]))
+  // 받는 항목을 고정해서 임의 데이터가 저장되지 않게 한다 (src/profile.ts)
+  const profile = readProfile(await c.req.json())
   const q = await db()
   await q(`update players set profile = $2 where id = $1`, [c.get('me').id, JSON.stringify(profile)])
   return c.json({ ok: true })
@@ -185,7 +185,7 @@ app.get('/me/manito', async (c) => {
     [c.get('me').id],
   )
   if (!t) return bad(c, '매칭 정보가 없어요. 운영자에게 알려 주세요', 404)
-  return c.json(t)
+  return c.json({ name: t.name, profile: t.profile ? readProfile(t.profile) : null })
 })
 
 app.post('/me/manito/open', async (c) => {
@@ -366,7 +366,7 @@ app.post('/tree/:id/heart', async (c) => {
   return c.json({ liked: removed.length === 0 })
 })
 
-// ── 🏆 AX 어워즈: 동료 키워드 상 ────────────────────────────────
+// ── 🏆 AX 어워즈: 엘프 인터뷰로 만드는 상장 ────────────────────────────────
 // 나를 뺀 모두에게 키워드를 준다. 공개일 전까지는 내가 준 것만 보이고, 공개일에 받은 사람별로 합친 상이 열린다.
 // 누가 어떤 키워드를 줬는지는 끝까지 아무에게도(운영자 포함) 보여 주지 않는다.
 app.use('/awards', requireLogin)
@@ -378,14 +378,21 @@ app.get('/awards', async (c) => {
   const me = c.get('me')
   const q = await db()
   const phase = await getPhase()
-  const players = await q<{ id: number; name: string }>(`select id, name from players order by name`)
-  const mine = await q<{ receiver_id: number; chips: string[]; custom: string | null }>(`select receiver_id, chips, custom from keywords where giver_id = $1`, [
-    me.id,
-  ])
+  const players = await q<{ id: number; name: string; newcomer: boolean }>(`select id, name, newcomer from players order by name`)
+  const meNew = players.find((p) => p.id === me.id)?.newcomer ?? false
+  const mine = await q<{ receiver_id: number; chips: string[]; custom: string | null; chat: QA[] | null }>(
+    `select receiver_id, chips, custom, chat from keywords where giver_id = $1`,
+    [me.id],
+  )
   let results = null
   if (phase === 'REVEAL') {
     const all = await q<{ receiver_id: number; chips: string[]; custom: string | null }>(`select receiver_id, chips, custom from keywords`)
-    results = players.map((p) => ({ id: p.id, name: p.name, ...awardFor(all.filter((g) => g.receiver_id === p.id).map(toGift)) }))
+    const cards = await q<{ player_id: number; title: string; citation: string }>(`select player_id, title, citation from award_cards`)
+    results = players.map((p) => {
+      const base = awardFor(all.filter((g) => g.receiver_id === p.id).map(toGift))
+      const card = cards.find((x) => x.player_id === p.id)
+      return { id: p.id, name: p.name, ...base, ...(card ? { titles: [card.title], citation: card.citation } : { citation: null }) }
+    })
   }
   return c.json({
     phase,
@@ -393,14 +400,14 @@ app.get('/awards', async (c) => {
       .filter((p) => p.id !== me.id)
       .map((p) => {
         const g = mine.find((m) => m.receiver_id === p.id)
-        return { id: p.id, name: p.name, gift: g ? toGift(g) : { chips: [], custom: null } }
+        return { id: p.id, name: p.name, fresh: meNew || p.newcomer, gift: g ? toGift(g) : { chips: [], custom: null }, chat: g?.chat ?? null }
       }),
     results,
   })
 })
 
 app.put('/awards/keywords', async (c) => {
-  if ((await getPhase()) === 'REVEAL') return bad(c, '키워드 주기가 끝났어요', 409)
+  if ((await getPhase()) === 'REVEAL') return bad(c, '어워즈 인터뷰가 끝났어요', 409)
   const body = await c.req.json<{ receiverId?: unknown; chips?: unknown; custom?: unknown }>()
   const me = c.get('me')
   const receiverId = Number(body.receiverId)
@@ -410,7 +417,9 @@ app.put('/awards/keywords', async (c) => {
   if (!p) return bad(c, '없는 참가자예요', 404)
   const gift = cleanGift(body)
   if (isEmptyGift(gift)) {
-    await q(`delete from keywords where giver_id = $1 and receiver_id = $2`, [me.id, receiverId])
+    // 인터뷰 답이 있으면 줄은 남기고 키워드만 비운다
+    await q(`delete from keywords where giver_id = $1 and receiver_id = $2 and chat is null`, [me.id, receiverId])
+    await q(`update keywords set chips = '{}', custom = null, updated_at = now() where giver_id = $1 and receiver_id = $2`, [me.id, receiverId])
   } else {
     await q(
       `insert into keywords (giver_id, receiver_id, chips, custom) values ($1, $2, $3, $4)
@@ -419,6 +428,33 @@ app.put('/awards/keywords', async (c) => {
     )
   }
   return c.json({ gift })
+})
+
+// 🧝 엘프 인터뷰 (고정 질문 3개). 대화는 화면이 들고 있다가 답할 때마다 통째로 보낸다.
+// 남은 질문이 있으면 다음 질문을, 끝났으면(또는 "여기까지") 저장한다. 마지막 답이 짧으면 직접 쓴 키워드로도 넣는다.
+app.post('/awards/interview', async (c) => {
+  if ((await getPhase()) === 'REVEAL') return bad(c, '인터뷰가 끝났어요', 409)
+  const body = await c.req.json<{ receiverId?: unknown; chat?: unknown; finish?: unknown }>()
+  const me = c.get('me')
+  const receiverId = Number(body.receiverId)
+  if (receiverId === me.id) return bad(c, '나에 대해서는 인터뷰하지 않아요')
+  const q = await db()
+  const [p] = await q<{ id: number; name: string; newcomer: boolean }>(`select id, name, newcomer from players where id = $1`, [receiverId])
+  if (!p) return bad(c, '없는 참가자예요', 404)
+  const [{ newcomer: meNew }] = await q<{ newcomer: boolean }>(`select newcomer from players where id = $1`, [me.id])
+  const chat = cleanChat(body.chat)
+  const qs = questions(p.name, meNew || p.newcomer)
+  if (chat.length < INTERVIEW_MAX && (chat.length === 0 || body.finish !== true)) return c.json({ done: false, question: qs[chat.length] })
+
+  const [old] = await q<{ chips: string[]; custom: string | null }>(`select chips, custom from keywords where giver_id = $1 and receiver_id = $2`, [me.id, receiverId])
+  const nick = chat.length === INTERVIEW_MAX ? nickname(chat[INTERVIEW_MAX - 1].a) : null
+  const gift = cleanGift({ chips: old?.chips ?? [], custom: nick ?? old?.custom ?? null })
+  await q(
+    `insert into keywords (giver_id, receiver_id, chips, custom, chat) values ($1, $2, $3, $4, $5)
+     on conflict (giver_id, receiver_id) do update set custom = excluded.custom, chat = excluded.chat, updated_at = now()`,
+    [me.id, receiverId, gift.chips, gift.custom, JSON.stringify(chat)],
+  )
+  return c.json({ done: true, gift, chat })
 })
 
 // ── 🎀 보물찾기 ───────────────────────────────────────────────
@@ -566,10 +602,49 @@ app.get('/admin/reveal', async (c) => {
 // 어워즈 진행: 사람마다 "몇 명에게 줬는지"만 (누구에게 무엇을 줬는지는 주지 않는다)
 app.get('/admin/awards', async (c) => {
   const q = await db()
-  const rows = await q<{ name: string; given: number }>(
-    `select p.name, (select count(*)::int from keywords k where k.giver_id = p.id) as given from players p order by p.name`,
+  const rows = await q<{ id: number; name: string; newcomer: boolean; given: number }>(
+    `select p.id, p.name, p.newcomer, (select count(*)::int from keywords k where k.giver_id = p.id) as given from players p order by p.name`,
   )
-  return c.json({ people: rows.length - 1, players: rows })
+  const cards = await q<{ player_id: number; name: string; title: string; citation: string }>(
+    `select a.player_id, p.name, a.title, a.citation from award_cards a join players p on p.id = a.player_id`,
+  )
+  const ids = await q<{ id: number; name: string }>(`select id, name from players order by name`)
+  return c.json({
+    people: rows.length - 1,
+    players: rows,
+    cards: ids.map((p) => {
+      const x = cards.find((k) => k.player_id === p.id)
+      return { id: p.id, name: p.name, title: x?.title ?? null, citation: x?.citation ?? null }
+    }),
+  })
+})
+
+// 🌱 새로 온 사람 표시 (어워즈 인터뷰 질문이 첫인상·기대로 바뀐다)
+app.put('/admin/players/:id/newcomer', async (c) => {
+  const id = Number(c.req.param('id'))
+  const { newcomer } = await c.req.json<{ newcomer?: unknown }>()
+  const q = await db()
+  await q(`update players set newcomer = $2 where id = $1`, [id, newcomer === true])
+  return c.json({ id, newcomer: newcomer === true })
+})
+
+// 상장 고치기 (운영자가 직접)
+app.put('/admin/awards/cards/:id', async (c) => {
+  const id = Number(c.req.param('id'))
+  const body = await c.req.json<{ title?: unknown; citation?: unknown }>()
+  const title = typeof body.title === 'string' ? body.title.trim().slice(0, 40) : ''
+  const citation = typeof body.citation === 'string' ? body.citation.trim().slice(0, 600) : ''
+  const q = await db()
+  if (!title) {
+    await q(`delete from award_cards where player_id = $1`, [id])
+    return c.json({ id, title: null, citation: null })
+  }
+  await q(
+    `insert into award_cards (player_id, title, citation) values ($1, $2, $3)
+     on conflict (player_id) do update set title = excluded.title, citation = excluded.citation, updated_at = now()`,
+    [id, title, citation],
+  )
+  return c.json({ id, title, citation })
 })
 
 // 보물찾기 현황: 선물 전달을 위해 운영자는 누가 어떤 선물을 찾았는지 본다 (진짜 자리만)
@@ -622,6 +697,7 @@ app.post('/admin/reset-all', async (c) => {
     `delete from hearts`,
     `delete from messages`,
     `delete from keywords`,
+    `delete from award_cards`,
     `delete from treasure_finds`,
     `delete from treasure_duds`,
     `delete from letters`,

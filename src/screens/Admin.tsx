@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, type AdminStatus, type AdminTreasure, type Phase } from '../api'
+import { api, type AdminAwards, type AdminStatus, type AdminTreasure, type AwardCardRow, type Phase } from '../api'
 import { KEYWORDS } from '../awards'
 import { tierOf } from '../treasure'
 import { RevealShow } from './RevealShow'
@@ -41,38 +41,61 @@ export function Admin({ onPhaseChange, onQuestions }: { onPhaseChange: () => voi
   )
 }
 
-// 어워즈 진행: 사람마다 동료 몇 명에게 키워드를 줬는지만. 누구에게 무엇을 줬는지는 운영자도 못 본다
+// 어워즈 진행: 사람마다 동료 몇 명을 인터뷰했는지만. 누가 누구에게 무슨 말을 했는지는 운영자도 못 본다.
+// 상장: 공개일 전에 Claude Code 가 받은 사람별 답(누가 했는지는 빼고)으로 써서 넣고(scripts/awards.ts), 운영자가 여기서 읽고 고친다.
 function AwardsAdmin() {
-  const [data, setData] = useState<{ people: number; players: { name: string; given: number }[] } | null>(null)
+  const [data, setData] = useState<AdminAwards | null>(null)
   const [error, setError] = useState('')
 
+  const load = useCallback(() => api.adminAwards().then(setData, (e: Error) => setError(e.message)), [])
   useEffect(() => {
-    api.adminAwards().then(setData, (e: Error) => setError(e.message))
-  }, [])
+    void load()
+  }, [load])
 
   if (!data) return <p className="muted">{error || '불러오는 중…'}</p>
   const done = data.players.filter((p) => p.given >= data.people).length
+  const setCard = (row: AwardCardRow) => setData((d) => d && { ...d, cards: d.cards.map((c) => (c.id === row.id ? { ...c, ...row } : c)) })
+
+  const made = data.cards.filter((c) => c.title).length
+  const setNewcomer = async (id: number, newcomer: boolean) => {
+    setError('')
+    setData((d) => d && { ...d, players: d.players.map((p) => (p.id === id ? { ...p, newcomer } : p)) })
+    try {
+      await api.setNewcomer(id, newcomer)
+    } catch (e) {
+      setError((e as Error).message)
+      void load()
+    }
+  }
 
   return (
     <div className="questions">
       <p className="muted">
-        동료에게 키워드를 주면, 가장 많이 받은 키워드가 그 사람의 상이 돼요. 결과는 <b>공개일</b>에 열리고, 누가 무엇을 줬는지는 운영자도 볼 수 없어요. 지금{' '}
+        🧝 엘프가 동료 한 명씩 인터뷰하고, 답은 키워드와 한 줄 메모로 정리돼요. 누가 무슨 말을 했는지는 운영자도 볼 수 없어요. 지금{' '}
         <b>
           {done}/{data.players.length}명
         </b>
-        이 모두에게 줬어요.
+        이 모두를 인터뷰했어요.
+      </p>
+      <p className="muted small">
+        🌱 <b>새로 온 사람</b>에 체크하면, 그 사람이 들어간 인터뷰(그 사람이 묻거나 그 사람에 대해 묻거나)는 &quot;함께한 순간&quot; 대신 <b>첫인상·앞으로 기대되는 점</b>을
+        물어요. 아직 팀과 같이 일해 본 적 없는 분께 체크해 주세요.
       </p>
       <table>
         <thead>
           <tr>
             <th>이름</th>
-            <th>키워드 준 동료</th>
+            <th>🌱 새로 온 사람</th>
+            <th>인터뷰한 동료</th>
           </tr>
         </thead>
         <tbody>
           {data.players.map((p) => (
             <tr key={p.name}>
               <td>{p.name}</td>
+              <td>
+                <input type="checkbox" aria-label={`${p.name} 새로 온 사람`} checked={p.newcomer} onChange={(e) => setNewcomer(p.id, e.target.checked)} />
+              </td>
               <td className={p.given >= data.people ? 'ok-text' : ''}>
                 {p.given}/{data.people}명
               </td>
@@ -80,10 +103,92 @@ function AwardsAdmin() {
           ))}
         </tbody>
       </table>
+
+      <h3>🏆 상장 ({made}/{data.cards.length})</h3>
+      <p className="muted small">
+        인터뷰가 모이면 (12/15쯤) Claude Code 에 <b>"어워즈 상장 만들어줘"</b>라고 말해 주세요. 사람마다 받은 답을 모아(누가 했는지는 빼고) 상 이름과 상장 문구를 써서
+        여기에 넣어 줘요. 읽어 보고 어색하면 ✏️ 고치면 돼요. 상장은 <b>공개일</b>에 모두에게 열려요. (상장이 없는 사람은 가장 많이 받은 키워드가 상이 돼요)
+      </p>
+      {error && <p className="error">{error}</p>}
+      <table>
+        <thead>
+          <tr>
+            <th>이름</th>
+            <th>상장</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.cards.map((c) => (
+            <CardRow key={c.id} card={c} onSaved={setCard} />
+          ))}
+        </tbody>
+      </table>
       <p className="muted small">
         키워드 칩 {KEYWORDS.length}개: {KEYWORDS.map((k) => k.chip).join(' · ')}
       </p>
     </div>
+  )
+}
+
+function CardRow({ card, onSaved }: { card: AwardCardRow & { name: string }; onSaved: (row: AwardCardRow) => void }) {
+  const [edit, setEdit] = useState(false)
+  const [title, setTitle] = useState(card.title ?? '')
+  const [citation, setCitation] = useState(card.citation ?? '')
+  const [err, setErr] = useState('')
+  const save = async () => {
+    try {
+      onSaved(await api.saveCard(card.id, title, citation))
+      setEdit(false)
+    } catch (e) {
+      setErr((e as Error).message)
+    }
+  }
+  return (
+    <tr>
+      <td>{card.name}</td>
+      <td>
+        {edit ? (
+          <div className="card-edit">
+            <input value={title} maxLength={40} onChange={(e) => setTitle(e.target.value)} placeholder="상 이름" />
+            <textarea value={citation} maxLength={600} onChange={(e) => setCitation(e.target.value)} placeholder="상장 문구" />
+            <div className="letter-actions" style={{ justifyContent: 'flex-start' }}>
+              <button className="primary small" type="button" onClick={() => void save()}>
+                저장
+              </button>
+              <button className="ghost small" type="button" onClick={() => setEdit(false)}>
+                취소
+              </button>
+              {err && <span className="error">{err}</span>}
+            </div>
+          </div>
+        ) : card.title ? (
+          <>
+            <b>{card.title}</b>
+            <p className="muted small" style={{ margin: '4px 0' }}>
+              {card.citation}
+            </p>
+            <button
+              className="ghost small"
+              type="button"
+              onClick={() => {
+                setTitle(card.title ?? '')
+                setCitation(card.citation ?? '')
+                setEdit(true)
+              }}
+            >
+              ✏️ 고치기
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="muted small">아직 없어요 </span>
+            <button className="ghost small" type="button" onClick={() => setEdit(true)}>
+              ✏️ 직접 쓰기
+            </button>
+          </>
+        )}
+      </td>
+    </tr>
   )
 }
 

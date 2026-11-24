@@ -47,6 +47,8 @@ async function migrate(q: Query) {
   )`)
   // 쿠키 꾸미기 (나중에 추가된 칸)
   await q(`alter table players add column if not exists look jsonb`)
+  // 🌱 새로 온 사람 (아직 팀과 같이 일해 본 적이 없음): 어워즈 인터뷰 질문이 첫인상·기대로 바뀐다
+  await q(`alter table players add column if not exists newcomer boolean not null default false`)
   // 메시지 트리: 하루에 한 사람당 한 장 (오늘의 질문에 대한 답). 모두가 이름과 함께 본다
   await q(`create table if not exists messages (
     id serial primary key,
@@ -70,6 +72,15 @@ async function migrate(q: Query) {
     custom text,
     updated_at timestamptz not null default now(),
     primary key (giver_id, receiver_id)
+  )`)
+  // 🧝 엘프 인터뷰 문답 (질문 3개). 화면에서는 준 사람만 다시 본다
+  await q(`alter table keywords add column if not exists chat jsonb`)
+  // 🏆 상장: 공개일 전에 운영자가 Claude Code 로 쓰고(scripts/awards.ts) 운영 화면에서 고친다. 공개일에 받은 사람별로 열린다
+  await q(`create table if not exists award_cards (
+    player_id int primary key references players(id),
+    title text not null,
+    citation text not null,
+    updated_at timestamptz not null default now()
   )`)
   // 🎀 보물찾기: 진짜 선물. 자리 하나는 한 사람만(spot 기본 키), 한 사람은 하나만(player_id unique)
   await q(`create table if not exists treasure_finds (
