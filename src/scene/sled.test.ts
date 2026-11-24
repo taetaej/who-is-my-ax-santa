@@ -50,6 +50,7 @@ describe('💬 반응', () => {
   })
 })
 
+import { SLED_RECORD_MAX } from '../sledLimit'
 import { POWER_MAX, SLED_FAR, SLED_LAMPS, bump, newRide, sledDistance, stepDown } from './sledRide'
 
 /** 꼭대기에서 출발해 끝날 때까지. aim = 평지에서 맞출 옆 위치 */
@@ -66,6 +67,9 @@ function slide(power: number, aim: number) {
 }
 
 describe('🛷 썰매 기록', () => {
+  it('서버가 쓰는 기록 최댓값이 실제 최대 거리와 같다', () => {
+    expect(SLED_RECORD_MAX).toBeCloseTo(SLED_FAR, 5)
+  })
   it('썰매 길에 광장 가로등이 하나 서 있다', () => {
     expect(SLED_LAMPS).toHaveLength(1)
   })

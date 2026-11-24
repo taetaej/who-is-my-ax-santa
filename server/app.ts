@@ -12,7 +12,7 @@ import { EMPTY_GUESS, cleanGuess, guessDone, type Guess, type GuessStatus } from
 import { makeCycle } from './matching.js'
 import { RESCUE_FROM, SPOTS, spot, tierOf } from '../src/treasure.js'
 import { REAL, dudLine } from './treasure.js'
-import { SLED_FAR } from '../src/scene/sledRide.js'
+import { SLED_RECORD_MAX } from '../src/sledLimit.js'
 
 type Me = { id: number; name: string; is_admin: boolean }
 type Env = { Variables: { me: Me } }
@@ -385,7 +385,7 @@ app.get('/sled', async (c) => c.json(await sledBoard(c.get('me').id)))
 
 app.post('/sled/run', async (c) => {
   const { dist } = await c.req.json<{ dist?: unknown }>().catch(() => ({ dist: undefined }))
-  if (typeof dist !== 'number' || !Number.isFinite(dist) || dist < 0 || dist > SLED_FAR + 0.05) return bad(c, '이상한 기록이에요')
+  if (typeof dist !== 'number' || !Number.isFinite(dist) || dist < 0 || dist > SLED_RECORD_MAX + 0.05) return bad(c, '이상한 기록이에요')
   const me = c.get('me')
   const d = Math.round(dist * 10) / 10
   const q = await db()
