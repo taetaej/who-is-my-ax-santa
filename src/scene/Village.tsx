@@ -1,3 +1,6 @@
+import { Pets } from './Pets'
+import { Chimney, GlowPools } from './Warmth'
+import { Users } from '@phosphor-icons/react'
 import { Sparkles } from '@react-three/drei'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing'
@@ -203,8 +206,8 @@ function Sun({ me }: { me: MutableRefObject<CookieState | null> }) {
   return (
     <directionalLight
       ref={light}
-      intensity={1.25}
-      color="#ffe2c4"
+      intensity={0.95}
+      color="#c9d4ff"
       castShadow
       shadow-mapSize={[2048, 2048]}
       shadow-bias={-0.0004}
@@ -276,15 +279,16 @@ export function Village({
       <Canvas shadows dpr={[1, 1.5]} camera={{ position: [0, 17, 30], fov: 40, near: 0.3, far: 400 }}>
         <fog attach="fog" args={[SPACE_FOG, 90, 320]} />
         <SpaceBackdrop />
-        <hemisphereLight args={['#b9c6ff', '#4a3a6e', 0.85]} />
+        <hemisphereLight args={['#93a0ea', '#362c62', 0.55]} />
         <Sun me={myState} />
         <directionalLight
           position={[14, 24, 12]}
-          intensity={0.35}
-          color="#9fb3ff"
+          intensity={0.3}
+          color="#8a9cff"
         />
 
         <Ground />
+        <GlowPools />
         <Plaza />
         <Spots tree={tree} />
         <Festive />
@@ -300,6 +304,7 @@ export function Village({
             <Batch>
               <Church />
             </Batch>
+            <Chimney position={[-0.9, 3.0, -0.8]} h={1.0} />
           </group>
         </Fade>
         <Forest />
@@ -327,6 +332,7 @@ export function Village({
         )}
 
         <Sparkles count={420} scale={[64, 0.6, 64]} position={[0, 0.25, 0]} size={2.2} speed={0.15} opacity={0.9} color="#ffffff" />
+        <Pets me={myState} />
         <FallingSnow />
 
         <EffectComposer multisampling={4}>
@@ -334,7 +340,11 @@ export function Village({
           <Vignette offset={0.25} darkness={0.5} />
         </EffectComposer>
       </Canvas>
-      {live && me && <div className="online-count">🍪 지금 마을에 {here}명</div>}
+      {live && me && (
+        <div className="online-count" title="지금 마을에 있는 사람">
+          <Users size={16} weight="fill" /> 지금 마을에 <b>{here}명</b>
+        </div>
+      )}
       {me && <SnowHitOverlay />}
     </div>
   )

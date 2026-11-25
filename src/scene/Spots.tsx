@@ -1,4 +1,5 @@
 import { Html, Sparkles } from '@react-three/drei'
+import { Headphones } from '@phosphor-icons/react'
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from 'react'
 import type { CookieState } from './Cookie'
@@ -7,6 +8,7 @@ import { music, tickMusic } from './music'
 import { labelHue } from '../carol'
 import * as THREE from 'three'
 import { Batch } from './Batch'
+import { Chimney } from './Warmth'
 import { Fade } from './Fade'
 import { M, blobs, gableBody, rng } from './materials'
 import { ArchWindow, Door, Garland, Lamp, Present, Roof, Wreath } from './props'
@@ -15,10 +17,17 @@ import { AWARDS_ROT, COCOA_SIZE, inCarol, FIRE_SEATS, POST_SIZE, SPOT, addCircle
 // 마을의 놀이 장소들. 각 장소는 앞면(+z)이 광장 쪽을 본다.
 
 /** 장소 이름표 (머리 위에 떠 있는 팻말) */
+/** 이름표 글씨에서 이모지는 뺀다 (마을 위 글씨는 유리 알약 + 남색 글씨로 통일) */
+export const plainLabel = (text: string) =>
+  text
+    .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]/gu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
 export function SpotLabel({ position, text }: { position: V3; text: string }) {
   return (
     <FarLabel position={position} className="spot-label">
-      {text}
+      {plainLabel(text)}
     </FarLabel>
   )
 }
@@ -106,6 +115,7 @@ function PostOffice() {
           </mesh>
         ))}
       </Batch>
+      <Chimney position={[0.95, 2.0, -POST_SIZE.d * 0.18]} />
       <Wreath position={[0, h - 0.05, front + 0.04]} scale={0.9} />
       <Garland from={[-w / 2 - 0.05, h - 0.06, front + 0.06]} to={[w / 2 + 0.05, h - 0.06, front + 0.06]} sag={0.14} />
       <TextSign lines={[{ text: '📮 AX 우편함', size: 0.15, color: '#6a3b10', weight: 900, kr: true }]} w={1.4} h={0.26} position={[0, 1.35, front + 0.11]} bg="#ffe6b0" radius={0.04} glow />
@@ -634,10 +644,12 @@ export function CarolCount({ others, me }: { others: number; me: MutableRefObjec
           </span>
           {song.title}
           {song.composer && <em>— {song.composer}</em>}
-          {n > 0 && <small>🎧 {n}명</small>}
+          {n > 0 && <small>{n}명</small>}
         </div>
       ) : (
-        <div className="spot-count">🎧 {n}명 같이 듣는 중</div>
+        <div className="spot-count">
+          <Headphones size={14} weight="fill" /> {n}명 같이 듣는 중
+        </div>
       )}
     </Html>
   )
@@ -704,7 +716,7 @@ function MessageTreeCards({ info }: { info: TreeInfo | null }) {
         ))}
       </group>
       <FarLabel position={[0, 2.5, 2.4]} className="spot-label tree-label">
-        🎄 메시지 트리 {info ? <span className="count">{info.total}</span> : null}
+        메시지 트리 {info ? <span className="count">{info.total}</span> : null}
         {info && <div className="q">Q. {info.question}</div>}
       </FarLabel>
     </group>

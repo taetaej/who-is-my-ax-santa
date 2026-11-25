@@ -1186,3 +1186,72 @@ input[type='range'] { background: transparent; border: 0; box-shadow: none; }
 .cal-day.p-open { background: #e9f6ee; } .cal-day.p-santa { background: #fbebee; } .cal-day.p-reveal { background: #eef0ff; }
 .lg.p-open { background: #e9f6ee; } .lg.p-santa { background: #fbebee; } .lg.p-reveal { background: #eef0ff; }
 .ghost, .name, .chip-btn, .cal-check, .peek { background: rgba(255, 255, 255, 0.9); }
+
+/* ══ 마을 위 글씨·작은 창도 같은 톤 (유리 + 남색 글씨 + 빨강·금 포인트) ══ */
+.spot-label {
+  color: var(--x-ink); font-size: 14px; font-weight: 800; padding: 5px 13px; border: 0; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72); backdrop-filter: blur(10px) saturate(1.4); -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 6px 16px rgba(15, 8, 50, 0.22);
+}
+.tree-label { border-radius: 18px; padding: 6px 14px 7px; }
+.tree-label .count { background: var(--x-red); box-shadow: 0 2px 0 var(--x-red-d); }
+.tree-label .q { color: var(--x-ink-2); }
+.tag { color: var(--x-ink); background: rgba(255, 255, 255, 0.82); box-shadow: 0 3px 10px rgba(15, 8, 50, 0.18); }
+.tag.me { background: var(--x-gold); color: var(--x-ink); box-shadow: 0 2px 0 var(--x-gold-d), 0 3px 10px rgba(15, 8, 50, 0.18); }
+.elf-tag { background: var(--x-green); color: #fff; box-shadow: 0 2px 0 var(--x-green-d); }
+.bubble, .elf-bubble { color: var(--x-ink); box-shadow: 0 6px 16px rgba(15, 8, 50, 0.2); }
+
+/* 👥 지금 마을에 N명: 왼쪽 아래 반응 버튼 위 유리 알약 */
+.online-count {
+  top: auto; bottom: 186px; left: 16px; z-index: 4; display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+  font-size: 13px; font-weight: 700; color: var(--x-ink);
+  background: var(--glass-bg); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4); box-shadow: var(--glass);
+}
+.online-count svg { color: var(--x-green); }
+.online-count b { font-weight: 800; }
+@media (max-width: 640px) { .online-count { bottom: 166px; } }
+
+/* 🎧 같이 듣는 중 · 지금 나오는 곡 (불가 위) */
+.spot-count { display: inline-flex; align-items: center; gap: 5px; background: var(--x-red); color: #fff; box-shadow: 0 3px 0 var(--x-red-d), 0 6px 14px rgba(140, 30, 25, 0.3); }
+.now-playing {
+  color: var(--x-ink); background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 #fff, 0 6px 16px rgba(15, 8, 50, 0.22);
+}
+.now-playing em { color: var(--x-ink-2); }
+.now-playing .eq i { background: var(--x-red); }
+.now-playing small { color: #fff; background: var(--x-red); padding: 1px 7px; border-radius: 999px; }
+
+/* 🎵 캐롤 라디오 카드: 어두운 갈색 → 밝은 유리 */
+.carol {
+  color: var(--x-ink); background: rgba(255, 255, 255, 0.62); backdrop-filter: blur(18px) saturate(1.5); -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  box-shadow: var(--glass); border-radius: 24px;
+}
+.carol-kicker { color: var(--x-red); }
+.carol-kicker span, .carol-meta > span, .carol-progress span, .carol-next, .carol-next span, .carol-foot, .carol-list li em, .carol-list li .d { color: var(--x-ink-2); }
+.carol-meta b { color: var(--x-ink); }
+.carol-mute, .carol-list-toggle { background: rgba(255, 255, 255, 0.8); color: var(--x-ink); box-shadow: inset 0 0 0 1.5px var(--x-line); }
+.carol-progress .bar { background: rgba(47, 41, 80, 0.12); }
+.carol-progress .bar i { background: var(--x-red); }
+.carol-list li.on { background: rgba(200, 55, 45, 0.1); color: var(--x-red); }
+
+/* ⚔️ 눈싸움 · ⛄ 눈굴리기 안내: 유리 알약 */
+.combat-hud {
+  color: var(--x-ink); background: var(--glass-bg); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4); box-shadow: var(--glass);
+}
+.hp-bar, .charge-bar { background: rgba(47, 41, 80, 0.12); }
+.roll-hud b { color: var(--x-red); }
+
+/* 🧝 엘프 대화창: 초록 굵은 테두리 → 밝은 유리 + 초록 이름 알약 */
+.dialog-box {
+  border: 0; border-radius: 26px; color: var(--x-ink);
+  background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(22px) saturate(1.5); -webkit-backdrop-filter: blur(22px) saturate(1.5);
+  box-shadow: inset 0 1.5px 0 #fff, inset 0 0 0 1.5px rgba(255, 255, 255, 0.6), 0 24px 60px rgba(10, 5, 40, 0.4);
+}
+.dialog-name { align-self: flex-start; padding: 3px 12px; border-radius: 999px; background: var(--x-green); color: #fff; box-shadow: 0 2px 0 var(--x-green-d); font-size: 14px; }
+.dialog-progress { color: var(--x-ink-2); }
+
+/* 🐈🐕 마을 고양이·강아지 말풍선 */
+.pet-say {
+  white-space: nowrap; padding: 4px 10px; border-radius: 999px; font-family: var(--font-hand); font-size: 16px; color: var(--x-ink);
+  background: rgba(255, 255, 255, 0.9); box-shadow: 0 4px 12px rgba(15, 8, 50, 0.2); animation: pop 0.25s ease-out;
+}

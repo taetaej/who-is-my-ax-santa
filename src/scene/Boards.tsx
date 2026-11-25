@@ -23,7 +23,7 @@ function Sign({ lines, position, rotation = 0 }: { lines: TextLine[]; position: 
       <mesh position={[0, 1.2, -0.04]} material={POST} castShadow>
         <boxGeometry args={[1.75, 1.15, 0.05]} />
       </mesh>
-      <TextSign lines={lines} w={1.65} h={1.05} position={[0, 1.2, 0]} bg="#2b2238" radius={0.06} glow />
+      <TextSign lines={lines} w={1.65} h={1.05} position={[0, 1.2, 0]} bg="#1f2350" radius={0.06} glow />
     </group>
   )
 }
