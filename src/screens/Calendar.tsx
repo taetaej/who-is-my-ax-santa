@@ -69,20 +69,20 @@ export function todosFor(me: Me, day: string): Todo[] {
   return list
 }
 
-/** 화면 왼쪽 위 한 줄: 지금 가장 중요한 일정 */
-export function headline(me: Me): { text: string; done: boolean } {
+/** 화면 왼쪽 위 상태 카드: 작은 머리말(kicker) + 지금 가장 중요한 일 (이모지 없이) */
+export function headline(me: Me): { kicker: string; text: string; done: boolean } {
   const day = me.today
-  if (day < OPEN_DAY) return { text: `🎄 ${dayLabel(OPEN_DAY)} 마을 오픈 · D-${daysBetween(day, OPEN_DAY)}`, done: false }
-  if (day >= REVEAL_DAY) return { text: '🎬 공개일! 산타 정체 공개', done: true }
+  if (day < OPEN_DAY) return { kicker: `D-${daysBetween(day, OPEN_DAY)}`, text: `${dayLabel(OPEN_DAY)} 마을 오픈`, done: false }
+  if (day >= REVEAL_DAY) return { kicker: '공개일', text: '산타 정체 공개!', done: true }
   const m = missionOn(day)
-  if (me.phase === 'ACTIVE' && m) return { text: `${m.emoji} 산타 미션 ${'①②③④'[m.n - 1]} ${m.title}`, done: me.missions.includes(m.id) }
-  if (day >= WRITE_FROM) return { text: '✍️ 관찰 리포트 · 추리노트 마감', done: me.letter === 'submitted' && me.guess === 'done' }
+  if (me.phase === 'ACTIVE' && m) return { kicker: `산타 미션 ${'①②③④'[m.n - 1]}`, text: m.title, done: me.missions.includes(m.id) }
+  if (day >= WRITE_FROM) return { kicker: '마감 주간', text: '관찰 리포트 · 추리노트', done: me.letter === 'submitted' && me.guess === 'done' }
   if (day < MATCH_DAY) {
     const todos = todosFor(me, day)
     const left = todos.filter((t) => !t.done).length
-    return { text: left ? `🌱 오프닝 주간 · 할 일 ${left}개` : `🌱 오프닝 주간 · 🎅 산타 발표 ${md(MATCH_DAY)}`, done: !left }
+    return { kicker: '오프닝 주간', text: left ? `오늘 할 일 ${left}개` : `산타 발표 ${md(MATCH_DAY)}`, done: !left }
   }
-  return { text: me.phase === 'READY' ? '🎅 곧 산타 발표!' : '🎅 산타 주간', done: false }
+  return { kicker: '산타 주간', text: me.phase === 'READY' ? '곧 산타 발표!' : '오늘의 미션 확인', done: false }
 }
 
 const KIND_CLASS = { open: 'k-open', all: 'k-all', santa: 'k-santa', mission: 'k-mission', due: 'k-due', reveal: 'k-reveal' } as const

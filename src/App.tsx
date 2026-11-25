@@ -19,15 +19,18 @@ import { CarolPlayer } from './screens/CarolPlayer'
 import { EmoteBar } from './screens/EmoteBar'
 import { GameHud } from './screens/GameHud'
 import { MiniMap } from './screens/MiniMap'
-import { Calendar, headline } from './screens/Calendar'
+import { Calendar, dayLabel, headline } from './screens/Calendar'
 import { Orn } from './screens/Ornament'
 import {
   CalendarCheck,
+  CaretRight,
+  CheckCircle,
   CalendarDots,
   Detective,
   DoorOpen,
   Gear,
   Gift,
+  Keyboard,
   HandHeart,
   List,
   MagnifyingGlass,
@@ -51,6 +54,14 @@ export function App() {
   const [carol, setCarol] = useState(0)
   const [overview, setOverview] = useState(false) // 🗺️ 마을 전경 보기
   const [more, setMore] = useState(false) // ☰ 더보기 메뉴
+  // ⌨️ 조작법 안내: 들어오고 12초 동안만 보여 주고 사라진다. 더보기 → 조작법 보기 또는 ? 키로 다시
+  const [tips, setTips] = useState(false)
+  const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showTips = useCallback((ms = 12000) => {
+    setTips(true)
+    if (tipTimer.current) clearTimeout(tipTimer.current)
+    tipTimer.current = setTimeout(() => setTips(false), ms)
+  }, [])
   // 더보기 메뉴는 밖을 누르거나 Esc 로 닫힌다
   useEffect(() => {
     if (!more) return
@@ -123,6 +134,18 @@ export function App() {
 
   // 메시지 트리 카드 수와 오늘의 질문 (30초마다 새로)
   const loggedIn = !!me
+  useEffect(() => {
+    if (loggedIn) showTips()
+  }, [loggedIn, showTips])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return
+      if (e.key === '?') showTips(10000)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showTips])
   const loadTree = useCallback(() => api.treeSummary().then(setTree, () => {}), [])
   useEffect(() => {
     if (!loggedIn) return
@@ -189,7 +212,7 @@ export function App() {
   // 엘프 NPC: 할 일이 남았으면 ❗ 와 혼잣말
   const elf = me ? elfChatter(me) : null
   const giftWaiting = me && me.phase === 'ACTIVE' && !me.manitoOpened
-  const head = me ? { ...headline(me), date: `${Number(me.today.slice(5, 7))}/${Number(me.today.slice(8, 10))}` } : null
+  const head = me ? { ...headline(me), date: dayLabel(me.today) } : null
 
   return (
     <>
@@ -251,22 +274,29 @@ export function App() {
               </button>
             )}
             {prompt && modal === null && <div className="prompt">{prompt}</div>}
-            {!firstVisit && modal === null && (
-              <button className={`today-hud ${head?.done ? 'done' : ''}`} onClick={() => setModal('calendar')} title="📅 일정 보기">
-                <Orn icon={CalendarCheck} color="red" />
-                <span className="today-date">{head?.date}</span> {head?.text}
-                {head?.done && ' ✅'}
-              </button>
-            )}
-            {treasure?.active && !firstVisit && (
-              <button className="treasure-hud" onClick={() => setModal('treasure')} title="숨은 선물 현황">
-                <Orn icon={Gift} color="green" />남은 선물
-                {TIERS.map((t, i) => (
-                  <span key={t.tier} className={`medal t${i + 1}`} title={t.label}>
-                    {t.count - treasure.found.filter((f) => f.tier === t.tier).length}
+            {!firstVisit && modal === null && head && (
+              <div className="status-card">
+                <button className={`status-row ${head.done ? 'done' : ''}`} onClick={() => setModal('calendar')} title="일정 보기">
+                  <Orn icon={CalendarCheck} color="red" />
+                  <span className="status-text">
+                    <small>
+                      {head.date} · {head.kicker}
+                    </small>
+                    <b>{head.text}</b>
                   </span>
-                ))}
-              </button>
+                  {head.done ? <CheckCircle className="status-check" size={20} weight="fill" /> : <CaretRight className="status-go" size={14} weight="bold" />}
+                </button>
+                {treasure?.active && (
+                  <button className="status-row" onClick={() => setModal('treasure')} title="숨은 선물 현황">
+                    <Orn icon={Gift} color="green" />
+                    <span className="status-text">
+                      <small>숨은 선물</small>
+                      <b>{treasure.total - treasure.found.length}개 남음</b>
+                    </span>
+                    <CaretRight className="status-go" size={14} weight="bold" />
+                  </button>
+                )}
+              </div>
             )}
             {toast && modal === null && (
               <div className="toast" role="status">
@@ -294,11 +324,11 @@ export function App() {
             <GameHud show={modal === null && !firstVisit} />
             <MiniMap show={modal === null && !firstVisit && !overview} />
 
-            <div className="help">
+            <div className={`help ${tips ? 'show' : ''}`}>
               <kbd>←↑↓→</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>Space</kbd> 인사 · <kbd>E</kbd> 말 걸기·타기 · <kbd>F</kbd> 꾹 눌러 눈덩이 · <kbd>1~8</kbd> 반응 · <kbd>M</kbd> 전경
             </div>
             {modal === null && !firstVisit && (
-              <div className="help cam-help">
+              <div className={`help cam-help ${tips ? 'show' : ''}`}>
                 🎥 <kbd>화면 끌기</kbd> 또는 <kbd>Q</kbd>
                 <kbd>R</kbd> 시야 돌리기 · <kbd>휠</kbd> 줌 · <kbd>C</kbd> 원래대로
               </div>
@@ -349,6 +379,10 @@ export function App() {
                     <button onClick={() => setOverview((v) => !v)}>
                       <Orn icon={MapTrifold} color="green" />
                       {overview ? '전경 닫기' : '마을 전경 보기'}
+                    </button>
+                    <button onClick={() => showTips(10000)}>
+                      <Orn icon={Keyboard} color="blue" />
+                      조작법 보기
                     </button>
                     {me.isAdmin && (
                       <button onClick={() => setModal('admin')}>

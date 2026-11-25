@@ -47,12 +47,12 @@ describe('오늘 할 일', () => {
   it('오프닝: 꾸미기 · 자기소개 · 트리 · 인터뷰', () => {
     expect(todosFor(me, '2026-12-01').map((t) => t.key)).toEqual(['look', 'profile', 'tree', 'awards'])
     expect(todosFor(me, '2026-11-28')).toEqual([])
-    expect(headline({ ...me, today: '2026-11-25' }).text).toContain('D-6')
+    expect(headline({ ...me, today: '2026-11-25' }).kicker).toBe('D-6')
   })
   it('산타 주간: 이번 미션 + 안 한 지난 미션, 마감 주간엔 리포트·추리노트', () => {
     const santa: Me = { ...me, phase: 'ACTIVE', manitoOpened: true, look: {} as Me['look'], missions: ['snack'] }
     expect(todosFor(santa, '2026-12-11').filter((t) => t.mission).map((t) => t.key)).toEqual(['watch', 'cheer'])
     expect(todosFor(santa, '2026-12-15').map((t) => t.key)).toEqual(expect.arrayContaining(['gift', 'letter', 'guess']))
-    expect(headline({ ...santa, today: '2026-12-09' })).toEqual({ text: '🍪 산타 미션 ② 간식 챙기기', done: true })
+    expect(headline({ ...santa, today: '2026-12-09' })).toEqual({ kicker: '산타 미션 ②', text: '간식 챙기기', done: true })
   })
 })
