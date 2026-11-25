@@ -18,6 +18,14 @@ describe('questionFor (평일만)', () => {
     expect(questionFor('2026-12-13')).toBe(QUESTIONS[8]) // 일 → 금요일 질문
     expect(questionFor('2026-12-16')).toBe(QUESTIONS[11]) // 수, 공개일 전날
   })
+  it('주차별 질문이 정해진 날짜에 나온다', () => {
+    expect(questionFor('2026-12-01')).toContain('툴이나 단축키')
+    expect(questionFor('2026-12-04')).toContain('크리스마스 소원')
+    expect(questionFor('2026-12-07')).toContain('꿀팁')
+    expect(questionFor('2026-12-11')).toContain('가장 큰 산')
+    expect(questionFor('2026-12-14')).toContain('한 단어')
+    expect(questionFor('2026-12-16')).toContain('남기는 한마디')
+  })
   it('행사 평일 12일에 질문이 겹치지 않는다', () => {
     const days = Array.from({ length: 12 }, (_, i) => questionDay(FIRST_DAY, i))
     expect(days.at(-1)).toBe('2026-12-16')
