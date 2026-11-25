@@ -9,8 +9,8 @@ export const AWARDS_DUE = '2026-12-14' // 🏆 어워즈 인터뷰 마감 (12/15
 export const WRITE_FROM = '2026-12-15' // ✍️ 관찰 리포트 · 🔍 추리노트 마감 주간
 export const REVEAL_DAY = '2026-12-17' // 🎬 공개일
 
-export type MissionId = 'watch' | 'snack' | 'cheer' | 'gift'
-export type Mission = { id: MissionId; n: number; from: string; to: string; emoji: string; title: string; desc: string; tip: string }
+export type MissionId = 'watch' | 'snack' | 'cheer' | 'gift' | 'photo'
+export type Mission = { id: MissionId; n: number; from: string; to: string; emoji: string; title: string; desc: string; tip: string; bonus?: boolean }
 
 /** 🎅 산타 미션: 2일마다 하나씩. 체크는 나만 보고, 한 번 할 때마다 XP */
 export const MISSIONS: readonly Mission[] = [
@@ -54,6 +54,17 @@ export const MISSIONS: readonly Mission[] = [
     desc: '공개일에 건넬 작은 선물을 준비하고, 관찰 리포트에 무슨 선물인지 적어 두기',
     tip: '관찰하며 알게 된 취향을 담으면 감동 두 배 ✨',
   },
+  {
+    id: 'photo',
+    n: 5,
+    from: '2026-12-07',
+    to: '2026-12-16',
+    emoji: '📸',
+    title: '같이 사진 찍기',
+    desc: '마을에서 내가 챙길 사람 옆에 슬쩍 가서 몰래 사진 찍기 (☰ 더보기 → 📸 사진 찍기)',
+    tip: '공개일에 정체 공개 카드 옆에 이 사진이 같이 나와요 ㅋㅋ 들키지 않게!',
+    bonus: true,
+  },
 ]
 
 export const MISSION_IDS = MISSIONS.map((m) => m.id) as readonly MissionId[]
@@ -62,7 +73,7 @@ export const missionById = (id: MissionId) => MISSIONS.find((m) => m.id === id)!
 
 /** 그날 진행 중인 산타 미션 (주말은 앞 미션이 이어진다) */
 export function missionOn(day: string): Mission | null {
-  return MISSIONS.find((m) => m.from <= day && day <= m.to) ?? null
+  return MISSIONS.find((m) => !m.bonus && m.from <= day && day <= m.to) ?? null
 }
 
 /** 미션을 체크할 수 있는지: 시작일부터 공개일 전까지 (지난 미션도 늦게 체크 가능) */
@@ -85,7 +96,10 @@ export const EVENTS: readonly CalEvent[] = [
   },
   { from: OPEN_DAY, to: AWARDS_DUE, emoji: '🏆', title: '어워즈 인터뷰', desc: '동료마다 엘프 질문 3개 (1분). 모아서 공개일에 상장이 돼요', kind: 'all' },
   { from: MATCH_DAY, to: MATCH_DAY, emoji: '🎅', title: '산타 발표! 내가 챙길 사람 확인', desc: '🎅 내가 챙길 사람에서 확인해요. 이날부터 숨은 선물 찾기도 열려요 🎀', kind: 'santa' },
-  ...MISSIONS.map(
+  ...MISSIONS.filter((m) => m.bonus).map(
+    (m): CalEvent => ({ from: m.from, to: m.to, emoji: m.emoji, title: `보너스 미션 ${m.title}`, desc: m.desc, kind: 'all', mission: m.id }),
+  ),
+  ...MISSIONS.filter((m) => !m.bonus).map(
     (m): CalEvent => ({ from: m.from, to: m.to, emoji: m.emoji, title: `산타 미션 ${'①②③④'[m.n - 1]} ${m.title}`, desc: m.desc, kind: 'mission', mission: m.id }),
   ),
   { from: WRITE_FROM, to: '2026-12-16', emoji: '✍️', title: '관찰 리포트 · 추리노트 마감', desc: '산타는 🕵️ 관찰 리포트를 제출하고, 모두 🔍 추리노트에 내 산타를 찍어요', kind: 'due' },

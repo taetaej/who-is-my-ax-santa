@@ -19,10 +19,12 @@ import { CarolPlayer } from './screens/CarolPlayer'
 import { EmoteBar } from './screens/EmoteBar'
 import { GameHud } from './screens/GameHud'
 import { MiniMap } from './screens/MiniMap'
+import { PhotoMode } from './screens/PhotoMode'
 import { Calendar, dayLabel, headline } from './screens/Calendar'
 import { Orn } from './screens/Ornament'
 import {
   CalendarCheck,
+  Camera,
   CaretRight,
   CheckCircle,
   CalendarDots,
@@ -54,6 +56,7 @@ export function App() {
   const [carol, setCarol] = useState(0)
   const [overview, setOverview] = useState(false) // 🗺️ 마을 전경 보기
   const [more, setMore] = useState(false) // ☰ 더보기 메뉴
+  const [photoMode, setPhotoMode] = useState(false) // 📸 보너스 미션: 사진 찍기
   // ⌨️ 조작법 안내: 들어오고 12초 동안만 보여 주고 사라진다. 더보기 → 조작법 보기 또는 ? 키로 다시
   const [tips, setTips] = useState(false)
   const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -320,7 +323,16 @@ export function App() {
               </div>
             )}
             <CarolPlayer level={carol} onSongChange={setToast} />
-            <EmoteBar show={modal === null && !firstVisit} />
+            <EmoteBar show={modal === null && !firstVisit && !photoMode} />
+            {photoMode && modal === null && !firstVisit && (
+              <PhotoMode
+                onClose={() => setPhotoMode(false)}
+                onSaved={(text) => {
+                  setToast(text)
+                  void refresh()
+                }}
+              />
+            )}
             <GameHud show={modal === null && !firstVisit} />
             <MiniMap show={modal === null && !firstVisit && !overview} />
 
@@ -380,6 +392,12 @@ export function App() {
                       <Orn icon={MapTrifold} color="green" />
                       {overview ? '전경 닫기' : '마을 전경 보기'}
                     </button>
+                    {me.phase === 'ACTIVE' && (
+                      <button onClick={() => setPhotoMode(true)}>
+                        <Orn icon={Camera} color="red" />
+                        사진 찍기
+                      </button>
+                    )}
                     <button onClick={() => showTips(10000)}>
                       <Orn icon={Keyboard} color="blue" />
                       조작법 보기
@@ -439,7 +457,18 @@ export function App() {
                   {modal === 'letter' && <LetterForm meName={me.name} onSaved={refresh} />}
                   {modal === 'guess' && <GuessForm onSaved={refresh} />}
                   {modal === 'treasure' && treasure && <TreasureBoard t={treasure} />}
-                  {modal === 'calendar' && <Calendar me={me} onGo={setModal} onChange={refresh} />}
+                  {modal === 'calendar' && (
+                    <Calendar
+                      me={me}
+                      onGo={(to) => {
+                        if (to === 'photo') {
+                          setModal(null)
+                          setPhotoMode(true)
+                        } else setModal(to)
+                      }}
+                      onChange={refresh}
+                    />
+                  )}
                   {modal === 'admin' && me.isAdmin && <Admin onPhaseChange={refresh} onQuestions={loadTree} />}
                 </div>
               </div>

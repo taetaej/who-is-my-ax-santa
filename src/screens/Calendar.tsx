@@ -23,7 +23,7 @@ import { XP_EVENT } from '../gameRules'
 // 📅 이벤트 캘린더 (src/schedule.ts): 위에는 오늘 할 일 체크리스트, 아래는 12월 3주 달력. 날짜를 누르면 그날 일정이 펼쳐진다.
 // 산타 미션은 여기서 ✅ 체크한다 (나만 본다).
 
-export type CalGo = 'look' | 'profile' | 'tree' | 'manito' | 'letter' | 'guess' | 'awards'
+export type CalGo = 'look' | 'profile' | 'tree' | 'manito' | 'letter' | 'guess' | 'awards' | 'photo'
 
 const WEEK = ['월', '화', '수', '목', '금', '토', '일']
 const GRID_FROM = '2026-11-30' // 월요일부터 3주
@@ -57,7 +57,14 @@ export function todosFor(me: Me, day: string): Todo[] {
       const now = m.from <= day && day <= m.to
       const done = me.missions.includes(m.id)
       if (!now && done) continue // 지난 미션은 안 한 것만 남긴다
-      list.push({ key: m.id, emoji: m.emoji, text: `산타 미션 ${'①②③④'[m.n - 1]} ${m.title}`, note: now ? `~${md(m.to)}` : '지난 미션', done, mission: m })
+      list.push({
+        key: m.id,
+        emoji: m.emoji,
+        text: m.bonus ? `보너스 미션 ${m.title}` : `산타 미션 ${'①②③④'[m.n - 1]} ${m.title}`,
+        note: m.bonus ? `${md(m.to)}까지` : now ? `~${md(m.to)}` : '지난 미션',
+        done,
+        mission: m,
+      })
     }
     if (day >= WRITE_FROM) {
       list.push({ key: 'letter', emoji: '🕵️', text: '관찰 리포트 제출', note: `${md(addDays(REVEAL_DAY, -1))}까지`, done: me.letter === 'submitted', go: { to: 'letter', label: '쓰기' } })
@@ -74,9 +81,10 @@ export function headline(me: Me): { kicker: string; text: string; done: boolean 
   const day = me.today
   if (day < OPEN_DAY) return { kicker: `D-${daysBetween(day, OPEN_DAY)}`, text: `${dayLabel(OPEN_DAY)} 마을 오픈`, done: false }
   if (day >= REVEAL_DAY) return { kicker: '공개일', text: '산타 정체 공개!', done: true }
+  // 마감 주간엔 미션보다 관찰 리포트·추리노트 마감이 먼저
+  if (day >= WRITE_FROM) return { kicker: '마감 주간', text: '관찰 리포트 · 추리노트', done: me.letter === 'submitted' && me.guess === 'done' }
   const m = missionOn(day)
   if (me.phase === 'ACTIVE' && m) return { kicker: `산타 미션 ${'①②③④'[m.n - 1]}`, text: m.title, done: me.missions.includes(m.id) }
-  if (day >= WRITE_FROM) return { kicker: '마감 주간', text: '관찰 리포트 · 추리노트', done: me.letter === 'submitted' && me.guess === 'done' }
   if (day < MATCH_DAY) {
     const todos = todosFor(me, day)
     const left = todos.filter((t) => !t.done).length
@@ -112,6 +120,13 @@ export function Calendar({ me, onGo, onChange }: { me: Me; onGo: (to: CalGo) => 
     const done = me.missions.includes(m.id)
     const open = me.phase === 'ACTIVE' && missionOpen(m, today)
     if (!open) return <span className="muted small">{today < m.from ? `${md(m.from)}부터` : me.phase === 'READY' ? '산타 발표 뒤에' : ''}</span>
+    // 📸 사진 미션은 직접 체크하지 않고, 사진을 저장하면 자동으로 완료
+    if (m.id === 'photo')
+      return (
+        <button className={`cal-check ${done ? 'on' : ''}`} onClick={() => onGo('photo')}>
+          {done ? '✅ 다시 찍기' : '📸 찍으러 가기'}
+        </button>
+      )
     return (
       <button className={`cal-check ${done ? 'on' : ''}`} disabled={busy} onClick={() => check(m, !done)}>
         {done ? '✅ 완료' : '했어요 ✔'}

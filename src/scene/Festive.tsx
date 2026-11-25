@@ -8,7 +8,7 @@ import { Wreath } from './props'
 import { TextSign } from './TextSign'
 import { ARCH_Z, LAMP_ANGLES, LAMP_R, PLAZA_R, SPOT, addCircle, polar, type V3 } from './world'
 
-// 크리스마스 분위기 소품: 트리에서 뻗어 나가는 전구 줄, 울타리 전구, 길가 지팡이 사탕, 가로등 리스, 밤하늘 별
+// 크리스마스 분위기 소품: 트리에서 뻗어 나가는 전구 줄, 입구 아치, 길가 지팡이 사탕, 가로등 리스, 밤하늘 별
 
 /** 색깔별로 작은 구를 하나로 합친 전구들 (드로우콜 4개) */
 function BulbSet({ points, size = 0.045 }: { points: { p: THREE.Vector3; m: number }[]; size?: number }) {
@@ -127,75 +127,128 @@ function CandyCanes() {
   )
 }
 
-// ── 입구 아치: AX VILLAGE 2026 + 팀 명언 ─────────────────────────
-const ARCH_W = 3.4
-for (const sx of [-1, 1]) addCircle((sx * ARCH_W) / 2, ARCH_Z, 0.3)
+// ── 입구 아치: 마을이 커진 만큼 크게. 돌 받침 + 지팡이 사탕 기둥 + 둥근 아치 + 금별 + 남색 간판 ──
+const ARCH_W = 4.6 // 기둥 사이
+const ARCH_H = 3.6 // 기둥 높이 (아치가 시작하는 곳)
+const ARCH_R = ARCH_W / 2 // 둥근 아치 반지름
+for (const sx of [-1, 1]) addCircle((sx * ARCH_W) / 2, ARCH_Z, 0.45)
 
-const pillarGeo = new THREE.CylinderGeometry(0.16, 0.18, 3.3, 14)
-pillarGeo.translate(0, 1.65, 0)
+const pillarGeo = new THREE.CylinderGeometry(0.2, 0.22, ARCH_H, 16)
+pillarGeo.translate(0, ARCH_H / 2 + 0.55, 0)
+const arcGeo = new THREE.TorusGeometry(ARCH_R, 0.16, 12, 40, Math.PI)
+const garlandGeo = new THREE.TorusGeometry(ARCH_R, 0.26, 8, 48, Math.PI)
+const NAVY = new THREE.MeshStandardMaterial({ color: '#1f2350', roughness: 0.6 })
+const PINE = new THREE.MeshStandardMaterial({ color: '#2f7a52', roughness: 0.9 })
+const STAR = new THREE.MeshStandardMaterial({ color: '#ffe08a', emissive: '#ffc23a', emissiveIntensity: 3, toneMapped: false })
+const starGeo = (() => {
+  const shape = new THREE.Shape()
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 ? 0.2 : 0.46
+    const a = (i / 10) * Math.PI * 2 + Math.PI / 2
+    const x = Math.cos(a) * r
+    const y = Math.sin(a) * r
+    if (i) shape.lineTo(x, y)
+    else shape.moveTo(x, y)
+  }
+  return new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: true, bevelSize: 0.03, bevelThickness: 0.03, bevelSegments: 2 }).translate(0, 0, -0.06)
+})()
 
 const ARCH_LINES = [
-  { text: 'AX VILLAGE', size: 0.44, color: '#ffffff', weight: 900 },
-  { text: '❄  2026  ❄', size: 0.17, color: '#ffe1a8', weight: 800 },
+  { text: 'AX VILLAGE', size: 0.42, color: '#ffffff', weight: 900 },
+  { text: '2026 · SANTA PLANET', size: 0.14, color: '#ffd86b', weight: 800 },
 ]
-const MOTTO_LINES = [{ text: `“${MOTTO}”`, size: 0.17, color: '#5a3a14', weight: 900, hand: true }]
+const MOTTO_LINES = [{ text: `“${MOTTO}”`, size: 0.17, color: '#2f2950', weight: 900, hand: true }]
 
 /** 앞뒤 양면 간판 (뒤에서 봐도 글씨가 바로 읽히게) */
-function TwoSided({ y, d, w, h, lines, glow }: { y: number; d: number; w: number; h: number; lines: typeof ARCH_LINES; glow?: boolean }) {
+function TwoSided({ y, d, w, h, lines, glow, bg }: { y: number; d: number; w: number; h: number; lines: typeof ARCH_LINES; glow?: boolean; bg?: string }) {
   return (
     <>
-      <TextSign lines={lines} w={w} h={h} position={[0, y, d]} glow={glow} />
-      <TextSign lines={lines} w={w} h={h} position={[0, y, -d]} rotation={[0, Math.PI, 0]} glow={glow} />
+      <TextSign lines={lines} w={w} h={h} position={[0, y, d]} glow={glow} bg={bg} radius={bg ? 0.05 : 0} />
+      <TextSign lines={lines} w={w} h={h} position={[0, y, -d]} rotation={[0, Math.PI, 0]} glow={glow} bg={bg} radius={bg ? 0.05 : 0} />
     </>
   )
 }
 
 function EntranceArch() {
+  const star = useRef<THREE.Mesh>(null)
+  useFrame(({ clock }) => {
+    if (star.current) star.current.rotation.y = Math.sin(clock.elapsedTime * 0.8) * 0.5
+  })
+  const top = ARCH_H + 0.55 // 아치가 시작하는 높이
   const lights = useMemo(() => {
     const pts: { p: THREE.Vector3; m: number }[] = []
-    // 기둥을 감는 전구 + 간판 둘레
-    for (const sx of [-1, 1]) {
-      for (let i = 0; i < 18; i++) {
+    // 기둥을 감는 전구
+    for (const sx of [-1, 1])
+      for (let i = 0; i < 22; i++) {
         const a = i * 0.9
-        pts.push({ p: new THREE.Vector3((sx * ARCH_W) / 2 + Math.cos(a) * 0.2, 0.2 + i * 0.17, Math.sin(a) * 0.2), m: i % 4 })
+        pts.push({ p: new THREE.Vector3((sx * ARCH_W) / 2 + Math.cos(a) * 0.25, 0.7 + i * 0.16, Math.sin(a) * 0.25), m: i % 4 })
       }
+    // 둥근 아치를 따라 앞뒤 두 줄
+    for (let i = 0; i <= 26; i++) {
+      const a = (i / 26) * Math.PI
+      for (const z of [0.3, -0.3]) pts.push({ p: new THREE.Vector3(Math.cos(a) * (ARCH_R + 0.05), top + Math.sin(a) * (ARCH_R + 0.05), z), m: (i + (z > 0 ? 0 : 2)) % 4 })
     }
-    for (let i = 0; i <= 22; i++) pts.push({ p: new THREE.Vector3(-1.9 + (i / 22) * 3.8, 4.08, 0.12), m: i % 4 })
     return pts
-  }, [])
+  }, [top])
   return (
     // 카메라 시선이 아치 문 안쪽으로 지나가서 가리지 않는다 (반투명 처리 안 함)
     <group position={[0, 0, ARCH_Z]}>
       {[-1, 1].map((sx) => (
         <group key={sx} position={[(sx * ARCH_W) / 2, 0, 0]}>
+          {/* 돌 받침 + 눈 */}
+          <mesh position={[0, 0.28, 0]} material={M.stone} castShadow receiveShadow>
+            <boxGeometry args={[0.8, 0.56, 0.8]} />
+          </mesh>
+          <mesh position={[0, 0.6, 0]} material={M.snow} scale={[1, 0.3, 1]}>
+            <boxGeometry args={[0.86, 0.3, 0.86]} />
+          </mesh>
           <mesh geometry={pillarGeo} material={caneMat} castShadow />
-          <mesh position={[0, 3.35, 0]} material={M.gold}>
-            <sphereGeometry args={[0.22, 14, 10]} />
+          {/* 기둥 머리: 금 테 + 금 구슬 */}
+          <mesh position={[0, top, 0]} material={M.gold}>
+            <cylinderGeometry args={[0.3, 0.26, 0.16, 16]} />
           </mesh>
-          <mesh position={[0, 0.1, 0]} material={M.snow} scale={[1, 0.35, 1]}>
-            <sphereGeometry args={[0.45, 12, 8]} />
-          </mesh>
+          {/* 리스 + 빨간 리본 */}
+          <group position={[0, 2.6, 0.24]}>
+            <mesh material={PINE}>
+              <torusGeometry args={[0.32, 0.1, 8, 20]} />
+            </mesh>
+            <mesh position={[0, -0.3, 0.06]} material={M.ribbon}>
+              <boxGeometry args={[0.24, 0.14, 0.06]} />
+            </mesh>
+          </group>
         </group>
       ))}
-      {/* 간판 */}
-      <mesh position={[0, 3.55, 0]} material={M.ribbon} castShadow>
-        <boxGeometry args={[3.9, 0.95, 0.14]} />
+      {/* 둥근 아치: 빨간 테 + 초록 소나무 가지 */}
+      <mesh geometry={garlandGeo} material={PINE} position={[0, top, 0]} castShadow />
+      <mesh geometry={arcGeo} material={M.ribbon} position={[0, top, 0]} castShadow />
+      {/* 꼭대기 금별 */}
+      <mesh ref={star} geometry={starGeo} material={STAR} position={[0, top + ARCH_R + 0.55, 0]} />
+      {/* 남색 간판 (금테) */}
+      <mesh position={[0, top + 0.55, 0]} material={M.gold} castShadow>
+        <boxGeometry args={[3.5, 1.05, 0.12]} />
       </mesh>
-      <mesh position={[0, 4.06, 0]} material={M.snow} scale={[1, 0.35, 1]}>
-        <boxGeometry args={[3.95, 0.22, 0.3]} />
+      <mesh position={[0, top + 0.55, 0]} material={NAVY}>
+        <boxGeometry args={[3.36, 0.92, 0.16]} />
       </mesh>
-      {/* 명언 현판 */}
-      {[-0.7, 0.7].map((x) => (
-        <mesh key={x} position={[x, 2.95, 0]} material={M.iron}>
-          <cylinderGeometry args={[0.008, 0.008, 0.3, 4]} />
+      {[-1.2, 1.2].map((x) => (
+        <mesh key={x} position={[x, top + 1.25, 0]} material={M.iron}>
+          <cylinderGeometry args={[0.012, 0.012, 0.42, 4]} />
         </mesh>
       ))}
-      <mesh position={[0, 2.62, 0]} material={M.kraftLight} castShadow>
-        <boxGeometry args={[2.3, 0.38, 0.05]} />
+      {/* 명언 현판 */}
+      {[-0.75, 0.75].map((x) => (
+        <mesh key={x} position={[x, top - 0.2, 0]} material={M.iron}>
+          <cylinderGeometry args={[0.01, 0.01, 0.3, 4]} />
+        </mesh>
+      ))}
+      <mesh position={[0, top - 0.55, 0]} material={M.gold} castShadow>
+        <boxGeometry args={[2.5, 0.44, 0.05]} />
       </mesh>
-      <TwoSided y={3.55} d={0.075} w={3.8} h={0.9} lines={ARCH_LINES} glow />
-      <TwoSided y={2.62} d={0.03} w={2.25} h={0.34} lines={MOTTO_LINES} />
-      <BulbSet points={lights} size={0.05} />
+      <TwoSided y={top + 0.55} d={0.085} w={3.3} h={0.88} lines={ARCH_LINES} glow />
+      <TwoSided y={top - 0.55} d={0.03} w={2.42} h={0.36} lines={MOTTO_LINES} bg="#fbfbfe" />
+      <BulbSet points={lights} size={0.055} />
+      {/* 아치 아래를 비추는 따뜻한 빛 */}
+      <pointLight position={[0, top - 0.4, 1.2]} color="#ffc080" intensity={10} distance={9} decay={1.8} />
     </group>
   )
 }

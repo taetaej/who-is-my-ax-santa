@@ -82,6 +82,7 @@ export type RevealCard = {
   letterSubmitted: boolean
   guess: (Guess & { suspectName: string }) | null
   suspectIsMyTarget: boolean
+  photo: string | null // 📸 산타가 마을에서 몰래 찍은 사진 (data URL)
 }
 export type TreeRecap = { people: number; days: { day: string; question: string; messages: { name: string; body: string; hearts: number }[] }[] }
 export type Reveal = { people: { id: number; name: string }[]; cards: RevealCard[] }
@@ -134,6 +135,8 @@ export const api = {
   saveLook: (look: Look) => call<Look>('PUT', '/me/look', look),
   rocket: () => call<{ wishes: number }>('GET', '/me/rocket'),
   rocketWish: () => call<{ wishes: number }>('POST', '/me/rocket'),
+  photo: () => call<{ image: string | null; takenAt: string | null }>('GET', '/me/photo'),
+  savePhoto: (image: string) => call<{ ok: true }>('PUT', '/me/photo', { image }),
   checkMission: (id: MissionId, done: boolean) => call<{ ok: true }>('PUT', `/me/missions/${id}`, { done }),
   treeSummary: () => call<TreeSummary>('GET', '/tree/summary'),
   tree: (day?: string) => call<TreeDay>('GET', `/tree${day ? `?day=${day}` : ''}`),

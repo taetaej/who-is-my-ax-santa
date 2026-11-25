@@ -178,10 +178,32 @@ app.post('/me/rocket', async (c) => {
   return c.json({ wishes: Number(r.value) })
 })
 
+// 📸 보너스 미션: 마을에서 챙길 사람과 찍은 사진. 산타마다 한 장(다시 찍으면 바뀜), 공개일 발표 화면에서만 열린다
+const PHOTO_MAX = 900_000 // data URL 글자 수 (약 650KB jpeg)
+app.get('/me/photo', async (c) => {
+  const q = await db()
+  const [r] = await q<{ image: string; taken_at: string }>(`select image, taken_at from santa_photos where santa_id = $1`, [c.get('me').id])
+  return c.json({ image: r?.image ?? null, takenAt: r?.taken_at ?? null })
+})
+app.put('/me/photo', async (c) => {
+  if ((await getPhase()) !== 'ACTIVE') return bad(c, '산타 발표 뒤부터 공개일 전까지 찍을 수 있어요', 409)
+  const { image } = await c.req.json<{ image?: unknown }>().catch(() => ({ image: undefined }))
+  if (typeof image !== 'string' || !/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(image) || image.length > PHOTO_MAX) return bad(c, '사진 형식이 이상해요')
+  const me = c.get('me')
+  const q = await db()
+  await q(
+    `insert into santa_photos (santa_id, image) values ($1, $2) on conflict (santa_id) do update set image = excluded.image, taken_at = now()`,
+    [me.id, image],
+  )
+  await q(`insert into mission_checks (player_id, mission) values ($1, 'photo') on conflict do nothing`, [me.id])
+  return c.json({ ok: true })
+})
+
 // 🎅 산타 미션 체크 (src/schedule.ts): 미션 시작일부터 공개일 전까지. 체크한 건 나만 본다
 app.put('/me/missions/:id', async (c) => {
   const id = c.req.param('id')
   if (!isMissionId(id)) return bad(c, '없는 미션이에요', 404)
+  if (id === 'photo') return bad(c, '사진을 찍으면 자동으로 체크돼요', 409)
   if ((await getPhase()) !== 'ACTIVE') return bad(c, '산타 발표 뒤에 할 수 있어요', 409)
   if (!missionOpen(missionById(id), today())) return bad(c, '아직 시작 안 한 미션이에요', 409)
   const { done } = await c.req.json<{ done?: unknown }>().catch(() => ({ done: undefined }))
@@ -722,6 +744,7 @@ app.get('/admin/reveal', async (c) => {
   const pairs = await q<{ santa_id: number; target_id: number }>(`select santa_id, target_id from matches`)
   const letters = await q<{ santa_id: number; body: unknown; submitted: boolean }>(`select santa_id, body, submitted_at is not null as submitted from letters`)
   const guesses = await q<{ player_id: number; body: unknown }>(`select player_id, body from guesses`)
+  const photos = await q<{ santa_id: number; image: string }>(`select santa_id, image from santa_photos`)
   const targetOf = new Map(pairs.map((p) => [p.santa_id, p.target_id]))
   return c.json({
     people: players,
@@ -737,6 +760,7 @@ app.get('/admin/reveal', async (c) => {
         guess: g && g.suspect !== null ? { ...g, suspectName: name(g.suspect) } : null,
         // 주인공이 지목한 사람이 사실 주인공 자신이 챙기던 사람인지 (한 줄 순환이라 절대 산타일 수 없다)
         suspectIsMyTarget: !!g && g.suspect !== null && targetOf.get(target_id) === g.suspect,
+        photo: photos.find((p) => p.santa_id === santa_id)?.image ?? null, // 📸 산타가 몰래 찍은 사진
       }
     }),
   })
@@ -870,6 +894,7 @@ app.post('/admin/reset-all', async (c) => {
     `delete from game_records`,
     `delete from xp_daily`,
     `delete from mission_checks`,
+    `delete from santa_photos`,
     `update players set pin_hash = null, failed_attempts = 0, locked_until = null, session_version = session_version + 1,
        manito_opened_at = null, profile = null, look = null`,
     `delete from settings where key in ('questions', 'questions_start', 'awards', 'rocket_wishes')`,

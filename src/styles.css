@@ -1255,3 +1255,31 @@ input[type='range'] { background: transparent; border: 0; box-shadow: none; }
   white-space: nowrap; padding: 4px 10px; border-radius: 999px; font-family: var(--font-hand); font-size: 16px; color: var(--x-ink);
   background: rgba(255, 255, 255, 0.9); box-shadow: 0 4px 12px rgba(15, 8, 50, 0.2); animation: pop 0.25s ease-out;
 }
+
+/* 📸 사진 모드 (PhotoMode.tsx) */
+.photo-bar {
+  position: fixed; left: 50%; bottom: 104px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px 10px 18px; border-radius: 22px; max-width: calc(100vw - 24px);
+  background: rgba(255, 255, 255, 0.72); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); box-shadow: var(--glass);
+  color: var(--x-ink); animation: ui-pop 0.3s cubic-bezier(0.2, 1.45, 0.4, 1) both;
+}
+.photo-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.photo-info b { font-size: 15px; }
+.photo-info span { font-size: 12.5px; color: var(--x-ink-2); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.photo-info span.ok { color: var(--x-green-d); font-weight: 800; }
+.photo-info em { font-style: normal; color: var(--x-ink-2); opacity: 0.7; }
+.photo-err { color: var(--x-red) !important; font-weight: 700; }
+.photo-shutter { width: auto; margin: 0; display: inline-flex; align-items: center; gap: 6px; padding: 12px 20px; background: var(--x-red); box-shadow: 0 4px 0 var(--x-red-d); }
+.photo-shutter:active:not(:disabled) { box-shadow: 0 1px 0 var(--x-red-d); }
+.photo-bar .ghost { width: 38px; height: 38px; padding: 0; display: grid; place-items: center; }
+.photo-flash { position: fixed; inset: 0; z-index: 40; background: #fff; pointer-events: none; animation: photo-flash 0.45s ease-out forwards; }
+@keyframes photo-flash { from { opacity: 0.9; } to { opacity: 0; } }
+.photo-preview { width: min(640px, 94vw); }
+.photo-preview img { display: block; width: 100%; border-radius: 16px; margin: 4px 0 10px; box-shadow: 0 10px 30px rgba(15, 8, 50, 0.25); }
+.photo-preview .letter-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.photo-preview .letter-actions .primary { width: auto; margin: 0; }
+
+/* 공개일: 정체 공개 카드 옆 사진 */
+.reveal-photo { margin: 0; width: 100%; padding: 10px 10px 8px; background: #fff; border-radius: 16px; box-shadow: 0 14px 36px rgba(15, 8, 50, 0.22); transform: rotate(-1.5deg); }
+.reveal-photo img { display: block; width: 100%; border-radius: 10px; }
+.reveal-photo figcaption { margin-top: 8px; text-align: center; font-family: var(--font-hand); font-size: 18px; color: var(--x-ink); }

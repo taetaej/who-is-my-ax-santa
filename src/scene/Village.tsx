@@ -1,3 +1,4 @@
+import { Snapshot } from './Snapshot'
 import { Pets } from './Pets'
 import { Chimney, GlowPools, SledLights } from './Warmth'
 import { Users } from '@phosphor-icons/react'
@@ -34,7 +35,7 @@ import {
 } from './world'
 
 // 눈 덮인 산타마을. 집 없이 다같이 모이는 광장과 놀이 장소로 이루어져 있다 (world.ts 배치 참고)
-//   광장(트리 섬 + 얼음 연못 + 다리 + 게시판) → 디딤돌 길 → 우체국·교회·핫초코 포차·눈밭·벤치·모닥불 → 숲 → 울타리 → 설원과 먼 산
+//   광장(트리 섬 + 얼음 연못 + 다리 + 게시판) → 디딤돌 길 → 우체국·교회·핫초코 포차·눈밭·벤치·모닥불 → 숲 → 등불 기둥 → 바깥 링(놀이 구역·썰매 산·로켓) → 떠 있는 섬 가장자리
 
 function Ground() {
   const stones = useMemo(() => {
@@ -92,14 +93,14 @@ const FOREST = (() => {
       list.push({ p: polar(mid + (r() - 0.5) * 0.5, 9.8 + r() * 2.8), h: 1.9 + r() * 1.2, seed: c * 10 + i })
     }
   })
-  // 울타리 안쪽 바깥 숲
+  // 등불 기둥 안쪽 숲
   for (let i = 0; i < 40; i++) {
     const a = r() * Math.PI * 2
     const off = (b: number) => Math.abs(((a - b + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
     if (off(SPOT.church.a) < 0.32 || off(Math.PI / 2) < 0.22) continue // 입구 길도 비운다
     list.push({ p: polar(a, 13.6 + r() * 2.2), h: 1.8 + r() * 2.0, seed: 100 + i })
   }
-  // 🪐 울타리 밖 링의 숲 (놀이 구역·문 앞 길·썰매 길은 비운다)
+  // 🪐 등불 기둥 밖 링의 숲 (놀이 구역·문 앞 길·썰매 길은 비운다)
   const outside: typeof list = []
   for (let i = 0; i < 110 && outside.length < 70; i++) {
     const a = r() * Math.PI * 2
@@ -309,7 +310,7 @@ export function Village({
           </group>
         </Fade>
         <Forest />
-        {/* 앞쪽 대문 자리를 비우고 울타리를 두른다 */}
+        {/* 옛 울타리 자리의 등불 기둥 · 놀이 구역 돌길 · 로켓 · 망원경 · 수정 */}
         <Decor />
         <Arena />
         <RollField boards={!!me} me={myState} />
@@ -334,6 +335,7 @@ export function Village({
 
         <Sparkles count={420} scale={[64, 0.6, 64]} position={[0, 0.25, 0]} size={2.2} speed={0.15} opacity={0.9} color="#ffffff" />
         <Pets me={myState} />
+        <Snapshot />
         <FallingSnow />
 
         <EffectComposer multisampling={4}>

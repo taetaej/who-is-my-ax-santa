@@ -179,6 +179,12 @@ function Stage({ card, step, n, total, next }: { card: RevealCard; step: Step; n
           )}
         </div>
         {step === 1 && <p className="reveal-lead">🕵️ 힌트를 보고 다같이 산타를 추리해 봐요! 이름은 아직 비밀이에요.</p>}
+        {step === 3 && card.photo && (
+          <figure className="reveal-photo">
+            <img src={card.photo} alt={`${santa.name}님이 마을에서 찍은 사진`} />
+            <figcaption>📸 {santa.name} 산타가 마을에서 몰래 찍은 사진</figcaption>
+          </figure>
+        )}
         {step === 3 && next && next.target.id !== card.target.id && n < total && (
           <p className="reveal-lead small">이제 {santa.name}님이 다음 주인공이에요 →</p>
         )}

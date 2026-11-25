@@ -143,6 +143,12 @@ async function migrate(q: Query) {
     done_at timestamptz not null default now(),
     primary key (player_id, mission)
   )`)
+  // 📸 산타가 마을에서 챙길 사람과 찍은 사진 (산타마다 한 장, 공개일 발표 화면에서만 열림)
+  await q(`create table if not exists santa_photos (
+    santa_id int primary key references players(id),
+    image text not null,
+    taken_at timestamptz not null default now()
+  )`)
   await q(`create table if not exists settings (key text primary key, value text not null)`)
   await q(`insert into settings (key, value) values ('phase', 'READY') on conflict (key) do nothing`)
   for (const name of ROSTER) {

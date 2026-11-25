@@ -21,12 +21,21 @@ const me: Me = {
 
 describe('행사 일정', () => {
   it('산타 미션은 12/7부터 겹치지 않고 이어지고, 공개일 전에 끝난다', () => {
-    expect(MISSIONS[0].from).toBe(MATCH_DAY)
-    for (let i = 1; i < MISSIONS.length; i++) expect(MISSIONS[i].from > MISSIONS[i - 1].to).toBe(true)
-    expect(MISSIONS.at(-1)!.to < REVEAL_DAY).toBe(true)
+    const main = MISSIONS.filter((m) => !m.bonus)
+    expect(main[0].from).toBe(MATCH_DAY)
+    for (let i = 1; i < main.length; i++) expect(main[i].from > main[i - 1].to).toBe(true)
+    expect(MISSIONS.every((m) => m.to < REVEAL_DAY)).toBe(true)
     expect(missionOn('2026-12-09')?.id).toBe('snack')
     expect(missionOn('2026-12-12')?.id).toBe('cheer') // 주말엔 앞 미션이 이어진다
     expect(missionOn('2026-12-04')).toBeNull()
+    expect(missionOn('2026-12-07')?.id).toBe('watch') // 📸 보너스는 "이번 미션"으로 잡히지 않는다
+  })
+  it('📸 보너스 사진 미션은 산타 발표부터 공개일 전까지 내내 열려 있다', () => {
+    const photo = MISSIONS.find((m) => m.id === 'photo')!
+    expect(photo.bonus).toBe(true)
+    expect(missionOpen(photo, '2026-12-07')).toBe(true)
+    expect(missionOpen(photo, '2026-12-16')).toBe(true)
+    expect(missionOpen(photo, REVEAL_DAY)).toBe(false)
   })
   it('지난 미션도 공개일 전까진 체크할 수 있다', () => {
     expect(missionOpen(MISSIONS[0], '2026-12-06')).toBe(false)
@@ -51,7 +60,7 @@ describe('오늘 할 일', () => {
   })
   it('산타 주간: 이번 미션 + 안 한 지난 미션, 마감 주간엔 리포트·추리노트', () => {
     const santa: Me = { ...me, phase: 'ACTIVE', manitoOpened: true, look: {} as Me['look'], missions: ['snack'] }
-    expect(todosFor(santa, '2026-12-11').filter((t) => t.mission).map((t) => t.key)).toEqual(['watch', 'cheer'])
+    expect(todosFor(santa, '2026-12-11').filter((t) => t.mission).map((t) => t.key)).toEqual(['watch', 'cheer', 'photo'])
     expect(todosFor(santa, '2026-12-15').map((t) => t.key)).toEqual(expect.arrayContaining(['gift', 'letter', 'guess']))
     expect(headline({ ...santa, today: '2026-12-09' })).toEqual({ kicker: '산타 미션 ②', text: '간식 챙기기', done: true })
   })

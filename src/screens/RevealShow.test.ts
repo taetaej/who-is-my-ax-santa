@@ -10,6 +10,7 @@ const card = (santa: number, target: number, suspect: number | null = null): Rev
   letterSubmitted: false,
   guess: suspect === null ? null : { suspect, suspectName: `p${suspect}`, confidence: 50, reason: '', evidence: '', toSanta: '' },
   suspectIsMyTarget: false,
+  photo: null,
 })
 const cards = [card(1, 2), card(2, 3, 2), card(3, 4, 1), card(4, 1)]
 

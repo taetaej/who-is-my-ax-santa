@@ -1,3 +1,4 @@
+import * as THREE from 'three'
 import { Batch } from './Batch'
 import { M } from './materials'
 import { TextSign } from './TextSign'
@@ -19,40 +20,71 @@ const PATH_FROM = VILLAGE_R + 3 // 대문 밖 입구 길 끝
 const PATH_TO = 5.5 // 광장 앞
 const PANEL_Y = 1.55 // 패널 가운데 높이
 
+const NAVY = new THREE.MeshStandardMaterial({ color: '#1f2350', roughness: 0.6 })
+const LAMP_GLOW = new THREE.MeshStandardMaterial({ color: '#ffe0a0', emissive: '#ffb04a', emissiveIntensity: 2.8, toneMapped: false })
+const MONTH_EN = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+
+/** 한 달 패널: 돌 받침 위 남색 액자(금테) + 위에 빨간 달 리본 + 밝은 카드 + 위에서 비추는 작은 등 */
 function Panel({ m }: { m: (typeof TIMELINE)[number] }) {
   const { w, h } = EXHIBIT
+  const mm = Number(m.month.slice(-2))
+  const cardH = h - 0.5
   return (
     <group>
       <Batch>
-        {[-1, 1].map((sx) => (
-          <mesh key={sx} position={[sx * (w / 2 - 0.12), 0.2, -0.02]} material={M.woodDark} castShadow>
-            <boxGeometry args={[0.1, 0.4, 0.1]} />
-          </mesh>
-        ))}
-        <mesh position={[0, PANEL_Y, 0]} material={M.kraft} castShadow receiveShadow>
-          <boxGeometry args={[w, h, 0.08]} />
+        {/* 돌 받침 + 눈 */}
+        <mesh position={[0, 0.15, 0]} material={M.stone} castShadow receiveShadow>
+          <boxGeometry args={[w + 0.16, 0.3, 0.42]} />
         </mesh>
-        <mesh position={[0, PANEL_Y + h / 2 + 0.05, 0]} material={M.snow} scale={[1, 0.35, 1]}>
-          <boxGeometry args={[w + 0.06, 0.16, 0.2]} />
+        <mesh position={[0, 0.32, 0]} material={M.snow} scale={[1, 0.3, 1]}>
+          <boxGeometry args={[w + 0.2, 0.2, 0.46]} />
+        </mesh>
+        {/* 남색 액자 + 금테 */}
+        <mesh position={[0, PANEL_Y, -0.02]} material={M.gold} castShadow>
+          <boxGeometry args={[w + 0.14, h + 0.14, 0.08]} />
+        </mesh>
+        <mesh position={[0, PANEL_Y, 0]} material={NAVY} castShadow receiveShadow>
+          <boxGeometry args={[w + 0.04, h + 0.04, 0.1]} />
+        </mesh>
+        {/* 위 눈 */}
+        <mesh position={[0, PANEL_Y + h / 2 + 0.09, 0]} material={M.snow} scale={[1, 0.35, 1]}>
+          <boxGeometry args={[w + 0.2, 0.18, 0.22]} />
+        </mesh>
+        {/* 위에서 비추는 작은 등 (팔 + 갓) */}
+        <mesh position={[0, PANEL_Y + h / 2 + 0.2, 0.14]} rotation={[Math.PI / 2, 0, 0]} material={M.iron}>
+          <cylinderGeometry args={[0.015, 0.015, 0.3, 6]} />
+        </mesh>
+        <mesh position={[0, PANEL_Y + h / 2 + 0.18, 0.3]} material={M.iron}>
+          <coneGeometry args={[0.1, 0.1, 10, 1, true]} />
         </mesh>
       </Batch>
-      <TextSign
-        w={w - 0.12}
-        h={h - 0.12}
-        position={[0, PANEL_Y, 0.045]}
-        bg="#fbf3e2"
-        radius={0.05}
-        lines={[
-          { text: m.month, size: 0.1, color: '#a8302a', weight: 800, gap: 0.02, kr: true },
-          { text: m.emoji, size: 0.3, gap: 0.02 },
-          { text: m.fun, size: 0.135, color: '#2a2230', weight: 800, wrap: true, gap: 0.06, kr: true },
-          { text: m.title, size: 0.088, color: '#a8302a', weight: 700, wrap: true, gap: 0.07, kr: true },
-          ...m.lines.map((l) => ({ text: `· ${l}`, size: 0.085, color: '#3a2a20', weight: 500, wrap: true, gap: 0.03, kr: true })),
-        ]}
-      />
-      <mesh position={[0, PANEL_Y + h / 2 - 0.02, 0.06]} material={M.bulbs[1]}>
+      <mesh position={[0, PANEL_Y + h / 2 + 0.13, 0.3]} material={LAMP_GLOW}>
         <sphereGeometry args={[0.05, 8, 6]} />
       </mesh>
+      {/* 빨간 달 리본 */}
+      <mesh position={[0, PANEL_Y + h / 2 - 0.14, 0.07]} material={M.ribbon}>
+        <boxGeometry args={[w * 0.72, 0.3, 0.04]} />
+      </mesh>
+      <TextSign
+        w={w * 0.7}
+        h={0.28}
+        position={[0, PANEL_Y + h / 2 - 0.14, 0.092]}
+        glow
+        lines={[{ text: `${MONTH_EN[mm - 1] ?? ''} · ${m.month}`, size: 0.13, color: '#ffffff', weight: 900, kr: true }]}
+      />
+      {/* 밝은 카드: 큰 한 줄 + 제목 + 내용 */}
+      <TextSign
+        w={w - 0.14}
+        h={cardH}
+        position={[0, PANEL_Y - 0.17, 0.056]}
+        bg="#fbfbfe"
+        radius={0.06}
+        lines={[
+          { text: m.fun, size: 0.14, color: '#2f2950', weight: 900, wrap: true, gap: 0.08, kr: true },
+          { text: m.title, size: 0.09, color: '#c8372d', weight: 800, wrap: true, gap: 0.08, kr: true },
+          ...m.lines.map((l) => ({ text: `· ${l}`, size: 0.085, color: '#4a4466', weight: 500, wrap: true, gap: 0.035, kr: true })),
+        ]}
+      />
     </group>
   )
 }
@@ -87,20 +119,21 @@ export function Timeline() {
             <boxGeometry args={[0.12, 3.9, 0.12]} />
           </mesh>
         ))}
-        <mesh position={[0, 3.45, -0.1]} material={M.ribbon} castShadow>
-          <boxGeometry args={[4.9, 0.62, 0.1]} />
+        <mesh position={[0, 3.45, -0.12]} material={M.gold} castShadow>
+          <boxGeometry args={[5.0, 0.74, 0.08]} />
         </mesh>
-        <mesh position={[0, 3.8, -0.1]} material={M.snow} scale={[1, 0.35, 1]}>
-          <boxGeometry args={[4.95, 0.18, 0.24]} />
+        <mesh position={[0, 3.45, -0.1]} material={NAVY} castShadow>
+          <boxGeometry args={[4.88, 0.62, 0.1]} />
+        </mesh>
+        <mesh position={[0, 3.86, -0.1]} material={M.snow} scale={[1, 0.35, 1]}>
+          <boxGeometry args={[5.05, 0.18, 0.24]} />
         </mesh>
         <TextSign
           w={4.7}
           h={0.56}
           position={[0, 3.45, -0.04]}
           glow
-          lines={[
-            { text: `📜 ${TIMELINE_TITLE}`, size: 0.2, color: '#fff6dc', weight: 800, kr: true },
-          ]}
+          lines={[{ text: TIMELINE_TITLE, size: 0.19, color: '#ffd86b', weight: 900, kr: true }]}
         />
         {Array.from({ length: 17 }, (_, i) => (
           <mesh key={i} position={[-2.3 + i * (4.6 / 16), 3.78, -0.02]} material={M.bulbs[i % 4]}>
