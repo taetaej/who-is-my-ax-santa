@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { CookieState } from './Cookie'
 import { FIELD, TARGETS, inSnowField, receive, snow, spawnBall, stepSnow, throwBall } from './snowball'
 
-const newCookieState = (x = 0, z = 0): CookieState => ({ x, z, y: 0, rot: 0, speed: 0, waveUntil: 0, say: null, pose: 'stand', cup: false, emote: null, pop: null })
+const newCookieState = (x = 0, z = 0): CookieState => ({ x, z, y: 0, rot: 0, speed: 0, waveUntil: 0, say: null, pose: 'stand', cup: false, emote: null, pop: null, hp: 100, ball: 0, lv: 1 })
 const run = (secs: number) => {
   for (let t = 0; t < secs; t += 1 / 60) stepSnow(1 / 60)
 }
@@ -43,7 +43,7 @@ describe('☃️ 눈싸움', () => {
     spawnBall(FIELD.x, FIELD.z, face(FIELD.x, FIELD.z, FIELD.x + 2, FIELD.z), 7, '민지', false)
     run(1)
     expect(said[0]).toContain('민지')
-    expect(sent).toContainEqual({ k: 'hit', by: 7, name: '수현' })
+    expect(sent).toContainEqual({ k: 'hit', by: 7, name: '수현', dmg: 15, ko: false })
   })
 
   it('내가 던진 공이 맞았다는 소식을 받으면 "명중!"', () => {
@@ -53,5 +53,43 @@ describe('☃️ 눈싸움', () => {
     receive({ k: 'hit', by: 7, name: '수현' })
     receive({ k: 'hit', by: 9, name: '남' })
     expect(said).toEqual(['명중! 🎯 수현님'])
+  })
+
+  it('KO 소식을 받으면 "KO!", 깨워 준 소식은 깨워진 사람만', () => {
+    const said: string[] = []
+    const revived: string[] = []
+    snow.say = (t) => said.push(t)
+    snow.revived = (n) => revived.push(n)
+    snow.me = { id: 7, name: '민지', s: newCookieState() }
+    receive({ k: 'hit', by: 7, name: '수현', dmg: 40, ko: true })
+    receive({ k: 'revive', to: 7, by: 3, name: '지아' })
+    receive({ k: 'revive', to: 9, by: 3, name: '지아' })
+    expect(said[0]).toContain('KO')
+    expect(revived).toEqual(['지아'])
+    snow.revived = null
+  })
+
+  it('세게 모아 던질수록 멀리 날아가고, 기절 중이면 맞아도 아무 일 없다', () => {
+    const far = (p: number) => {
+      snow.balls = []
+      spawnBall(0, 0, 0, 1, 'a', true, p)
+      const b = snow.balls[0]
+      while (b.y > 0.05) {
+        b.vy -= 9.8 / 60
+        b.x += b.vx / 60
+        b.y += b.vy / 60
+        b.z += b.vz / 60
+      }
+      return b.z
+    }
+    expect(far(1)).toBeGreaterThan(far(0) * 1.4)
+    const sent: unknown[] = []
+    snow.send = (m) => sent.push(m)
+    snow.hurt = () => null
+    snow.me = { id: 2, name: '수현', s: newCookieState(FIELD.x + 2, FIELD.z) }
+    spawnBall(FIELD.x, FIELD.z, face(FIELD.x, FIELD.z, FIELD.x + 2, FIELD.z), 7, '민지', false)
+    run(1)
+    expect(sent).toEqual([])
+    snow.hurt = null
   })
 })

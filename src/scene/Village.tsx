@@ -11,10 +11,14 @@ import { Batch } from './Batch'
 import { Fade } from './Fade'
 import { LiveCarolCount, LivePeers, LivePublisher, LiveSnow } from './live'
 import { SnowHitOverlay, Snowballs } from './Snowballs'
-import { SledBoard, SledHill } from './SledHill'
+import { SledHill } from './SledHill'
+import { SPACE_FOG, SpaceBackdrop } from './Space'
+import { Arena, RollField } from './Zones'
+import { Decor, onCrystal } from './Decor'
+import { XpBoard } from './Boards'
 import { M, rng } from './materials'
 import { Player, type PanelAction } from './Player'
-import { Bench, BigTree, Bridge, FenceRing, Lamp, PineTree, Present, Snowman } from './props'
+import { Bench, BigTree, Bridge, Lamp, PineTree, Present, Snowman } from './props'
 import { CarolCount, Spots, type TreeInfo } from './Spots'
 import { Festive } from './Festive'
 import { Elf } from './Elf'
@@ -22,92 +26,12 @@ import { Timeline } from './Timeline'
 import { Party } from './Party'
 import { DecoyMounds, GiftBoxes, type Burst } from './GiftBoxes'
 import {
-  GATE_ANGLE, ISLAND_R, LAMP_ANGLES, LAMP_R, PLAZA_R, POND_OUT, SNOWMAN, SPOT, VILLAGE_R,
-  addTreeColliders, at, faceCenter, onSledRun, polar, type V3,
+  ARENA, ISLAND_R, LAMP_ANGLES, LAMP_R, PLAZA_R, POND_OUT, ROLL, SNOWMAN, SPOT,
+  addTreeColliders, at, faceCenter, inGate, onDecor, onPath, onSledRun, polar, type V3,
 } from './world'
 
 // 눈 덮인 산타마을. 집 없이 다같이 모이는 광장과 놀이 장소로 이루어져 있다 (world.ts 배치 참고)
 //   광장(트리 섬 + 얼음 연못 + 다리 + 게시판) → 디딤돌 길 → 우체국·교회·핫초코 포차·눈밭·벤치·모닥불 → 숲 → 울타리 → 설원과 먼 산
-
-// 해 질 녘 크리스마스 저녁: 짙은 파랑 하늘 + 노을빛 지평선. 전구와 불빛이 돋보인다
-const SKY_TOP = new THREE.Color('#1d2b5a')
-const SKY_HORIZON = new THREE.Color('#f2a98a')
-const FOG = '#cfc5d9'
-
-function Sky() {
-  const ref = useRef<THREE.Mesh>(null)
-  // 하늘 구는 카메라를 따라다닌다 (집 안 장면은 마을에서 멀리 떨어져 있어서)
-  useFrame(({ camera }) => ref.current?.position.copy(camera.position))
-  const geo = useMemo(() => {
-    const g = new THREE.SphereGeometry(180, 32, 16)
-    const pos = g.attributes.position
-    const colors = new Float32Array(pos.count * 3)
-    const c = new THREE.Color()
-    for (let i = 0; i < pos.count; i++) {
-      const h = THREE.MathUtils.clamp(pos.getY(i) / 120, 0, 1)
-      c.copy(SKY_HORIZON).lerp(SKY_TOP, Math.pow(h, 0.6))
-      colors.set([c.r, c.g, c.b], i * 3)
-    }
-    g.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-    return g
-  }, [])
-  return (
-    <mesh ref={ref} geometry={geo} renderOrder={-1}>
-      <meshBasicMaterial vertexColors side={THREE.BackSide} fog={false} depthWrite={false} />
-    </mesh>
-  )
-}
-
-function Landscape() {
-  const geo = useMemo(() => {
-    const r = rng(3)
-    // 마을 바깥 눈 둔덕
-    const mounds: THREE.BufferGeometry[] = []
-    for (let i = 0; i < 90; i++) {
-      const a = r() * Math.PI * 2
-      const rad = 13 + r() * 30
-      const s = 0.6 + r() * (rad > 20 ? 4 : 1)
-      if (Math.abs(a - Math.PI / 2) < 0.45 && rad < 30) continue // 입구 앞 시야는 비운다
-      const g = new THREE.SphereGeometry(1, 12, 6)
-      g.scale(s, s * 0.3, s * (0.8 + r() * 0.4))
-      g.translate(Math.cos(a) * rad, 0, Math.sin(a) * rad)
-      mounds.push(g)
-    }
-    // 먼 산 (눈 덮인 봉우리)
-    const rock: THREE.BufferGeometry[] = []
-    const caps: THREE.BufferGeometry[] = []
-    for (let i = 0; i < 26; i++) {
-      const a = (i / 26) * Math.PI * 2 + r() * 0.2
-      const rad = 85 + r() * 25
-      const h = 14 + r() * 22
-      const w = 16 + r() * 14
-      const m = new THREE.ConeGeometry(w, h, 7)
-      m.translate(Math.cos(a) * rad, h / 2 - 1, Math.sin(a) * rad)
-      rock.push(m)
-      const c = new THREE.ConeGeometry(w * 0.42, h * 0.42, 7)
-      c.translate(Math.cos(a) * rad, h - h * 0.21 - 0.9, Math.sin(a) * rad)
-      caps.push(c)
-    }
-    // 바깥 숲 (멀리 띄엄띄엄)
-    return {
-      mounds: mergeGeometries(mounds)!,
-      rock: mergeGeometries(rock)!,
-      caps: mergeGeometries(caps)!,
-    }
-  }, [])
-  return (
-    <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} material={M.snow} receiveShadow>
-        <circleGeometry args={[150, 96]} />
-      </mesh>
-      <mesh geometry={geo.mounds} material={M.snowShade} receiveShadow castShadow />
-      <mesh geometry={geo.rock}>
-        <meshStandardMaterial color="#8a9ab3" roughness={1} flatShading />
-      </mesh>
-      <mesh geometry={geo.caps} material={M.snow} />
-    </group>
-  )
-}
 
 function Ground() {
   const stones = useMemo(() => {
@@ -172,16 +96,25 @@ const FOREST = (() => {
     if (off(SPOT.church.a) < 0.32 || off(Math.PI / 2) < 0.22) continue // 입구 길도 비운다
     list.push({ p: polar(a, 13.6 + r() * 2.2), h: 1.8 + r() * 2.0, seed: 100 + i })
   }
-  // 울타리 밖 숲 (충돌 없음)
+  // 🪐 울타리 밖 링의 숲 (놀이 구역·문 앞 길·썰매 길은 비운다)
   const outside: typeof list = []
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < 110 && outside.length < 70; i++) {
     const a = r() * Math.PI * 2
-    if (Math.abs(a - Math.PI / 2) < 0.3) continue // 입구 길 앞은 비운다
-    outside.push({ p: polar(a, 19 + r() * 22), h: 2.5 + r() * 3.5, seed: 300 + i })
+    const p = polar(a, 18.8 + r() * 13)
+    const h = 2.2 + r() * 3.2
+    const [x, , z] = p
+    if (Math.abs(x) < 4.5 && z > 0) continue // 입구 길·순위판
+    if (inGate(a, 0.25) && Math.hypot(x, z) < 24) continue // 길목
+    if (onPath(x, z) || onDecor(x, z) || onCrystal(x, z)) continue // 돌길·로켓·망원경·수정
+    if (Math.hypot(x - ARENA.x, z - ARENA.z) < ARENA.r + 1.6) continue
+    if (Math.hypot(x - ROLL.x, z - ROLL.z) < ROLL.r + 1.6) continue
+    if (onSledRun(x, z)) continue
+    if (outside.some((o) => Math.hypot(o.p[0] - x, o.p[2] - z) < 2)) continue
+    outside.push({ p, h, seed: 300 + i })
   }
-  // 🛷 눈썰매장 자리의 나무는 뺀다 (뽑는 순서는 그대로 둬야 다른 나무 자리가 안 바뀐다)
-  const kept = list.filter((t) => !onSledRun(t.p[0], t.p[2]))
-  addTreeColliders(kept)
+  // 문 바로 안쪽 나무는 뺀다 (뽑는 순서는 그대로 둬야 숨은 선물이 걸린 나무 자리가 안 바뀐다)
+  const kept = list.filter((t) => !(inGate(Math.atan2(t.p[2], t.p[0]), 0.03) && Math.hypot(t.p[0], t.p[2]) > 12.5))
+  addTreeColliders([...kept, ...outside])
   return [...kept, ...outside]
 })()
 
@@ -226,7 +159,7 @@ function FallingSnow() {
     const a = new Float32Array(count * 3)
     for (let i = 0; i < count; i++) {
       const ang = Math.random() * Math.PI * 2
-      const rr = Math.sqrt(Math.random()) * 26
+      const rr = Math.sqrt(Math.random()) * 38
       a[i * 3] = Math.cos(ang) * rr
       a[i * 3 + 1] = Math.random() * 18
       a[i * 3 + 2] = Math.sin(ang) * rr
@@ -254,13 +187,45 @@ function FallingSnow() {
   )
 }
 
+/** 🌙 그림자를 만드는 빛: 내 쿠키를 따라다녀서 넓은 섬 어디서든 그림자가 또렷하다 */
+function Sun({ me }: { me: MutableRefObject<CookieState | null> }) {
+  const light = useRef<THREE.DirectionalLight>(null)
+  useFrame(() => {
+    const l = light.current
+    if (!l) return
+    const s = me.current
+    const x = s?.x ?? 0
+    const z = s?.z ?? 0
+    l.position.set(x + 14, 24, z + 12)
+    l.target.position.set(x, 0, z)
+    l.target.updateMatrixWorld()
+  })
+  return (
+    <directionalLight
+      ref={light}
+      intensity={1.25}
+      color="#ffe2c4"
+      castShadow
+      shadow-mapSize={[2048, 2048]}
+      shadow-bias={-0.0004}
+      shadow-normalBias={0.02}
+      shadow-camera-left={-22}
+      shadow-camera-right={22}
+      shadow-camera-top={22}
+      shadow-camera-bottom={-22}
+      shadow-camera-near={1}
+      shadow-camera-far={70}
+    />
+  )
+}
+
 /** 로그인 전: 마을 전경을 천천히 한 바퀴 */
 function OrbitRig() {
   const target = useMemo(() => new THREE.Vector3(), [])
   const look = useMemo(() => new THREE.Vector3(0, 1.2, 0), [])
   useFrame(({ camera, clock }, dt) => {
     const t = clock.elapsedTime * 0.035 + Math.PI / 2
-    target.set(Math.cos(t) * 30, 17, Math.sin(t) * 30)
+    target.set(Math.cos(t) * 66, 24, Math.sin(t) * 66)
     camera.position.lerp(target, Math.min(1, dt * 1.5))
     camera.lookAt(look)
   })
@@ -309,26 +274,16 @@ export function Village({
   return (
     <div className="scene">
       <Canvas shadows dpr={[1, 1.5]} camera={{ position: [0, 17, 30], fov: 40, near: 0.3, far: 400 }}>
-        <fog attach="fog" args={[FOG, 40, 160]} />
-        <Sky />
-        <hemisphereLight args={['#c4d2ff', '#9a8396', 0.75]} />
+        <fog attach="fog" args={[SPACE_FOG, 90, 320]} />
+        <SpaceBackdrop />
+        <hemisphereLight args={['#b9c6ff', '#4a3a6e', 0.85]} />
+        <Sun me={myState} />
         <directionalLight
           position={[14, 24, 12]}
-          intensity={1.35}
-          color="#ffd2a6"
-          castShadow
-          shadow-mapSize={[2048, 2048]}
-          shadow-bias={-0.0004}
-          shadow-normalBias={0.02}
-          shadow-camera-left={-20}
-          shadow-camera-right={20}
-          shadow-camera-top={20}
-          shadow-camera-bottom={-20}
-          shadow-camera-near={1}
-          shadow-camera-far={70}
+          intensity={0.35}
+          color="#9fb3ff"
         />
 
-        <Landscape />
         <Ground />
         <Plaza />
         <Spots tree={tree} />
@@ -337,8 +292,7 @@ export function Village({
         <Party />
         {elf && <Elf alert={elf.alert} chatter={elf.chatter} />}
         {me && <Snowballs />}
-        <SledHill />
-        {me && <SledBoard />}
+        <SledHill boards={!!me} />
         {treasure && me && <DecoyMounds />}
         {treasure && me && <GiftBoxes hidden={treasure.hidden} duds={treasure.duds} glow={treasure.glow} dig={dig} me={myState} burst={treasure.burst} />}
         <Fade x={at(SPOT.church)[0]} z={at(SPOT.church)[2]} r={2.4}>
@@ -350,7 +304,10 @@ export function Village({
         </Fade>
         <Forest />
         {/* 앞쪽 대문 자리를 비우고 울타리를 두른다 */}
-        <FenceRing radius={VILLAGE_R - 0.35} from={Math.PI / 2 + GATE_ANGLE} to={Math.PI * 2 + Math.PI / 2 - GATE_ANGLE} />
+        <Decor />
+        <Arena />
+        <RollField boards={!!me} me={myState} />
+        {me && <XpBoard position={[4.6, 0, 19.6]} rotation={-0.25} />}
 
         {/* 실시간으로 접속한 사람들 */}
         {live && me && (
@@ -369,7 +326,7 @@ export function Village({
           <OrbitRig />
         )}
 
-        <Sparkles count={260} scale={[34, 0.6, 34]} position={[0, 0.25, 0]} size={2.2} speed={0.15} opacity={0.9} color="#ffffff" />
+        <Sparkles count={420} scale={[64, 0.6, 64]} position={[0, 0.25, 0]} size={2.2} speed={0.15} opacity={0.9} color="#ffffff" />
         <FallingSnow />
 
         <EffectComposer multisampling={4}>

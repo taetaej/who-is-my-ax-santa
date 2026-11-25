@@ -3,6 +3,7 @@ import type { QA } from './interview'
 import type { Guess, GuessStatus } from './guess'
 import type { Look } from './look'
 import type { Profile } from './profile'
+import type { RecordKind, XpKind } from './gameRules'
 import type { Tier } from './treasure'
 
 export type Phase = 'READY' | 'ACTIVE' | 'REVEAL'
@@ -108,12 +109,16 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   return data as T
 }
 
-export type SledRow = { rank: number; name: string; best: number; runs: number; me: boolean }
-export type SledBoard = { top: SledRow[]; mine: SledRow | null }
+export type RecordRow = { rank: number; name: string; best: number; runs: number; me: boolean }
+export type RecordBoard = { top: RecordRow[]; mine: RecordRow | null }
+export type XpRow = { rank: number; id: number; name: string; xp: number; lv: number; cur: number; need: number; me: boolean }
+export type XpBoard = { top: XpRow[]; mine: XpRow | null }
 
 export const api = {
-  sled: () => call<SledBoard>('GET', '/sled'),
-  sledRun: (dist: number) => call<SledBoard & { dist: number; newBest: boolean }>('POST', '/sled/run', { dist }),
+  records: (kind: RecordKind) => call<RecordBoard>('GET', `/records/${kind}`),
+  saveRecord: (kind: RecordKind, value: number) => call<RecordBoard & { value: number; newBest: boolean }>('POST', `/records/${kind}`, { value }),
+  xp: () => call<XpBoard>('GET', '/xp'),
+  gainXp: (kind: XpKind) => call<XpBoard & { capped: boolean }>('POST', '/xp', { kind }),
   players: () => call<Player[]>('GET', '/players'),
   setupPin: (playerId: number, pin: string) => call('POST', '/auth/setup-pin', { playerId, pin }),
   login: (playerId: number, pin: string) => call('POST', '/auth/login', { playerId, pin }),

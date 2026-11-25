@@ -76,10 +76,10 @@ export const SPOTS: readonly Spot[] = [
   { id: 's31', ...p(2.25, 12.4), kind: 'box', place: '🎂 파티 테이블 뒤' },
   { id: 's32', ...p(2.08, 9.4), kind: 'jar', place: '🎂 파티 테이블 옆' },
   // 🎅 입구
-  { id: 's33', x: -6.6, z: 14.55, kind: 'snow', place: '🎅 입구 왼쪽 울타리 안쪽 눈더미' },
-  { id: 's34', x: 5.2, z: 15.1, kind: 'snow', place: '🎅 입구 오른쪽 울타리 안쪽 눈더미' },
+  { id: 's33', x: -6.6, z: 14.55, kind: 'snow', place: '🎅 입구 왼쪽 등불 기둥 안쪽 눈더미' },
+  { id: 's34', x: 5.2, z: 15.1, kind: 'snow', place: '🎅 입구 오른쪽 등불 기둥 안쪽 눈더미' },
   { id: 's35', x: 6.95, z: 14.45, kind: 'bundle', place: '🌲 입구 오른쪽 숲 나무 아래' },
-  // 🌲 숲 (나무에 매달린 오너먼트, 울타리 구석)
+  // 🌲 숲 (나무에 매달린 오너먼트, 등불 기둥 줄 구석)
   { id: 's36', ...onTree(-13.9, 6.2), kind: 'ornament', place: '🌲 왼쪽 앞 숲 나무' },
   { id: 's37', ...onTree(12.3, 6.0), kind: 'ornament', place: '🌲 오른쪽 앞 숲 나무' },
   { id: 's38', ...onTree(-8.9, -12.9), kind: 'ornament', place: '🌲 우편함 뒤쪽 숲 나무' },
@@ -88,9 +88,9 @@ export const SPOTS: readonly Spot[] = [
   { id: 's41', ...onTree(12.2, -8.1), kind: 'ornament', place: '🌲 교회 뒤쪽 숲 나무' },
   { id: 's42', ...p(Math.PI + 0.45, 15.6), kind: 'snow', place: '🌲 마을 왼쪽 끝 숲속 눈더미' },
   { id: 's43', ...p(-0.75, 15.4), kind: 'snow', place: '🌲 마을 오른쪽 뒤 숲속 눈더미' },
-  { id: 's44', ...p(UP - 1.45, 15.6), kind: 'box', place: '🌲 우편함 왼쪽 울타리 구석' },
-  { id: 's45', ...p(Math.PI - 0.62, 15.6), kind: 'bundle', place: '🌲 불멍 회의실 뒤 울타리 구석' },
-  { id: 's46', ...p(0.62, 15.5), kind: 'sock', place: '🌲 어워즈 뒤 울타리 구석' },
+  { id: 's44', ...p(UP - 1.45, 15.6), kind: 'box', place: '🌲 우편함 왼쪽 등불 기둥 구석' },
+  { id: 's45', ...p(Math.PI - 0.62, 15.6), kind: 'bundle', place: '🌲 불멍 회의실 뒤 등불 기둥 구석' },
+  { id: 's46', ...p(0.62, 15.5), kind: 'sock', place: '🌲 어워즈 뒤 등불 기둥 구석' },
 ]
 
 export const spot = (id: string) => SPOTS.find((s) => s.id === id)

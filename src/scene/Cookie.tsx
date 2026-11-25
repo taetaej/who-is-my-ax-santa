@@ -23,11 +23,14 @@ export type CookieState = {
   cup: boolean // 핫초코를 들고 있는지
   emote: EmoteOut | null // 💬 내가 보낸 반응 (실시간으로 보낸다)
   pop: { icon: string; n: number } | null // 머리 위에 떠오르는 이모지 (n 이 바뀔 때마다)
+  hp: number // ⚔️ 체력 (100 이면 체력바를 숨긴다)
+  ball: number // ⛄ 굴리고 있는 눈덩이 반지름 (0 이면 없음)
+  lv: number // ⭐ 레벨 (이름표에 붙는다)
 }
 
-export type Pose = 'stand' | 'sit' | 'lie' | 'sled'
+export type Pose = 'stand' | 'sit' | 'lie' | 'sled' | 'ko'
 
-export const newCookieState = (x = 0, z = 0, rot = 0): CookieState => ({ x, z, y: 0, rot, speed: 0, waveUntil: 0, say: null, pose: 'stand', cup: false, emote: null, pop: null })
+export const newCookieState = (x = 0, z = 0, rot = 0): CookieState => ({ x, z, y: 0, rot, speed: 0, waveUntil: 0, say: null, pose: 'stand', cup: false, emote: null, pop: null, hp: 100, ball: 0, lv: 1 })
 /** 머리 위에 이모지를 띄운다 */
 export const popOn = (s: CookieState, icon: string) => void (s.pop = { icon, n: (s.pop?.n ?? 0) + 1 })
 
@@ -204,6 +207,10 @@ export function Cookie({
   const pop = useRef<HTMLDivElement>(null)
   const popSeen = useRef(state.current.pop?.n ?? 0)
   const sled = useRef<THREE.Group>(null)
+  const hpBar = useRef<HTMLDivElement>(null)
+  const dizzy = useRef<THREE.Group>(null)
+  const ballMesh = useRef<THREE.Mesh>(null)
+  const ballSpin = useRef({ x: state.current.x, z: state.current.z, a: 0 })
   const phase = useRef(0)
 
   const lookKey = custom ? JSON.stringify(custom) : ''
@@ -229,6 +236,17 @@ export function Cookie({
     if (tag.current) {
       const near = camera.position.distanceTo(g.position) < 5.6
       tag.current.style.opacity = near ? '0' : '1'
+      const text = `${s.lv > 1 ? `Lv.${s.lv} ` : ''}${me ? `${name} (나)` : name}`
+      if (tag.current.textContent !== text) tag.current.textContent = text
+    }
+    if (hpBar.current) {
+      const show = s.hp < 100
+      hpBar.current.style.display = show ? 'block' : 'none'
+      if (show) {
+        const fill = hpBar.current.firstElementChild as HTMLElement
+        fill.style.width = `${Math.max(0, s.hp)}%`
+        fill.style.background = s.hp > 50 ? '#4fd17a' : s.hp > 25 ? '#ffc24a' : '#ff5a4a'
+      }
     }
     g.position.set(s.x, s.y, s.z)
     // 회전은 가장 짧은 쪽으로 부드럽게
@@ -283,6 +301,16 @@ export function Cookie({
         armL.current!.rotation.z = -0.25 - Math.max(0, Math.sin(beat * 2)) * 0.2
         if (!waving) armR.current!.rotation.z = 0.25 + Math.max(0, Math.sin(beat * 2)) * 0.2
       }
+    } else if (s.pose === 'ko') {
+      // 😵 기절: 대자로 뻗어서 꼼짝 안 함 (머리 위로 별이 돈다)
+      pg.position.set(0, 0.1, 0.25)
+      pg.rotation.x = -Math.PI / 2
+      armL.current!.rotation.z = -1.7
+      armR.current!.rotation.z = 1.7
+      legL.current!.rotation.z = -0.35
+      legR.current!.rotation.z = 0.35
+      body.current!.position.y = 0
+      body.current!.rotation.z = Math.sin(t * 2) * 0.04
     } else if (s.pose === 'lie') {
       pg.position.set(0, 0.1, 0.25)
       pg.rotation.x = -Math.PI / 2
@@ -309,6 +337,24 @@ export function Cookie({
       pg.rotation.x = 0
     }
     if (sled.current) sled.current.visible = s.pose === 'sled'
+    if (dizzy.current) {
+      dizzy.current.visible = s.pose === 'ko'
+      if (s.pose === 'ko') dizzy.current.rotation.y = t * 3
+    }
+    // ⛄ 굴리는 눈덩이: 몸 앞쪽 땅 위, 움직인 만큼 굴러간다
+    const bm = ballMesh.current
+    if (bm) {
+      bm.visible = s.ball > 0
+      if (s.ball > 0) {
+        const sp = ballSpin.current
+        sp.a += Math.hypot(s.x - sp.x, s.z - sp.z) / s.ball
+        bm.scale.setScalar(s.ball)
+        bm.position.set(0, s.ball - s.y, 0.28 + s.ball)
+        bm.rotation.x = sp.a
+      }
+      ballSpin.current.x = s.x
+      ballSpin.current.z = s.z
+    }
     if (cup.current) cup.current.visible = s.cup && s.pose !== 'lie' && s.pose !== 'sled'
     // 💬 반응 이모지: 새 값이 오면 애니메이션을 처음부터
     if (pop.current && s.pop && s.pop.n !== popSeen.current) {
@@ -328,6 +374,19 @@ export function Cookie({
 
   return (
     <group ref={root}>
+      {/* ⛄ 굴리는 눈덩이 */}
+      <mesh ref={ballMesh} visible={false} castShadow receiveShadow>
+        <sphereGeometry args={[1, 18, 12]} />
+        <meshStandardMaterial color="#fbfdff" roughness={0.85} />
+      </mesh>
+      {/* 😵 기절했을 때 머리 위를 도는 별 */}
+      <group ref={dizzy} position={[0, 0.45, -0.55]} visible={false}>
+        {[0, 1, 2].map((i) => (
+          <mesh key={i} position={[Math.cos((i / 3) * Math.PI * 2) * 0.28, 0, Math.sin((i / 3) * Math.PI * 2) * 0.28]} material={GOLD}>
+            <octahedronGeometry args={[0.06, 0]} />
+          </mesh>
+        ))}
+      </group>
       <group ref={posed}>
       <group ref={sled} position={[0, -0.02, -0.05]} visible={false}>
         <Sled />
@@ -587,6 +646,9 @@ export function Cookie({
         <Html position={[0, 1.3, 0]} center distanceFactor={9} zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
           <div ref={tag} className={`tag${me ? ' me' : ''}${dim ? ' dim' : ''}`} style={{ transition: 'opacity 0.3s' }}>
             {me ? `${name} (나)` : name}
+          </div>
+          <div ref={hpBar} className="hpbar" style={{ display: 'none' }}>
+            <i />
           </div>
           <div ref={bubble} className="bubble" />
           <div ref={pop} className="emote-pop" />

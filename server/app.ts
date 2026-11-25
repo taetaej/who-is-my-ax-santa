@@ -12,7 +12,7 @@ import { EMPTY_GUESS, cleanGuess, guessDone, type Guess, type GuessStatus } from
 import { makeCycle } from './matching.js'
 import { RESCUE_FROM, SPOTS, spot, tierOf } from '../src/treasure.js'
 import { REAL, dudLine } from './treasure.js'
-import { SLED_RECORD_MAX } from '../src/sledLimit.js'
+import { RECORD_KINDS, RECORD_MAX, XP_DAILY_CAP, XP_EVENT, XP_GAIN, XP_KINDS, levelOf, type RecordKind, type XpKind } from '../src/gameRules.js'
 
 type Me = { id: number; name: string; is_admin: boolean }
 type Env = { Variables: { me: Me } }
@@ -367,37 +367,97 @@ app.post('/tree/:id/heart', async (c) => {
   return c.json({ liked: removed.length === 0 })
 })
 
-// ── 🛷 눈썰매 기록판 ─────────────────────────────────────────────
-// 한 번 탈 때마다 거리(m)를 올린다. 최고 기록만 남고, 탄 횟수는 센다. 기록은 그냥 재미 (상품 없음)
-app.use('/sled', requireLogin)
-app.use('/sled/*', requireLogin)
+// ── 🎮 놀이 기록판 (🛷 썰매 · ⛄ 눈굴리기) ───────────────────────────
+// 한 번 할 때마다 기록을 올린다. 최고 기록만 남고, 횟수는 센다. 그냥 재미 (상품 없음)
+app.use('/records/*', requireLogin)
+const isRecordKind = (k: string): k is RecordKind => (RECORD_KINDS as readonly string[]).includes(k)
 
-async function sledBoard(meId: number) {
+async function recordBoard(kind: RecordKind, meId: number) {
   const q = await db()
   const rows = await q<{ id: number; name: string; best: number; runs: number }>(
-    `select p.id, p.name, s.best, s.runs from sled_runs s join players p on p.id = s.player_id order by s.best desc, s.updated_at asc`,
+    `select p.id, p.name, r.best, r.runs from game_records r join players p on p.id = r.player_id
+     where r.kind = $1 order by r.best desc, r.updated_at asc`,
+    [kind],
   )
   const list = rows.map((r, i) => ({ rank: i + 1, name: r.name, best: Math.round(Number(r.best) * 10) / 10, runs: r.runs, me: r.id === meId }))
   return { top: list.slice(0, 5), mine: list.find((r) => r.me) ?? null }
 }
 
-app.get('/sled', async (c) => c.json(await sledBoard(c.get('me').id)))
+app.get('/records/:kind', async (c) => {
+  const kind = c.req.param('kind')
+  if (!isRecordKind(kind)) return bad(c, '없는 기록판이에요', 404)
+  return c.json(await recordBoard(kind, c.get('me').id))
+})
 
-app.post('/sled/run', async (c) => {
-  const { dist } = await c.req.json<{ dist?: unknown }>().catch(() => ({ dist: undefined }))
-  if (typeof dist !== 'number' || !Number.isFinite(dist) || dist < 0 || dist > SLED_RECORD_MAX + 0.05) return bad(c, '이상한 기록이에요')
+app.post('/records/:kind', async (c) => {
+  const kind = c.req.param('kind')
+  if (!isRecordKind(kind)) return bad(c, '없는 기록판이에요', 404)
+  const { value } = await c.req.json<{ value?: unknown }>().catch(() => ({ value: undefined }))
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > RECORD_MAX[kind] + 0.05) return bad(c, '이상한 기록이에요')
   const me = c.get('me')
-  const d = Math.round(dist * 10) / 10
+  const v = Math.round(value * 10) / 10
   const q = await db()
-  const [before] = await q<{ best: number }>(`select best from sled_runs where player_id = $1`, [me.id])
+  const [before] = await q<{ best: number }>(`select best from game_records where player_id = $1 and kind = $2`, [me.id, kind])
   await q(
-    `insert into sled_runs (player_id, best) values ($1, $2)
-     on conflict (player_id) do update set runs = sled_runs.runs + 1, best = greatest(sled_runs.best, excluded.best),
-       updated_at = case when excluded.best > sled_runs.best then now() else sled_runs.updated_at end`,
-    [me.id, d],
+    `insert into game_records (player_id, kind, best) values ($1, $2, $3)
+     on conflict (player_id, kind) do update set runs = game_records.runs + 1, best = greatest(game_records.best, excluded.best),
+       updated_at = case when excluded.best > game_records.best then now() else game_records.updated_at end`,
+    [me.id, kind, v],
   )
-  const newBest = !before || d > Number(before.best) + 1e-6
-  return c.json({ ...(await sledBoard(me.id)), dist: d, newBest })
+  const newBest = !before || v > Number(before.best) + 1e-6
+  return c.json({ ...(await recordBoard(kind, me.id)), value: v, newBest })
+})
+
+// ── ⭐ XP · 레벨 ─────────────────────────────────────────────
+// 총 XP = 놀이 XP (xp_daily 합) + 이벤트 참여 XP (리포트·추리노트·트리·키워드·숨은 선물·마니또 확인에서 계산)
+app.use('/xp', requireLogin)
+const isXpKind = (k: unknown): k is XpKind => typeof k === 'string' && (XP_KINDS as readonly string[]).includes(k)
+
+async function xpBoard(meId: number) {
+  const q = await db()
+  const rows = await q<{ id: number; name: string; play: number; letter: boolean; guess: boolean; tree_days: number; keywords: number; treasure: boolean; manito: boolean }>(
+    `select p.id, p.name,
+       coalesce((select sum(xp) from xp_daily x where x.player_id = p.id), 0)::int as play,
+       exists (select 1 from letters l where l.santa_id = p.id and l.submitted_at is not null) as letter,
+       exists (select 1 from guesses g where g.player_id = p.id) as guess,
+       (select count(distinct day) from messages m where m.player_id = p.id)::int as tree_days,
+       (select count(*) from keywords k where k.giver_id = p.id)::int as keywords,
+       exists (select 1 from treasure_finds t where t.player_id = p.id) as treasure,
+       p.manito_opened_at is not null as manito
+     from players p`,
+  )
+  const list = rows
+    .map((r) => {
+      const xp =
+        Number(r.play) +
+        (r.letter ? XP_EVENT.letter : 0) +
+        (r.guess ? XP_EVENT.guess : 0) +
+        Number(r.tree_days) * XP_EVENT.treeDay +
+        Number(r.keywords) * XP_EVENT.keyword +
+        (r.treasure ? XP_EVENT.treasure : 0) +
+        (r.manito ? XP_EVENT.manito : 0)
+      return { id: r.id, name: r.name, xp, ...levelOf(xp) }
+    })
+    .sort((a, b) => b.xp - a.xp || a.name.localeCompare(b.name))
+    .map((r, i) => ({ rank: i + 1, id: r.id, name: r.name, xp: r.xp, lv: r.lv, cur: r.cur, need: r.need, me: r.id === meId }))
+  return { top: list.slice(0, 5), mine: list.find((r) => r.me) ?? null }
+}
+
+app.get('/xp', async (c) => c.json(await xpBoard(c.get('me').id)))
+
+app.post('/xp', async (c) => {
+  const { kind } = await c.req.json<{ kind?: unknown }>().catch(() => ({ kind: undefined }))
+  if (!isXpKind(kind)) return bad(c, '없는 XP 종류예요')
+  const me = c.get('me')
+  const day = kstDay()
+  const q = await db()
+  const [row] = await q<{ xp: number }>(
+    `insert into xp_daily (player_id, day, kind, xp) values ($1, $2, $3, least($4::int, $5::int))
+     on conflict (player_id, day, kind) do update set xp = least(xp_daily.xp + $4::int, $5::int)
+     returning xp`,
+    [me.id, day, kind, XP_GAIN[kind], XP_DAILY_CAP[kind]],
+  )
+  return c.json({ ...(await xpBoard(me.id)), capped: Number(row.xp) >= XP_DAILY_CAP[kind] })
 })
 
 // ── 🏆 AX 어워즈: 엘프 인터뷰로 만드는 상장 ────────────────────────────────
@@ -738,6 +798,8 @@ app.post('/admin/reset-all', async (c) => {
     `delete from guesses`,
     `delete from matches`,
     `delete from sled_runs`,
+    `delete from game_records`,
+    `delete from xp_daily`,
     `update players set pin_hash = null, failed_attempts = 0, locked_until = null, session_version = session_version + 1,
        manito_opened_at = null, profile = null, look = null`,
     `delete from settings where key in ('questions', 'questions_start', 'awards')`,

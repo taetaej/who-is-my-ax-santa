@@ -5,8 +5,17 @@
 //   그 바깥: 각 장소로 이어지는 디딤돌 길
 //   둘레: 산타 우체국(소개서) · 교회 · 핫초코 포차 · 눈밭 · 언덕 벤치 · 모닥불
 //   화면 기준으로 +z 가 아래(카메라 쪽), -z 가 위(안쪽)다.
+//
+// 🪐 산타 행성: 마을은 우주에 떠 있는 둥근 섬(ISLAND_EDGE) 가운데에 있다.
+//   원래 마을(VILLAGE_R 안쪽)은 그대로 (숨은 선물 자리가 그대로 맞도록). 울타리는 없애고
+//   그 자리에 띄엄띄엄 등불 기둥만 둘러 세웠다 (어디로든 걸어 나갈 수 있다).
+//   바깥 링에 놀이 구역이 있고, 마을에서 각 구역까지 등불 켠 돌길이 이어진다:
+//   오른쪽 ⚔️ 눈싸움장(ARENA) · 왼쪽 🛷 큰 썰매 산(SLED) · 오른쪽 뒤 ⛄ 눈굴리기장(ROLL)
 
-export const VILLAGE_R = 17 // 울타리 반지름
+export const VILLAGE_R = 17 // 울타리 반지름 (원래 마을)
+export const ISLAND_EDGE = 34 // 🪐 행성 섬 가장자리 (그 밖은 우주)
+export const WALK_MAX = ISLAND_EDGE - 1.8 // 낭떠러지 앞에서 멈춘다
+export const FENCE_R = VILLAGE_R - 0.35
 export const PLAZA_R = 6.2 // 광장 돌길 바깥. 여기서부터 각 장소로 디딤돌 길이 나간다
 export const ISLAND_R = 1.9
 export const POND_OUT = 3.5
@@ -49,7 +58,11 @@ export const exhibitAngle = (i: number, n: number) => -Math.PI / 2 + (i - (n - 1
 export const inGallery = (x: number, z: number) => z < -8.6 && Math.abs(x) < 6.8
 export const GATE_HW = 1.45
 export const GATE_ANGLE = (GATE_HW + 0.35) / (VILLAGE_R - 0.35) // 울타리를 비우는 각도 (반폭)
-const GATE_OUT = VILLAGE_R + 3 // 입구 길 끝
+/** 놀이 구역으로 나가는 길목: 앞(입구) · 오른쪽(눈싸움장 쪽, 눈밭 뒤) · 왼쪽(썰매 산 쪽). 숲을 비워 길을 낸다 */
+export const GATES = [Math.PI / 2, 0.3, 3.42] as const
+const angleOff = (a: number, b: number) => Math.abs(((a - b + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
+/** 이 각도가 문 자리인지 (울타리·전구를 비운다) */
+export const inGate = (a: number, pad = 0) => GATES.some((g) => angleOff(a, g) < GATE_ANGLE + pad)
 /** 울타리 밖 입구 길에서 시작해 대문과 아치를 지나, 연대기 길을 따라 광장으로 걸어 들어온다 */
 export const SPAWN = { x: 0, z: VILLAGE_R + 1.6, rot: Math.PI }
 /** 🧝 AX 엘프 NPC: 들어오자마자 보이는 광장 오른쪽 앞 */
@@ -92,48 +105,73 @@ export function onIce(x: number, z: number): boolean {
   return r > ISLAND_R + 0.05 && r < POND_OUT - 0.05 && Math.abs(x) > 0.55
 }
 
-// ── 🛷 눈썰매장 ────────────────────────────────────────────────
-// 왼쪽 뒤(모닥불과 우편함 사이). 울타리 쪽 꼭대기에서 광장 쪽으로 미끄러져 내려온다.
-// 언덕 위치는 숨은 선물 자리(s42, s44)를 비켜서 정했다.
+// ── 🛷 큰 썰매 산 ─────────────────────────────────────────────
+// 섬 왼쪽 바깥 링. 꼭대기(앞쪽 왼편)에서 뒤쪽으로 길게 내려온다. 비탈 → 점프대 → 슬라롬 눈사람 → 끝.
 // s = 꼭대기 출발점에서 내려온 거리, w = 옆으로 비킨 거리
+const SLED_FROM = { x: -28.7, z: 8.7 } // 꼭대기 출발점
+const SLED_TO = { x: -19.6, z: -14.6 } // 다 미끄러진 끝 (방향만 쓴다)
 export const SLED = {
-  a: 3.425, // 언덕이 놓인 각도
-  top: 14.3, // 꼭대기 출발점까지 거리 (중심에서)
-  h: 2.6, // 언덕 높이
-  len: 5.0, // 비탈 길이
-  back: 1.9, // 꼭대기 뒤로 내려가는 길이 (울타리 쪽)
-  deck: 0.9, // 꼭대기 평평한 곳 (출발점 뒤로)
-  track: 0.85, // 썰매 길 반폭
-  half: 2.0, // 언덕 반폭
-  run: 5.4, // 비탈 끝에서 평지로 미끄러지는 최대 거리 (얼음 연못 앞까지. 가는 길에 광장 가로등이 있다)
-  gate: 0.9, // 비탈 끝에서 타는 곳까지
+  h: 5.5, // 산 높이
+  len: 10, // 비탈 길이
+  back: 3.0, // 꼭대기 뒤로 내려가는 길이
+  deck: 1.4, // 꼭대기 평평한 곳
+  track: 1.1, // 썰매 길 반폭
+  half: 3.2, // 산 반폭
+  run: 15, // 비탈 끝에서 평지로 미끄러지는 최대 거리
+  gate: 1.0, // 비탈 끝에서 타는 곳까지
+  jump: 13.2, // 점프대 끝 (여기서 날아오른다)
+  jumpLen: 1.4, // 점프대 오르막 길이
+  jumpH: 0.55, // 점프대 높이
 } as const
-/** 내려가는 방향 (마을 중심 쪽) */
-export const SLED_DIR = { x: -Math.cos(SLED.a), z: -Math.sin(SLED.a) }
+const SLED_LEN = Math.hypot(SLED_TO.x - SLED_FROM.x, SLED_TO.z - SLED_FROM.z)
+/** 내려가는 방향 */
+export const SLED_DIR = { x: (SLED_TO.x - SLED_FROM.x) / SLED_LEN, z: (SLED_TO.z - SLED_FROM.z) / SLED_LEN }
 const SLED_SIDE = { x: -SLED_DIR.z, z: SLED_DIR.x }
-const SLED_TOP = { x: Math.cos(SLED.a) * SLED.top, z: Math.sin(SLED.a) * SLED.top }
 /** 썰매 방향 (CookieState.rot): 내려갈 때 */
 export const SLED_ROT = Math.atan2(SLED_DIR.x, SLED_DIR.z)
-export const sledPoint = (s: number, w = 0) => ({ x: SLED_TOP.x + SLED_DIR.x * s + SLED_SIDE.x * w, z: SLED_TOP.z + SLED_DIR.z * s + SLED_SIDE.z * w })
+export const sledPoint = (s: number, w = 0) => ({ x: SLED_FROM.x + SLED_DIR.x * s + SLED_SIDE.x * w, z: SLED_FROM.z + SLED_DIR.z * s + SLED_SIDE.z * w })
 export function sledLocal(x: number, z: number) {
-  const dx = x - SLED_TOP.x
-  const dz = z - SLED_TOP.z
+  const dx = x - SLED_FROM.x
+  const dz = z - SLED_FROM.z
   return { s: dx * SLED_DIR.x + dz * SLED_DIR.z, w: dx * SLED_SIDE.x + dz * SLED_SIDE.z }
 }
+/** 슬라롬 눈사람 (박으면 끝). 점프대 착지 뒤 왼쪽·오른쪽 번갈아 */
+export const SLED_OBSTACLES = [
+  { s: 17.2, w: -0.45 },
+  { s: 20.4, w: 0.55 },
+  { s: 23.3, w: -0.3 },
+] as const
 const smooth = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t))
-/** 언덕 가운데 줄의 높이 */
+/** 산 가운데 줄의 높이 (점프대 포함) */
 export function sledProfile(s: number): number {
-  if (s >= SLED.len) return 0
+  if (s >= SLED.len) {
+    const j = s - (SLED.jump - SLED.jumpLen)
+    return j > 0 && j <= SLED.jumpLen ? SLED.jumpH * (j / SLED.jumpLen) : 0
+  }
   if (s >= 0) return SLED.h * (0.5 + 0.5 * Math.cos((Math.PI * s) / SLED.len))
   if (s >= -SLED.deck) return SLED.h
   return SLED.h * (1 - smooth((-s - SLED.deck) / SLED.back))
 }
-/** 언덕 단면: 썰매 길은 평평하고, 양옆은 둥글게 내려간다 */
-const sledSide = (w: number) => 1 - smooth((Math.abs(w) - SLED.track - 0.35) / (SLED.half - SLED.track - 0.35))
-/** 땅 높이 (언덕 위면 그 높이, 아니면 0) */
+/** 산 단면: 썰매 길은 평평하고, 양옆은 둥글게 내려간다 */
+const sledSide = (w: number) => 1 - smooth((Math.abs(w) - SLED.track - 0.4) / (SLED.half - SLED.track - 0.4))
+/** 🪜 산 옆 계단: 타는 곳 쪽(오른쪽)에서 꼭대기까지. 꼭대기에서는 나무 다리를 건너 출발선으로 간다 */
+export const STAIRS = { w: SLED.half + 0.75, half: 0.55, from: SLED.len, to: 0.2, steps: 18 } as const
+/** 계단 높이 (한 칸씩 올라간다) */
+export function stairY(s: number): number {
+  const k = (STAIRS.from - s) / (STAIRS.from - STAIRS.to)
+  if (k <= 0) return 0
+  if (k >= 1) return SLED.h
+  return (SLED.h * Math.ceil(k * STAIRS.steps)) / STAIRS.steps
+}
+const onStairs = (s: number, w: number) => Math.abs(w - STAIRS.w) < STAIRS.half && s <= STAIRS.from && s >= STAIRS.to
+const onBridge = (s: number, w: number) => s >= -SLED.deck && s <= STAIRS.to + 0.4 && w >= SLED.track && w <= STAIRS.w + STAIRS.half
+/** 땅 높이 (산·점프대·계단 위면 그 높이, 아니면 0) */
 export function groundY(x: number, z: number): number {
   const { s, w } = sledLocal(x, z)
-  if (s < -SLED.deck - SLED.back || s > SLED.len || Math.abs(w) > SLED.half) return 0
+  if (onBridge(s, w)) return SLED.h
+  if (onStairs(s, w)) return stairY(s)
+  if (s < -SLED.deck - SLED.back || s > SLED.jump || Math.abs(w) > SLED.half) return 0
+  if (s >= SLED.len) return Math.abs(w) < SLED.track ? sledProfile(s) : 0
   return sledProfile(s) * sledSide(w)
 }
 /** 썰매가 앞으로 기울어지는 각도 (내려가는 비탈) */
@@ -142,14 +180,67 @@ export function sledTilt(x: number, z: number): number {
   const d = 0.05
   return Math.atan((sledProfile(s - d) - sledProfile(s + d)) / (2 * d))
 }
-/** 썰매 미끄럼 길 (언덕 + 평지 끝까지): 위장 눈더미를 두지 않는다 */
+/** 썰매 미끄럼 길 (산 + 평지 끝까지): 나무·위장 눈더미를 두지 않는다 */
 export function onSledRun(x: number, z: number) {
   const { s, w } = sledLocal(x, z)
-  return s > -SLED.deck - SLED.back && s < SLED.len + SLED.run + 0.6 && Math.abs(w) < SLED.half + 0.4
+  return s > -SLED.deck - SLED.back - 0.5 && s < SLED.len + SLED.run + 1 && w > -SLED.half - 0.8 && w < (s < SLED.len + 1 ? STAIRS.w + STAIRS.half + 0.8 : SLED.half + 0.8)
 }
 
+// ── ⚔️ 눈싸움장 · ⛄ 눈굴리기장 ─────────────────────────────────────
+/** 눈싸움장: 오른쪽 문 밖. 가운데 눈 요새 4개 뒤에 숨을 수 있다 (눈덩이도 막는다) */
+export const ARENA = { x: Math.cos(0.25) * 24.6, z: Math.sin(0.25) * 24.6, r: 7 }
+export const inArena = (x: number, z: number) => Math.hypot(x - ARENA.x, z - ARENA.z) < ARENA.r
+/** 눈 요새 벽 (가운데를 둘러싸는 네 개, 조금씩 비스듬히) */
+export const FORTS = [0, 1, 2, 3].map((i) => {
+  const a = (i / 4) * Math.PI * 2 + Math.PI / 4
+  return { x: ARENA.x + Math.cos(a) * 3.3, z: ARENA.z + Math.sin(a) * 3.3, rot: -a + Math.PI / 2, hw: 1.25, hd: 0.32, h: 1.0 }
+})
+/** 눈굴리기장: 오른쪽 뒤. 바위 세 개에 부딪히면 눈덩이가 깨진다 */
+export const ROLL = { x: Math.cos(-0.85) * 24.8, z: Math.sin(-0.85) * 24.8, r: 6.5 }
+export const inRoll = (x: number, z: number) => Math.hypot(x - ROLL.x, z - ROLL.z) < ROLL.r
+export const ROLL_ROCKS = [
+  { x: ROLL.x - 2.4, z: ROLL.z - 1.6, r: 0.55 },
+  { x: ROLL.x + 2.6, z: ROLL.z + 0.4, r: 0.65 },
+  { x: ROLL.x - 0.3, z: ROLL.z + 3.2, r: 0.5 },
+]
+
+/** 🏮 옛 울타리 자리의 등불 기둥 (문 자리는 비운다). 숨은 선물 힌트의 "등불 기둥"이 이것 */
+export const LANTERNS = Array.from({ length: 28 }, (_, i) => (i / 28) * Math.PI * 2 + 0.06)
+  .filter((a) => !inGate(a, 0.05))
+  .map((a) => ({ a, x: Math.cos(a) * FENCE_R, z: Math.sin(a) * FENCE_R }))
+/** 🚀 산타 로켓 발사대 (앞 왼쪽 바깥), 🔭 별 망원경 (앞 오른쪽 바깥) */
+export const ROCKET = { x: Math.cos(2.05) * 25.5, z: Math.sin(2.05) * 25.5, r: 2.6 }
+export const SCOPE = { x: Math.cos(1.12) * 26, z: Math.sin(1.12) * 26, r: 1.3 }
+/** 마을에서 놀이 구역으로 가는 등불 돌길 (점들을 잇는 선) */
+export const ZONE_PATHS: { x: number; z: number }[][] = (() => {
+  const P = (a: number, r: number) => ({ x: Math.cos(a) * r, z: Math.sin(a) * r })
+  const toward = (from: { x: number; z: number }, to: { x: number; z: number }, gap: number) => {
+    const d = Math.hypot(to.x - from.x, to.z - from.z)
+    return { x: to.x - ((to.x - from.x) / d) * gap, z: to.z - ((to.z - from.z) / d) * gap }
+  }
+  const right = P(0.3, 18.6)
+  const left = P(3.42, 18.6)
+  const board = sledPoint(SLED.len + SLED.gate, SLED.track + 1.2)
+  return [
+    [P(0.3, 14.2), right, toward(right, ARENA, ARENA.r)],
+    [right, P(0.02, 19.8), P(-0.42, 20.6), toward(P(-0.42, 20.6), ROLL, ROLL.r)],
+    [P(3.42, 14.2), left, toward(left, board, 1.4)],
+  ]
+})()
+const segDist = (x: number, z: number, a: { x: number; z: number }, b: { x: number; z: number }) => {
+  const dx = b.x - a.x
+  const dz = b.z - a.z
+  const k = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz)))
+  return Math.hypot(x - (a.x + dx * k), z - (a.z + dz * k))
+}
+/** 돌길 위인지 (나무·위장 눈더미를 두지 않는다) */
+export const onPath = (x: number, z: number, pad = 1.4) => ZONE_PATHS.some((p) => p.some((b, i) => i > 0 && segDist(x, z, p[i - 1], b) < pad))
+/** 꾸밈이 놓인 자리 (나무를 두지 않는다) */
+export const onDecor = (x: number, z: number) => Math.hypot(x - ROCKET.x, z - ROCKET.z) < ROCKET.r + 2 || Math.hypot(x - SCOPE.x, z - SCOPE.z) < SCOPE.r + 1.6
+
+
 // ── 상호작용 지점 ───────────────────────────────────────────────
-export type Action = 'letter' | 'manito' | 'tree' | 'awards' | 'elf' | 'cake' | 'cocoa' | 'sit' | 'lie' | 'sled'
+export type Action = 'letter' | 'manito' | 'tree' | 'awards' | 'elf' | 'cake' | 'cocoa' | 'sit' | 'lie' | 'sled' | 'roll' | 'arena' | 'rocket' | 'scope'
 
 /** 지금 서 있는 곳에서 E 로 할 수 있는 일 */
 export function actionAt(x: number, z: number): { action: Action; label: string } | null {
@@ -166,9 +257,13 @@ export function actionAt(x: number, z: number): { action: Action; label: string 
   if (near(SPOT.cocoa, 1.5, COCOA_SIZE.d / 2 + 0.55)) return { action: 'cocoa', label: 'E · ☕ AX 카페 핫초코 받기' }
   if (FIRE_SEATS.some((s) => Math.hypot(s.x - x, s.z - z) < 0.9)) return { action: 'sit', label: 'E · 🔥 불멍하러 앉기' }
   {
-    const g = sledPoint(SLED.len + SLED.gate)
-    if (Math.hypot(g.x - x, g.z - z) < 1.3) return { action: 'sled', label: 'E · 🛷 눈썰매 타기' }
+    const g = sledPoint(SLED.len + SLED.gate, SLED.track + 1.2)
+    if (Math.hypot(g.x - x, g.z - z) < 1.4) return { action: 'sled', label: 'E · 🛷 썰매 타러 올라가기' }
   }
+  if (inRoll(x, z)) return { action: 'roll', label: 'E · ⛄ 눈굴리기 시작 (40초)' }
+  if (Math.hypot(ROCKET.x - x, ROCKET.z - z) < ROCKET.r + 1.3) return { action: 'rocket', label: 'E · 🚀 산타 로켓 발사 버튼 누르기' }
+  if (Math.hypot(SCOPE.x - x, SCOPE.z - z) < SCOPE.r + 1.2) return { action: 'scope', label: 'E · 🔭 별 망원경 들여다보기' }
+  if (inArena(x, z)) return { action: 'arena', label: 'F 꾹 · ☃️ 모아 던지기 (오래 누를수록 세게)' }
   if (near(SPOT.field, 3.4)) return { action: 'lie', label: 'F · ☃️ 눈덩이 던지기 · E · ❄️ 눕기' }
   return null
 }
@@ -202,10 +297,18 @@ circles.push({ x: ELF.x, z: ELF.z, r: 0.35 }) // 엘프
   circles.push({ x, z, r: 0.75 }) // 불
 }
 {
-  // 🛷 눈썰매 언덕 (걸어서는 못 올라간다. 탈 때만 위로)
-  const c = sledPoint((-SLED.deck - SLED.back + SLED.len * 0.8) / 2)
-  boxes.push({ x: c.x, z: c.z, rot: SLED_ROT, hw: SLED.half - 0.2, hd: (SLED.deck + SLED.back + SLED.len * 0.8) / 2 })
+  // 🛷 썰매 산 (걸어서는 못 올라간다. 탈 때만 위로)
+  const c = sledPoint((-SLED.deck - SLED.back + SLED.len * 0.85) / 2)
+  boxes.push({ x: c.x, z: c.z, rot: SLED_ROT, hw: SLED.half - 0.3, hd: (SLED.deck + SLED.back + SLED.len * 0.85) / 2 })
+  // 🪜 계단 (썰매 타러 갈 때만 올라간다)
+  const st = sledPoint((STAIRS.to + STAIRS.from - 0.3) / 2 - 0.4, STAIRS.w)
+  boxes.push({ x: st.x, z: st.z, rot: SLED_ROT, hw: STAIRS.half + 0.05, hd: (STAIRS.from - 0.3 - STAIRS.to) / 2 + 0.6 })
 }
+for (const f of FORTS) boxes.push({ x: f.x, z: f.z, rot: f.rot, hw: f.hw, hd: f.hd })
+for (const l of LANTERNS) circles.push({ x: l.x, z: l.z, r: 0.18 })
+circles.push({ x: ROCKET.x, z: ROCKET.z, r: ROCKET.r })
+circles.push({ x: SCOPE.x, z: SCOPE.z, r: SCOPE.r })
+for (const r of ROLL_ROCKS) circles.push({ x: r.x, z: r.z, r: r.r })
 for (const a of LAMP_ANGLES) {
   const [x, , z] = polar(a, LAMP_R)
   circles.push({ x, z, r: 0.2 })
@@ -257,15 +360,11 @@ export function resolve(x: number, z: number, pr = 0.3): { x: number; z: number 
       z = b.z - lx * sin + lz * cos
     }
   }
-  // 울타리 안쪽. 단, 앞쪽 대문 폭 안에서는 입구 길로 나갈 수 있다
+  // 🪐 섬 가장자리 (낭떠러지)
   const r = Math.hypot(x, z)
-  const max = VILLAGE_R - 0.9
-  if (r > max && z > 0 && Math.abs(x) < GATE_HW + 0.4) {
-    x = Math.max(-GATE_HW, Math.min(GATE_HW, x))
-    z = Math.min(z, GATE_OUT)
-  } else if (r > max) {
-    x = (x / r) * max
-    z = (z / r) * max
+  if (r > WALK_MAX) {
+    x = (x / r) * WALK_MAX
+    z = (z / r) * WALK_MAX
   }
   return { x, z }
 }

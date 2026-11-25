@@ -1,23 +1,21 @@
 // 🛷 썰매 한 번 타기: 움직임 계산만 (그리기는 Player·Cookie). 테스트에서도 같은 계산을 돌린다.
-//   up    → 타는 곳에서 꼭대기까지 걸어 올라간다
-//   ready → 꼭대기에서 Space 연타로 출발 힘을 모은다
-//   down  → 내려와서 평지로 미끄러진다. 광장 가로등에 박으면 거기서 끝 (←→ 로 피하기)
+//   up    → 타는 곳에서 산 옆 계단으로 올라가 꼭대기 나무 다리를 건너 출발선까지 (climbPath)
+//   ready → 꼭대기에서 Space 연타로 출발 힘을 모은다 (화면 가운데 게이지)
+//   down  → 비탈을 내려와 점프대에서 날아오르고, 슬라롬 눈사람을 ←→ 로 피해 평지로 미끄러진다. 박으면 거기서 끝
 // 기록 = 출발선에서 멈춘 곳까지 거리 (m)
 
-import { LAMP_ANGLES, LAMP_R, SLED, polar, sledLocal, sledProfile } from './world'
+import { SLED, SLED_OBSTACLES, STAIRS, sledProfile } from './world'
 
-export const READY_SECS = 1.8 // 힘 모으는 시간
-export const POWER_TAP = 0.45 // Space 한 번에 모이는 힘
+export const READY_SECS = 2.5 // 힘 모으는 시간
+export const CLIMB_SPEED = 4.2 // 계단 오르는 속도 (m/초)
+export const POWER_TAP = 0.25 // Space 한 번에 모이는 힘 (2.5초에 16번 누르면 풀파워)
 export const POWER_MAX = 4
-export const SLED_FAR = SLED.len + SLED.run // 여기서 더는 못 간다 (얼음 연못 앞)
+export const SLED_FAR = SLED.len + SLED.run // 여기서 더는 못 간다
 export const BUMP_R = 0.6 // 썰매끼리 이 거리면 쿵
 
-/** 썰매 길 위에 서 있는 광장 가로등 (s, w) */
-export const SLED_LAMPS = LAMP_ANGLES.map((a) => {
-  const [x, , z] = polar(a, LAMP_R)
-  return sledLocal(x, z)
-}).filter((l) => l.s > SLED.len && l.s < SLED_FAR + 0.5 && Math.abs(l.w) < 2)
-const LAMP_HIT = 0.55
+const HIT = 0.6 // 눈사람과 이 거리면 쾅
+const GRAVITY = 9.8
+const KICK = 0.65 // 점프대 끝에서 위로 튀는 비율 (속도 × 이 값)
 
 export type Ride = {
   phase: 'up' | 'ready' | 'down'
@@ -29,21 +27,87 @@ export type Ride = {
   power: number // 모은 힘
   wow: boolean // "와아아" 한 번만
   bumpAt: number
+  air: number // 점프대에서 날아오른 높이 (땅에서부터). 0 이면 땅 위
+  vy: number
+  landed: boolean // 이번 프레임에 착지했다 (말풍선용)
+  path: { s: number; w: number }[] // 올라가는 길 (계단)
+  climb: number // 그 길을 얼마나 왔나 (m)
+  taps: number // Space 누른 횟수
 }
 
-export const newRide = (s: number, t: number): Ride => ({ phase: 'up', s, w: 0, v: 0, wv: 0, at: t, power: 0, wow: false, bumpAt: -10 })
+export const newRide = (s: number, t: number, w = 0): Ride => ({
+  phase: 'up',
+  s,
+  w,
+  v: 0,
+  wv: 0,
+  at: t,
+  power: 0,
+  wow: false,
+  bumpAt: -10,
+  air: 0,
+  vy: 0,
+  landed: false,
+  path: climbPath(s, w),
+  climb: 0,
+  taps: 0,
+})
+
+/** 지금 자리 → 계단 아래 → 계단 꼭대기 → 나무 다리 건너 출발선 */
+export const climbPath = (s: number, w: number) => [
+  { s, w },
+  { s: STAIRS.from + 0.5, w: STAIRS.w },
+  { s: STAIRS.to, w: STAIRS.w },
+  { s: -0.5, w: STAIRS.w },
+  { s: -0.5, w: 0 },
+]
+/** 길을 d 만큼 왔을 때 자리와 가는 방향. 끝까지 왔으면 done */
+export function alongPath(path: { s: number; w: number }[], d: number) {
+  let left = d
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1]
+    const b = path[i]
+    const len = Math.hypot(b.s - a.s, b.w - a.w)
+    if (left <= len || i === path.length - 1) {
+      const k = len > 0 ? Math.min(1, left / len) : 1
+      return { s: a.s + (b.s - a.s) * k, w: a.w + (b.w - a.w) * k, ds: len > 0 ? (b.s - a.s) / len : 0, dw: len > 0 ? (b.w - a.w) / len : 0, done: i === path.length - 1 && left >= len }
+    }
+    left -= len
+  }
+  const last = path[path.length - 1]
+  return { ...last, ds: 0, dw: 0, done: true }
+}
 
 /** 옆으로 갈 수 있는 폭: 비탈은 썰매 길 안, 평지는 조금 더 넓게 */
 export const sideLimit = (s: number) => (s > SLED.len ? 1.4 : SLED.track - 0.1)
 
 /** 내려가는 한 프레임. side = 방향키 (-1..1). 끝나면 'stop' 또는 'crash' */
 export function stepDown(r: Ride, dt: number, side: number): 'go' | 'stop' | 'crash' {
-  const slope = (sledProfile(r.s - 0.05) - sledProfile(r.s + 0.05)) / 0.1
   const flat = r.s > SLED.len
-  // 방향을 틀면 조금씩 느려진다 (가로등은 피하되 덜 틀수록 멀리 간다)
-  r.v = Math.max(0, r.v + (5.8 * slope - (flat ? 4.2 : 0.3) - 0.04 * r.v * r.v - 0.9 * Math.abs(side)) * dt)
+  r.landed = false
+  if (r.air > 0 || r.vy > 0) {
+    // 공중: 마찰 없이 날아간다
+    r.vy -= GRAVITY * dt
+    r.air += r.vy * dt
+    if (r.air <= 0) {
+      r.air = 0
+      r.vy = 0
+      r.landed = true
+      r.v *= 0.9 // 착지 충격
+    }
+  } else {
+    // 땅 위: 비탈이면 빨라지고, 평지는 마찰. 방향을 틀면 조금씩 느려진다 (덜 틀수록 멀리 간다)
+    const slope = (sledProfile(r.s - 0.05) - sledProfile(r.s + 0.05)) / 0.1
+    r.v = Math.max(0, r.v + (5.8 * slope - (flat ? 2.3 : 0.3) - 0.03 * r.v * r.v - 0.9 * Math.abs(side)) * dt)
+  }
   if (r.s < 0.8) r.v = Math.max(r.v, 1.2 + r.power * 1.35) // 출발: 모은 힘으로 밀고 나간다
+  const before = r.s
   r.s = Math.min(SLED_FAR, r.s + r.v * dt)
+  // 점프대 끝을 지나면 날아오른다 (땅 높이가 갑자기 0 이 되니, 그 높이에서 시작)
+  if (r.air === 0 && r.vy === 0 && before < SLED.jump && r.s >= SLED.jump && r.v > 2) {
+    r.air = SLED.jumpH
+    r.vy = r.v * KICK
+  }
   const lim = sideLimit(r.s)
   r.w += (side * 2.2 + r.wv) * dt
   if (Math.abs(r.w) > lim) {
@@ -51,8 +115,8 @@ export function stepDown(r: Ride, dt: number, side: number): 'go' | 'stop' | 'cr
     r.wv = -r.wv * 0.4 // 길 가장자리에서 살짝 튕긴다
   }
   r.wv *= Math.exp(-dt * 3)
-  if (SLED_LAMPS.some((l) => Math.hypot(l.s - r.s, l.w - r.w) < LAMP_HIT)) return 'crash'
-  if ((flat && r.v < 0.25) || r.s >= SLED_FAR) return 'stop'
+  if (r.air < 0.5 && SLED_OBSTACLES.some((o) => Math.hypot(o.s - r.s, o.w - r.w) < HIT)) return 'crash'
+  if ((flat && r.air === 0 && r.v < 0.25) || r.s >= SLED_FAR) return 'stop'
   return 'go'
 }
 

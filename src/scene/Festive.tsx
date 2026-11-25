@@ -6,7 +6,7 @@ import { MOTTO } from '../team'
 import { M, rng } from './materials'
 import { Wreath } from './props'
 import { TextSign } from './TextSign'
-import { ARCH_Z, GATE_ANGLE, LAMP_ANGLES, LAMP_R, PLAZA_R, SPOT, VILLAGE_R, addCircle, polar, type V3 } from './world'
+import { ARCH_Z, LAMP_ANGLES, LAMP_R, PLAZA_R, SPOT, addCircle, polar, type V3 } from './world'
 
 // 크리스마스 분위기 소품: 트리에서 뻗어 나가는 전구 줄, 울타리 전구, 길가 지팡이 사탕, 가로등 리스, 밤하늘 별
 
@@ -66,18 +66,6 @@ function TreeStrings() {
       <BulbSet points={bulbs} size={0.05} />
     </group>
   )
-}
-
-function FenceLights() {
-  const points = useMemo(() => {
-    const r = VILLAGE_R - 0.35
-    const n = Math.floor((Math.PI * 2 * r) / 0.85)
-    return Array.from({ length: n }, (_, i) => {
-      const a = (i / n) * Math.PI * 2
-      return { p: new THREE.Vector3(Math.cos(a) * r, 0.74, Math.sin(a) * r), m: i % 4, a }
-    }).filter((b) => Math.abs(b.a - Math.PI / 2) > GATE_ANGLE) // 대문 자리는 비운다
-  }, [])
-  return <BulbSet points={points} size={0.045} />
 }
 
 // ── 지팡이 사탕 ───────────────────────────────────────────────
@@ -256,7 +244,6 @@ export function Festive() {
   return (
     <group>
       <TreeStrings />
-      <FenceLights />
       <CandyCanes />
       <LampWreaths />
       <Stars />

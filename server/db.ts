@@ -119,6 +119,23 @@ async function migrate(q: Query) {
     runs int not null default 1,
     updated_at timestamptz not null default now()
   )`)
+  // 🎮 놀이 기록 (🛷 썰매 거리 m, ⛄ 눈굴리기 지름 cm): 사람·종류마다 최고 기록과 횟수
+  await q(`create table if not exists game_records (
+    player_id int not null references players(id),
+    kind text not null,
+    best real not null,
+    runs int not null default 1,
+    updated_at timestamptz not null default now(),
+    primary key (player_id, kind)
+  )`)
+  // ⭐ 놀이 XP: 하루·종류마다 모은 양 (하루 상한을 지키려고 날짜별로 센다)
+  await q(`create table if not exists xp_daily (
+    player_id int not null references players(id),
+    day text not null,
+    kind text not null,
+    xp int not null default 0,
+    primary key (player_id, day, kind)
+  )`)
   await q(`create table if not exists settings (key text primary key, value text not null)`)
   await q(`insert into settings (key, value) values ('phase', 'READY') on conflict (key) do nothing`)
   for (const name of ROSTER) {

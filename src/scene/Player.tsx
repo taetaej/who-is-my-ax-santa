@@ -3,11 +3,14 @@ import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 import type { Look } from '../look'
 import { Cookie, newCookieState, popOn, type CookieState } from './Cookie'
-import { POWER_MAX, POWER_TAP, READY_SECS, bump, newRide, sledDistance, sledRecord, stepDown, type Ride } from './sledRide'
+import { CLIMB_SPEED, POWER_MAX, POWER_TAP, READY_SECS, alongPath, bump, newRide, sledDistance, stepDown, type Ride } from './sledRide'
+import { game } from './game'
 import { EMOTES, EMOTE_COOLDOWN, PUSH_SPEED, REACT_RANGE, emoteOf, emotes, type EmoteId } from './emote'
 import type { Treasure } from './Village'
 import { DIG_HITS, OPEN_RANGE, GLINT_RANGE, nearestSpot, needsDig } from '../treasure'
-import { THROW_COOLDOWN, inSnowField, snow, throwBall } from './snowball'
+import { THROW_COOLDOWN, canThrow, snow, throwBall } from './snowball'
+import { AMMO_MAX, AMMO_REFILL, CHARGE_SECS, HP_MAX, KO_WINDOW_MIN, REGEN_AFTER, REGEN_PER_SEC, REVIVE_HP, REVIVE_TAPS, SAFE_SECS, koSecs } from '../gameRules'
+import { CRACK, ROLL_SECS, ballCm, growBall, rollSpeed } from './rolling'
 import {
   AWARDS_ROT,
   COCOA_SIZE,
@@ -15,7 +18,6 @@ import {
   FIRE_SEATS,
   PARTY,
   POST_SIZE,
-  SLED,
   SLED_DIR,
   SLED_ROT,
   SPAWN,
@@ -25,7 +27,10 @@ import {
   carolLevel,
   facadeView,
   groundY,
+  ROLL,
+  ROLL_ROCKS,
   inGallery,
+  inRoll,
   onIce,
   polar,
   resolve,
@@ -62,7 +67,7 @@ const FIRE = at(SPOT.fire)
 /** 지금 있는 곳에 맞는 카메라 위치와 바라볼 곳. slow = 천천히 넘어가는 연출용 시점 */
 function viewFor(s: CookieState, talking: boolean, overview: boolean, orbit: number): { cam: V; look: V; slow?: boolean } {
   // 🗺️ 마을 전경: 처음 들어올 때 화면처럼 마을 위를 천천히 한 바퀴 돈다 (움직일 수는 있다)
-  if (overview) return { cam: [Math.cos(orbit) * 30, 17, Math.sin(orbit) * 30], look: [0, 1.2, 0], slow: true }
+  if (overview) return { cam: [Math.cos(orbit) * 66, 24, Math.sin(orbit) * 66], look: [0, -3, 0], slow: true }
   // 🧝 엘프와 대화: 엘프 얼굴 쪽으로 다가간다
   if (talking) {
     // 나와 엘프가 함께 잡히도록 비스듬히, 둘 사이를 본다
@@ -155,6 +160,12 @@ export function Player({
   const warmed = useRef(false)
   const knock = useRef({ x: 0, z: 0 }) // 🫸 밀린 속도 (점점 줄어든다)
   const emotedAt = useRef(-10)
+  // ⚔️ 눈싸움: F 를 누르기 시작한 시각, 눈덩이 다시 뭉치는 시계, 쓰러진 동료 깨우기 (누구 · 몇 번)
+  const chargeFrom = useRef<number | null>(null)
+  const refill = useRef(0)
+  const reviveTaps = useRef<{ id: number; n: number; at: number } | null>(null)
+  // ⛄ 눈굴리기: 시작 시각, 눈덩이 반지름, 바위에 깨진 시각
+  const roll = useRef<{ t0: number; r: number; crackAt: number } | null>(null)
   // 🛷 썰매: up = 언덕 오르기, ready = 꼭대기에서 출발 준비, down = 내려가기
   const ride = useRef<Ride | null>(null)
   const wasOnIce = useRef(false)
@@ -247,7 +258,7 @@ export function Player({
 
   const standUp = () => {
     const s = state.current
-    if (s.pose === 'stand') return
+    if (s.pose === 'stand' || s.pose === 'ko') return
     if (s.pose === 'lie') s.z += 0.5 // 누웠던 자리에서 일어나 앞으로
     s.pose = 'stand'
   }
@@ -268,6 +279,7 @@ export function Player({
         const r = ride.current
         if (r?.phase === 'ready') {
           r.power = Math.min(POWER_MAX, r.power + POWER_TAP)
+          r.taps += 1
           const n = Math.round((r.power / POWER_MAX) * 5)
           say(`💪 ${'●'.repeat(n)}${'○'.repeat(5 - n)}`, 1)
           return
@@ -278,7 +290,7 @@ export function Player({
         say('안녕! 👋')
       }
       if (e.code === 'KeyE' && !e.repeat) interact()
-      if (e.code === 'KeyF' && !e.repeat) throwSnow()
+      if (e.code === 'KeyF' && !e.repeat) startCharge()
       // 💬 숫자키 1~8: 반응
       const n = /^Digit([1-8])$/.exec(e.code)
       if (n && !e.repeat) emoteRef.current(EMOTES[Number(n[1]) - 1].id)
@@ -287,8 +299,12 @@ export function Player({
       const k = KEYS[e.code]
       if (k) held.current.delete(k)
       if (e.code === 'Space' && !typing(e)) e.preventDefault()
+      if (e.code === 'KeyF') throwSnow()
     }
-    const blur = () => held.current.clear()
+    const blur = () => {
+      held.current.clear()
+      chargeFrom.current = null
+    }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
     window.addEventListener('blur', blur)
@@ -300,20 +316,123 @@ export function Player({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function throwSnow() {
+  // F 를 누르면 모으기 시작, 떼면 던진다 (오래 누를수록 세게)
+  function startCharge() {
     const s = state.current
-    if (s.pose !== 'stand' || !inSnowField(s.x, s.z)) return
+    if (s.pose !== 'stand' || ride.current || roll.current || !canThrow(s.x, s.z)) return
+    if (game.ammo < 1) return say('눈덩이가 없어요! 잠깐 기다리면 뭉쳐져요 ❄️', 1.4)
+    chargeFrom.current = clock.elapsedTime
+  }
+  function throwSnow() {
+    const from = chargeFrom.current
+    chargeFrom.current = null
+    game.charge = -1
+    const s = state.current
+    if (from === null || s.pose !== 'stand' || !canThrow(s.x, s.z) || game.ammo < 1) return
     const t = clock.elapsedTime
     if (t - thrownAt.current < THROW_COOLDOWN) return
     thrownAt.current = t
     s.waveUntil = t + 0.35 // 팔을 휘두른다
-    throwBall({ id: seed, name, s })
+    game.ammo -= 1
+    throwBall({ id: seed, name, s }, Math.min(1, (t - from) / CHARGE_SECS))
+  }
+
+  // ⚔️ 내가 맞았다: 체력을 깎고, 다 깎이면 기절 (10분 안에 또 기절하면 1분)
+  function hurt(dmg: number, by: { id: number; name: string }): { ko: boolean } | null {
+    const s = state.current
+    const t = clock.elapsedTime
+    if (s.pose === 'ko' || t < game.safeUntil || ride.current) return null
+    game.hp = Math.max(0, game.hp - dmg)
+    game.hurtAt = t
+    popOn(s, `-${dmg}`)
+    if (roll.current) {
+      roll.current.r *= 0.8 // 맞으면 굴리던 눈덩이도 조금 부서진다
+    }
+    if (game.hp > 0) return { ko: false }
+    const now = Date.now()
+    game.kos = [...game.kos.filter((k) => now - k < KO_WINDOW_MIN * 60_000), now]
+    game.koSecs = koSecs(game.kos.length)
+    game.koUntil = t + game.koSecs
+    game.koBy = by.name
+    chargeFrom.current = null
+    if (roll.current) finishRoll(false)
+    standUp()
+    s.pose = 'ko'
+    s.cup = false
+    held.current.clear()
+    vel.current = { x: 0, z: 0 }
+    say(`😵 ${by.name}님한테 당했다…`, 2.5)
+    return { ko: true }
+  }
+  function wakeUp(text: string, hp: number) {
+    const s = state.current
+    s.pose = 'stand'
+    game.koUntil = 0
+    game.hp = hp
+    game.safeUntil = clock.elapsedTime + SAFE_SECS
+    jumpAt.current = clock.elapsedTime
+    say(text, 2)
+  }
+  const hurtRef = useRef(hurt)
+  hurtRef.current = hurt
+  const wakeRef = useRef(wakeUp)
+  wakeRef.current = wakeUp
+  useEffect(() => {
+    snow.hurt = (dmg, by) => hurtRef.current(dmg, by)
+    snow.scored = (ko) => game.gainXp?.(ko ? 'ko' : 'hit')
+    snow.revived = (by) => {
+      if (state.current.pose === 'ko') wakeRef.current(`${by}님이 깨워 줬다! 🙌`, REVIVE_HP)
+    }
+    return () => {
+      snow.hurt = null
+      snow.scored = null
+      snow.revived = null
+    }
+  }, [])
+
+  /** 가까이 쓰러진 동료 (깨울 수 있는 사람) */
+  function downedNear() {
+    const s = state.current
+    for (const p of snow.peers.values()) if (p.s.pose === 'ko' && Math.hypot(p.s.x - s.x, p.s.z - s.z) < 1.4) return p
+    return null
+  }
+
+  // ⛄ 눈굴리기 끝: 기록을 올리고 눈덩이는 그 자리에 남긴다
+  function finishRoll(record = true) {
+    const rl = roll.current
+    const s = state.current
+    if (!rl) return
+    roll.current = null
+    game.roll = null
+    const r = rl.r
+    s.ball = 0
+    const cm = ballCm(r)
+    const ahead = 0.28 + r
+    game.leftBalls = [...game.leftBalls.slice(-11), { x: s.x + Math.sin(s.rot) * ahead, z: s.z + Math.cos(s.rot) * ahead, r, rx: Math.random() * 6, rz: Math.random() * 6 }]
+    if (!record) return
+    say(`⛄ ${cm}cm! ${cm >= 200 ? '거대하다!! 😲' : cm >= 120 ? '꽤 큰데? 😎' : '귀엽다 ☃️'}`, 2.4)
+    game.finish.roll?.(cm)
   }
 
   function interact() {
     const s = state.current
-    if (ride.current) return
+    if (ride.current || s.pose === 'ko') return
     if (s.pose !== 'stand') return standUp()
+    if (roll.current) return finishRoll()
+    // 😵 쓰러진 동료 깨우기: E 를 여러 번
+    const down = downedNear()
+    if (down) {
+      const t = clock.elapsedTime
+      const rv = reviveTaps.current
+      const n = rv && rv.id === down.id && t - rv.at < 2 ? rv.n + 1 : 1
+      reviveTaps.current = { id: down.id, n, at: t }
+      jumpAt.current = t
+      if (n < REVIVE_TAPS) return say(`${down.name}님 일어나요! 👋 (${n}/${REVIVE_TAPS})`, 1)
+      reviveTaps.current = null
+      snow.send?.({ k: 'revive', to: down.id, by: seed, name })
+      game.gainXp?.('revive')
+      return say(`${down.name}님 구조 완료! 🙌`, 1.6)
+    }
     const tr = treasure?.current
     const sp = tr ? nearestSpot(s.x, s.z, tr.hidden) : null
     if (sp && tr) {
@@ -365,9 +484,27 @@ export function Player({
       }
       case 'sled':
         // 타는 곳에서 꼭대기까지 언덕길을 따라 올라간다 (영차영차)
-        ride.current = newRide(Math.min(SLED.len + SLED.gate, sledLocal(s.x, s.z).s), clock.elapsedTime)
+        {
+          const here = sledLocal(s.x, s.z)
+          ride.current = newRide(here.s, clock.elapsedTime, here.w)
+        }
         s.cup = false
         say('영차영차 🧗', 1.6)
+        break
+      case 'roll':
+        roll.current = { t0: clock.elapsedTime, r: 0.15, crackAt: -10 }
+        s.cup = false
+        say('영차! 눈덩이 굴리기 시작 ⛄', 1.6)
+        break
+      case 'arena':
+        break
+      case 'rocket':
+        game.rocketAt = clock.elapsedTime
+        jumpAt.current = clock.elapsedTime
+        say(['3… 2… 1… 🚀 (발사는 크리스마스 이브에!)', '🚀 산타 로켓 엔진 점검 완료!', '🚀 다음 목적지: 지구 AX팀 사무실'][Math.floor(Math.random() * 3)], 2.6)
+        break
+      case 'scope':
+        say(['🔭 지구가 보인다! AX팀 안녕~ 👋', '🔭 고리 행성 옆에 썰매가…?!', '🔭 별똥별이다! 소원 빌어요 ✨', '🔭 달에도 눈이 오나 봐 ❄️'][Math.floor(Math.random() * 4)], 2.6)
         break
       case 'lie':
         s.pose = 'lie'
@@ -404,21 +541,27 @@ export function Player({
 
     // 🛷 썰매 타는 중: 정해진 길을 따라 움직인다 (←→ 로 살짝 방향)
     const r = ride.current
+    if (!r) game.sledCharge = null
     if (r) {
       if (r.phase === 'up') {
-        r.s -= dt * 3.4
-        const p = sledPoint(r.s)
+        // 🪜 계단으로 올라가 꼭대기 다리를 건넌다
+        r.climb += dt * CLIMB_SPEED
+        const q = alongPath(r.path, r.climb)
+        r.s = q.s
+        r.w = q.w
+        const p = sledPoint(q.s, q.w)
         s.x = p.x
         s.z = p.z
-        s.rot = SLED_ROT + Math.PI // 언덕 위쪽을 보고 걷는다
+        if (q.ds || q.dw) s.rot = Math.atan2(SLED_DIR.x * q.ds - SLED_DIR.z * q.dw, SLED_DIR.z * q.ds + SLED_DIR.x * q.dw)
         s.speed = 3
-        if (r.s <= -0.5) {
+        if (q.done) {
           r.phase = 'ready'
           r.at = t
+          r.w = 0
           s.pose = 'sled'
           s.rot = SLED_ROT
           s.speed = 0
-          say('Space 연타! 💪', 1.4)
+          say('Space 연타!! 💪💪', 1.4)
         }
       } else if (r.phase === 'ready') {
         if (t - r.at > READY_SECS) {
@@ -445,6 +588,11 @@ export function Player({
           r.wow = true
           say(['와아아아~ 🎢', '꺄아아악 ❄️', '슝~~~ 🛷'][Math.floor(Math.random() * 3)], 1.6)
         }
+        if (r.air > 0.3 && s.say?.startsWith('슈') !== true) say('슈우웅~ 🚀', 0.8)
+        if (r.landed) {
+          popOn(s, '✨')
+          say(['착지! ✨', '10점 만점에 10점 🏅', '쿵! 살았다 😅'][Math.floor(Math.random() * 3)], 1.2)
+        }
         if (res !== 'go') {
           ride.current = null
           s.pose = 'stand'
@@ -456,16 +604,37 @@ export function Player({
           if (res === 'crash') {
             popOn(s, '💫')
             knock.current = { x: -SLED_DIR.x * 3, z: -SLED_DIR.z * 3 }
-            say(`쾅! 가로등이랑 뽀뽀 💫 ${dist}m`, 2.4)
+            say(`쾅! 눈사람이랑 박치기 ⛄💫 ${dist}m`, 2.4)
           } else say(`${dist}m! ${['🛷', '❄️', '😝', '🌀'][Math.floor(Math.random() * 4)]}`, 2.4)
-          sledRecord.finish?.(dist, res === 'crash')
+          game.finish.sled?.(dist, res === 'crash')
         }
       }
-      setPrompt(r.phase === 'ready' ? `Space 연타로 힘 모으기 💪 ${Math.max(0, READY_SECS - (t - r.at)).toFixed(1)}초` : r.phase === 'down' ? '←→ 가로등 피하기!' : null)
+      game.sledCharge = r.phase === 'ready' ? { power: r.power / POWER_MAX, left: Math.max(0, READY_SECS - (t - r.at)), taps: r.taps } : null
+      setPrompt(r.phase === 'down' ? '←→ 눈사람 피하기!' : r.phase === 'up' ? '🪜 계단 올라가는 중…' : null)
     }
 
-    // 앉거나 누워 있을 때: 방향키를 누르면 일어난다
-    if (s.pose !== 'stand' && !r) {
+    // ⚔️ 체력·눈덩이·기절 (매 프레임)
+    game.now = t
+    game.inThrowZone = canThrow(s.x, s.z)
+    if (s.pose === 'ko') {
+      s.speed = 0
+      if (t >= game.koUntil) wakeUp('부활! 💪 다시 간다', HP_MAX)
+      else setPrompt(null)
+    } else if (game.hp < HP_MAX && t - game.hurtAt > REGEN_AFTER) game.hp = Math.min(HP_MAX, game.hp + REGEN_PER_SEC * dt)
+    if (game.inThrowZone && game.ammo < AMMO_MAX) {
+      refill.current += dt
+      if (refill.current >= AMMO_REFILL) {
+        refill.current = 0
+        game.ammo += 1
+      }
+    } else refill.current = 0
+    game.charge = chargeFrom.current === null ? -1 : Math.min(1, (t - chargeFrom.current) / CHARGE_SECS)
+    if (game.charge >= 0) s.waveUntil = t + 0.1 // 모으는 동안 팔을 뒤로
+    s.hp = game.hp
+    s.lv = game.lv
+
+    // 앉거나 누워 있을 때: 방향키를 누르면 일어난다 (기절은 시간이 지나야)
+    if (s.pose !== 'stand' && s.pose !== 'ko' && !r) {
       if (len) standUp()
       else {
         s.speed = 0
@@ -477,8 +646,9 @@ export function Player({
       }
     }
 
+    const rl = roll.current
     if (s.pose === 'stand' && !r) {
-      const speed = len ? (h.has('run') ? RUN : WALK) : 0
+      const speed = (len ? (h.has('run') ? RUN : WALK) : 0) * (rl ? rollSpeed(rl.r) : 1)
       if (len) {
         dx /= len
         dz /= len
@@ -502,6 +672,34 @@ export function Player({
       const decay = Math.exp(-dt * 5)
       kn.x *= decay
       kn.z *= decay
+      // ⛄ 굴리는 중: 눈굴리기장 밖으로는 못 나가고, 움직인 만큼 커진다. 바위에 부딪히면 쩍!
+      if (rl) {
+        const ox = p.x - ROLL.x
+        const oz = p.z - ROLL.z
+        const od = Math.hypot(ox, oz)
+        const lim = ROLL.r - 0.4
+        if (od > lim) {
+          p.x = ROLL.x + (ox / od) * lim
+          p.z = ROLL.z + (oz / od) * lim
+        }
+        const moved = Math.hypot(p.x - s.x, p.z - s.z)
+        rl.r = growBall(rl.r, moved)
+        // 눈덩이 앞쪽이 바위에 닿으면
+        const ahead = 0.28 + rl.r
+        const bx = p.x + Math.sin(s.rot) * ahead
+        const bz = p.z + Math.cos(s.rot) * ahead
+        if (t - rl.crackAt > 1 && len && ROLL_ROCKS.some((k) => Math.hypot(k.x - bx, k.z - bz) < k.r + rl.r * 0.9)) {
+          rl.crackAt = t
+          rl.r = Math.max(0.15, rl.r * CRACK)
+          popOn(s, '💥')
+          say(['쩍! 💥 눈덩이가 깨졌다', '아악 바위!! 🪨', '조각났다… 😭'][Math.floor(Math.random() * 3)], 1.4)
+          knock.current = { x: -Math.sin(s.rot) * 3, z: -Math.cos(s.rot) * 3 }
+        }
+        s.ball = rl.r
+        const left = ROLL_SECS - (t - rl.t0)
+        game.roll = { left: Math.max(0, left), cm: ballCm(rl.r) }
+        if (left <= 0 || !inRoll(p.x, p.z)) finishRoll()
+      }
       s.x = p.x
       s.z = p.z
       s.speed = len ? speed : 0 // 얼음 위에서 손을 떼면 발은 멈춘 채 쭉 미끄러진다
@@ -528,7 +726,12 @@ export function Player({
               : 'E · 🎀 뭐가 들었을까? 열어 보기',
         )
       } else if (dud) setPrompt('😝 꽝이었던 자리')
-      else setPrompt(here ? (here.action === 'cocoa' && s.cup ? '☕ 핫초코를 들고 있어요 · 나눠주기는 곧!' : here.label) : null)
+      else if (roll.current) setPrompt('⛄ 돌아다니며 굴리기 · 바위 조심 · E 로 끝내기')
+      else if (downedNear()) {
+        const dn = downedNear()!
+        const rv = reviveTaps.current
+        setPrompt(`E 연타 · 😵 ${dn.name}님 깨우기 (${rv && rv.id === dn.id ? rv.n : 0}/${REVIVE_TAPS})`)
+      } else setPrompt(here ? (here.action === 'cocoa' && s.cup ? '☕ 핫초코를 들고 있어요 · 나눠주기는 곧!' : here.label) : null)
     }
 
     // 캐롤 무대와의 거리 (0.05 단위로 바뀔 때만 알린다)
@@ -540,7 +743,7 @@ export function Player({
 
     // 점프 (인사)
     const jt = t - jumpAt.current
-    s.y = (s.pose === 'stand' && jt < 0.45 ? Math.sin((jt / 0.45) * Math.PI) * 0.35 : 0) + groundY(s.x, s.z)
+    s.y = (s.pose === 'stand' && jt < 0.45 ? Math.sin((jt / 0.45) * Math.PI) * 0.35 : 0) + groundY(s.x, s.z) + (ride.current?.air ?? 0)
     if (s.say && t > sayUntil.current) s.say = null
 
     // 카메라: 평소엔 뒤 위에서 따라가고, 특별한 곳에서는 그 장면을 바라보는 시점으로 부드럽게 바뀐다

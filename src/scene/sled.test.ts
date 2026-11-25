@@ -15,13 +15,13 @@ describe('🛷 눈썰매장', () => {
     for (let s = 0; s < SLED.len; s += 0.5) expect(sledProfile(s + 0.5)).toBeLessThanOrEqual(sledProfile(s))
   })
   it('타는 곳에서 E 로 탈 수 있고, 그 자리는 막혀 있지 않다', () => {
-    const g = sledPoint(SLED.len + SLED.gate)
+    const g = sledPoint(SLED.len + SLED.gate, SLED.track + 1.2)
     expect(actionAt(g.x, g.z)?.action).toBe('sled')
     const p = resolve(g.x, g.z)
     expect(Math.hypot(p.x - g.x, p.z - g.z)).toBeLessThan(0.01)
   })
   it('언덕은 걸어서 못 올라간다', () => {
-    const mid = sledPoint(SLED.len * 0.4)
+    const mid = sledPoint(SLED.len * 0.5)
     const p = resolve(mid.x, mid.z)
     expect(Math.hypot(p.x - mid.x, p.z - mid.z)).toBeGreaterThan(0.1)
   })
@@ -50,44 +50,47 @@ describe('💬 반응', () => {
   })
 })
 
-import { SLED_RECORD_MAX } from '../sledLimit'
-import { POWER_MAX, SLED_FAR, SLED_LAMPS, bump, newRide, sledDistance, stepDown } from './sledRide'
+import { RECORD_MAX } from '../gameRules'
+import { POWER_MAX, SLED_FAR, bump, newRide, sledDistance, stepDown } from './sledRide'
+import { SLED_OBSTACLES } from './world'
 
-/** 꼭대기에서 출발해 끝날 때까지. aim = 평지에서 맞출 옆 위치 */
-function slide(power: number, aim: number) {
+/** 꼭대기에서 출발해 끝날 때까지. slalom = 눈사람 옆으로 비켜 가기 */
+function slide(power: number, slalom: boolean) {
   const r = newRide(-0.5, 0)
   r.phase = 'down'
   r.power = power
   let res: 'go' | 'stop' | 'crash' = 'go'
-  for (let i = 0; i < 60 * 20 && res === 'go'; i++) {
-    const side = r.s > 5 ? Math.max(-1, Math.min(1, (aim - r.w) * 4)) : 0
+  let maxAir = 0
+  for (let i = 0; i < 60 * 40 && res === 'go'; i++) {
+    let side = 0
+    if (slalom) {
+      const next = SLED_OBSTACLES.find((o) => o.s > r.s - 0.6)
+      const aim = next ? (next.w < 0 ? next.w + 0.9 : next.w - 0.9) : 0
+      side = Math.max(-1, Math.min(1, (aim - r.w) * 5))
+    }
     res = stepDown(r, 1 / 60, side)
+    maxAir = Math.max(maxAir, r.air)
   }
-  return { res, dist: sledDistance(r.s) }
+  return { res, dist: sledDistance(r.s), maxAir }
 }
 
 describe('🛷 썰매 기록', () => {
   it('서버가 쓰는 기록 최댓값이 실제 최대 거리와 같다', () => {
-    expect(SLED_RECORD_MAX).toBeCloseTo(SLED_FAR, 5)
+    expect(RECORD_MAX.sled).toBeCloseTo(SLED_FAR, 5)
   })
-  it('썰매 길에 광장 가로등이 하나 서 있다', () => {
-    expect(SLED_LAMPS).toHaveLength(1)
+  it('똑바로만 가면 슬라롬 눈사람에 박는다', () => {
+    expect(slide(POWER_MAX, false).res).toBe('crash')
   })
-  it('힘을 안 모으면 가로등 앞에서 멈춘다', () => {
-    const { res, dist } = slide(0, 0)
-    expect(res).toBe('stop')
-    expect(dist).toBeLessThan(SLED_LAMPS[0].s - 0.5)
+  it('점프대에서 날아오른다', () => {
+    expect(slide(2, true).maxAir).toBeGreaterThan(0.5)
   })
-  it('풀파워로 똑바로 가면 가로등에 박는다', () => {
-    expect(slide(POWER_MAX, 0).res).toBe('crash')
-  })
-  it('힘을 모으고 가로등을 살짝 피하면 더 멀리, 크게 틀수록 덜 간다', () => {
-    const near = slide(POWER_MAX, 0.2)
-    const wide = slide(POWER_MAX, -1.2)
-    expect(near.res).toBe('stop')
-    expect(near.dist).toBeGreaterThan(slide(0, 0).dist + 1.5)
-    expect(near.dist).toBeGreaterThan(wide.dist)
-    expect(near.dist).toBeLessThanOrEqual(SLED_FAR)
+  it('눈사람을 피하면 끝까지 미끄러지고, 힘을 모을수록 멀리 간다', () => {
+    const weak = slide(0, true)
+    const strong = slide(POWER_MAX, true)
+    expect(weak.res).toBe('stop')
+    expect(strong.res).toBe('stop')
+    expect(strong.dist).toBeGreaterThan(weak.dist + 2)
+    expect(strong.dist).toBeLessThanOrEqual(SLED_FAR)
   })
   it('썰매끼리 부딪히면 옆으로 튕기고, 뒤에서 박은 쪽은 느려진다', () => {
     const r = newRide(3, 0)

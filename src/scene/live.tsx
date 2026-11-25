@@ -23,6 +23,10 @@ type Presence = {
   wave: number // 인사할 때마다 바뀌는 값
   say: string | null
   emote: EmoteOut | null // 💬 반응 (n 이 바뀔 때마다 한 번)
+  air: number // 🛷 점프대에서 날아오른 높이
+  hp: number // ⚔️ 체력
+  ball: number // ⛄ 굴리는 눈덩이 반지름
+  lv: number // ⭐ 레벨
 }
 
 declare global {
@@ -33,7 +37,7 @@ declare global {
   }
 }
 
-const initialPresence: Presence = { x: 0, z: 0, rot: 0, speed: 0, pose: 'stand', cup: false, look: null, wave: 0, say: null, emote: null }
+const initialPresence: Presence = { x: 0, z: 0, rot: 0, speed: 0, pose: 'stand', cup: false, look: null, wave: 0, say: null, emote: null, air: 0, hp: 100, ball: 0, lv: 1 }
 
 export function LiveRoot({ room, children }: { room: string; children: ReactNode }) {
   // 무료 플랜 배지: 오른쪽 아래면 좁은 화면에서 로그아웃 버튼을 가려서 왼쪽 아래로
@@ -71,6 +75,10 @@ export function LivePublisher({ state, look }: { state: MutableRefObject<CookieS
       wave: s.waveUntil,
       say: s.say,
       emote: s.emote,
+      air: s.pose === 'sled' ? Math.round((s.y - groundY(s.x, s.z)) * 10) / 10 : 0,
+      hp: Math.round(s.hp),
+      ball: Math.round(s.ball * 100) / 100,
+      lv: s.lv,
     }
     const key = JSON.stringify(p)
     if (key === last.current) return
@@ -179,10 +187,13 @@ function Peer({ connectionId }: { connectionId: number }) {
       }
     }
     const jt = t - jumpAt.current
-    s.y = (jt < 0.45 ? Math.sin((jt / 0.45) * Math.PI) * 0.35 : 0) + groundY(s.x, s.z)
+    s.y = (jt < 0.45 ? Math.sin((jt / 0.45) * Math.PI) * 0.35 : 0) + groundY(s.x, s.z) + (p.air ?? 0)
     s.say = p.say
     s.pose = p.pose ?? 'stand'
     s.cup = !!p.cup
+    s.hp = p.hp ?? 100
+    s.ball = p.ball ?? 0
+    s.lv = p.lv ?? 1
   })
 
   if (!other.id) return null

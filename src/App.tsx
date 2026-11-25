@@ -17,6 +17,7 @@ import { clearEntered, enteredThisTab } from './entry'
 import { ProfileForm } from './screens/ProfileForm'
 import { CarolPlayer } from './screens/CarolPlayer'
 import { EmoteBar } from './screens/EmoteBar'
+import { GameHud } from './screens/GameHud'
 
 type Modal = 'manito' | 'profile' | 'letter' | 'guess' | 'look' | 'tree' | 'awards' | 'elf' | 'admin' | 'treasure' | null
 
@@ -249,9 +250,10 @@ export function App() {
             )}
             <CarolPlayer level={carol} onSongChange={setToast} />
             <EmoteBar show={modal === null && !firstVisit} />
+            <GameHud show={modal === null && !firstVisit} />
 
             <div className="help">
-              <kbd>←↑↓→</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>Space</kbd> 인사 · <kbd>E</kbd> 말 걸기·앉기·썰매 등 · <kbd>F</kbd> 눈밭에서 눈덩이 · <kbd>1~8</kbd> 반응 · <kbd>M</kbd> 전경
+              <kbd>←↑↓→</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>Space</kbd> 인사 · <kbd>E</kbd> 말 걸기·앉기·썰매 등 · <kbd>F</kbd> 꾹 눌러 눈덩이 · <kbd>1~8</kbd> 반응 · <kbd>M</kbd> 전경
             </div>
 
             <nav className="dock">
