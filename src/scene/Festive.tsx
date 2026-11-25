@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { MOTTO } from '../team'
 import { M, rng } from './materials'
 import { Wreath } from './props'
+import { Fade } from './Fade'
 import { TextSign } from './TextSign'
 import { ARCH_Z, LAMP_ANGLES, LAMP_R, PLAZA_R, SPOT, addCircle, polar, type V3 } from './world'
 
@@ -191,7 +192,6 @@ function EntranceArch() {
     return pts
   }, [top])
   return (
-    // 카메라 시선이 아치 문 안쪽으로 지나가서 가리지 않는다 (반투명 처리 안 함)
     <group position={[0, 0, ARCH_Z]}>
       {[-1, 1].map((sx) => (
         <group key={sx} position={[(sx * ARCH_W) / 2, 0, 0]}>
@@ -248,7 +248,7 @@ function EntranceArch() {
       <TwoSided y={top - 0.55} d={0.03} w={2.42} h={0.36} lines={MOTTO_LINES} bg="#fbfbfe" />
       <BulbSet points={lights} size={0.055} />
       {/* 아치 아래를 비추는 따뜻한 빛 */}
-      <pointLight position={[0, top - 0.4, 1.2]} color="#ffc080" intensity={10} distance={9} decay={1.8} />
+      <pointLight position={[0, 1.4, 1.6]} color="#ffc080" intensity={6} distance={7} decay={1.8} />
     </group>
   )
 }
@@ -300,7 +300,10 @@ export function Festive() {
       <CandyCanes />
       <LampWreaths />
       <Stars />
-      <EntranceArch />
+      {/* 커진 아치가 카메라와 내 쿠키 사이에 오면 반투명해진다 (시야를 낮추거나 아치 바로 뒤에 설 때) */}
+      <Fade x={0} z={ARCH_Z} r={3.2}>
+        <EntranceArch />
+      </Fade>
     </group>
   )
 }
