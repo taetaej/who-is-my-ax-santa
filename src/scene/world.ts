@@ -261,7 +261,7 @@ export function actionAt(x: number, z: number): { action: Action; label: string 
     if (Math.hypot(g.x - x, g.z - z) < 1.4) return { action: 'sled', label: 'E · 🛷 썰매 타러 올라가기' }
   }
   if (inRoll(x, z)) return { action: 'roll', label: 'E · ⛄ 눈굴리기 시작 (40초)' }
-  if (Math.hypot(ROCKET.x - x, ROCKET.z - z) < ROCKET.r + 1.3) return { action: 'rocket', label: 'E · 🚀 산타 로켓 발사 버튼 누르기' }
+  if (Math.hypot(ROCKET.x - x, ROCKET.z - z) < ROCKET.r + 1.3) return { action: 'rocket', label: 'E · 🚀 2027 WithSet 호 발사!' }
   if (Math.hypot(SCOPE.x - x, SCOPE.z - z) < SCOPE.r + 1.2) return { action: 'scope', label: 'E · 🔭 별 망원경 들여다보기' }
   if (inArena(x, z)) return { action: 'arena', label: 'F 꾹 · ☃️ 모아 던지기 (오래 누를수록 세게)' }
   if (near(SPOT.field, 3.4)) return { action: 'lie', label: 'F · ☃️ 눈덩이 던지기 · E · ❄️ 눕기' }

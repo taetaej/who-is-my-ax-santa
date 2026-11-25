@@ -5,6 +5,16 @@ import type { Look } from '../look'
 import { Cookie, newCookieState, popOn, type CookieState } from './Cookie'
 import { CLIMB_SPEED, POWER_MAX, POWER_TAP, READY_SECS, alongPath, bump, newRide, sledDistance, stepDown, type Ride } from './sledRide'
 import { game } from './game'
+import { api } from '../api'
+import { launch, rocket } from './rocket'
+
+const ROCKET_LINES = [
+  '3… 2… 1… 🚀 2027 WithSet 가보자고!!',
+  '🚀 WithSet 호 발사! 목적지는 2027년 🌏',
+  '🚀 AX팀 내년도 가보자고!! 🔥',
+  '🚀 WithSet, 세상 밖으로 쏘아 올려!',
+  '🚀 염원 한 스푼 추가요 ✨ 2027 WithSet!',
+]
 import { EMOTES, EMOTE_COOLDOWN, PUSH_SPEED, REACT_RANGE, emoteOf, emotes, type EmoteId } from './emote'
 import type { Treasure } from './Village'
 import { DIG_HITS, OPEN_RANGE, GLINT_RANGE, nearestSpot, needsDig } from '../treasure'
@@ -499,9 +509,14 @@ export function Player({
       case 'arena':
         break
       case 'rocket':
-        game.rocketAt = clock.elapsedTime
         jumpAt.current = clock.elapsedTime
-        say(['3… 2… 1… 🚀 (발사는 크리스마스 이브에!)', '🚀 산타 로켓 엔진 점검 완료!', '🚀 다음 목적지: 지구 AX팀 사무실'][Math.floor(Math.random() * 3)], 2.6)
+        if (!launch()) {
+          say('🚀 WithSet 호 비행 중! 다음 로켓 준비할게요 🔧', 2)
+          break
+        }
+        say(ROCKET_LINES[Math.floor(Math.random() * ROCKET_LINES.length)], 2.8)
+        snow.send?.({ k: 'rocket', name: snow.me?.name ?? '' })
+        api.rocketWish().then((r) => (rocket.wishes = r.wishes), () => {})
         break
       case 'scope':
         say(['🔭 지구가 보인다! AX팀 안녕~ 👋', '🔭 고리 행성 옆에 썰매가…?!', '🔭 별똥별이다! 소원 빌어요 ✨', '🔭 달에도 눈이 오나 봐 ❄️'][Math.floor(Math.random() * 4)], 2.6)

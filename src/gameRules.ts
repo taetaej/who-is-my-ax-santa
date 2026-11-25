@@ -30,8 +30,8 @@ export const XP_KINDS: readonly XpKind[] = ['hit', 'ko', 'revive', 'sled', 'roll
 export const XP_GAIN: Record<XpKind, number> = { hit: 4, ko: 20, revive: 15, sled: 10, roll: 10, best: 25 }
 export const XP_DAILY_CAP: Record<XpKind, number> = { hit: 120, ko: 160, revive: 90, sled: 120, roll: 120, best: 100 }
 export const XP_LABEL: Record<XpKind, string> = { hit: '명중', ko: 'KO', revive: '구조', sled: '썰매', roll: '눈굴리기', best: '신기록' }
-/** 이벤트 참여 XP: 관찰 리포트 제출, 추리노트, 메시지 트리 (하루 한 장), 어워즈 키워드, 숨은 선물, 마니또 확인 */
-export const XP_EVENT = { letter: 150, guess: 80, treeDay: 20, keyword: 10, treasure: 120, manito: 30 } as const
+/** 이벤트 참여 XP: 관찰 리포트 제출, 추리노트, 메시지 트리 (하루 한 장), 어워즈 키워드, 숨은 선물, 마니또 확인, 산타 미션 (하나에), 자기소개 */
+export const XP_EVENT = { letter: 150, guess: 80, treeDay: 20, keyword: 10, treasure: 120, manito: 30, mission: 40, profile: 30 } as const
 
 /** 레벨 n 에서 n+1 로 가는 데 필요한 XP: 60, 90, 120, … (점점 늘어난다) */
 export const xpToNext = (lv: number) => 30 + lv * 30

@@ -19,7 +19,6 @@ export const game = {
   roll: null as { left: number; cm: number } | null, // ⛄ 눈굴리기 중: 남은 초, 지금 지름
   leftBalls: [] as { x: number; z: number; r: number; rx: number; rz: number }[], // 다 굴린 눈덩이 (내 화면에만 남는다)
   lv: 1,
-  rocketAt: -10, // 🚀 발사 버튼을 누른 시각 (로켓이 덜덜 떨고 연기가 난다)
   sledCharge: null as { power: number; left: number; taps: number } | null, // 🛷 꼭대기에서 Space 연타 중 (0~1, 남은 초, 누른 횟수)
   /** 기록판이 등록한다: 다 하고 나면 기록을 올린다 */
   finish: {} as Partial<Record<RecordKind, (value: number, crashed?: boolean) => void>>,

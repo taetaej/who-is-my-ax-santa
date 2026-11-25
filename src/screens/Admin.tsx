@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, type AdminAwards, type AdminStatus, type AdminTreasure, type AwardCardRow, type Phase } from '../api'
 import { KEYWORDS } from '../awards'
 import { tierOf } from '../treasure'
+import { TreeShow } from './TreeShow'
 import { RevealShow } from './RevealShow'
 import { QUESTIONS_LIMIT, QUESTION_MAX, cleanQuestions, questionDay } from '../questions'
 
@@ -315,6 +316,7 @@ function Status({ onPhaseChange }: { onPhaseChange: () => void }) {
   const [s, setS] = useState<AdminStatus | null>(null)
   const [error, setError] = useState('')
   const [show, setShow] = useState(false)
+  const [treeShow, setTreeShow] = useState(false)
 
   const load = useCallback(() => api.adminStatus().then(setS, (e: Error) => setError(e.message)), [])
   useEffect(() => {
@@ -359,7 +361,20 @@ function Status({ onPhaseChange }: { onPhaseChange: () => void }) {
           <p className="muted small">회식·미팅 화면에 띄워 주세요. → / Space 로 넘기고 ← 로 돌아가요. 짝과 내용은 이 화면에서 처음 보여요.</p>
         </>
       )}
-      {show && <RevealShow onClose={() => setShow(false)} />}
+      <button className="ghost" onClick={() => setTreeShow(true)}>
+        🎄 메시지 트리 돌아보기 화면 열기
+      </button>
+      <p className="muted small">공개일에 다같이 보는 화면이에요. 날짜마다 질문과 모두의 답, 마지막에 ❤️ 베스트 카드와 개근상이 나와요. 미리 열어 봐도 괜찮아요.</p>
+      {show && (
+        <RevealShow
+          onClose={() => setShow(false)}
+          onTree={() => {
+            setShow(false)
+            setTreeShow(true)
+          }}
+        />
+      )}
+      {treeShow && <TreeShow onClose={() => setTreeShow(false)} />}
       <table>
         <thead>
           <tr>

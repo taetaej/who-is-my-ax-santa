@@ -14,6 +14,8 @@ const base: Me = {
   guess: 'done',
   look: null,
   todo: { tree: true, given: 13, people: 13, gift: null },
+  missions: [],
+  today: '2026-12-04',
 }
 
 describe('엘프 잔소리', () => {
@@ -47,5 +49,17 @@ describe('엘프 잔소리', () => {
     expect(elfChatter(rescue).alert).toBe(true)
     const done: Me = { ...base, todo: { ...base.todo, gift: { found: true, left: 2, hint: null } } }
     expect(elfChatter(done).alert).toBe(false)
+  })
+
+  it('이번 산타 미션을 안 했으면 📅 일정으로 보낸다, 체크하면 조용', () => {
+    const on = { ...base, today: '2026-12-09' }
+    expect(elfLines(on, 'Q', 0).some((l) => l.go?.to === 'calendar' && l.text.includes('간식'))).toBe(true)
+    expect(elfLines({ ...on, missions: ['snack'] }, 'Q', 0).some((l) => l.go?.to === 'calendar')).toBe(false)
+  })
+
+  it('주말엔 메시지 트리 잔소리를 안 한다', () => {
+    const lazy = { ...base, todo: { ...base.todo, tree: false } }
+    expect(elfLines({ ...lazy, today: '2026-12-04' }, 'Q', 0).some((l) => l.go?.to === 'tree')).toBe(true) // 금
+    expect(elfLines({ ...lazy, today: '2026-12-05' }, 'Q', 0).some((l) => l.go?.to === 'tree')).toBe(false) // 토
   })
 })

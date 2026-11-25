@@ -794,3 +794,117 @@ button:focus-visible { box-shadow: var(--ring); }
 .mash-taps { margin-top: 6px; font-size: 18px; font-weight: 800; }
 .mash.max .mash-title { color: #ff8a5a; animation: mash-shake 0.15s infinite; }
 @keyframes mash-shake { 0%, 100% { transform: translateX(-3px); } 50% { transform: translateX(3px); } }
+
+/* ── 📅 이벤트 캘린더 (Calendar.tsx) ─────────────────────────── */
+.today-hud {
+  position: absolute; top: 58px; left: 16px; z-index: 4; display: flex; gap: 6px; align-items: center;
+  background: rgba(255, 255, 255, 0.94); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px;
+  font-size: 13px; font-weight: 700; box-shadow: 0 6px 18px rgba(40, 30, 60, 0.15); max-width: calc(100vw - 32px);
+}
+.today-hud:hover { background: #fff5ea; }
+.today-hud.done { color: var(--green); }
+.today-date { color: var(--red); }
+.calendar { width: min(720px, 94vw); }
+.calendar h3 { margin: 16px 0 8px; font-size: 15px; }
+.cal-dday { color: var(--red); margin-left: 6px; }
+.calendar ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cal-today { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 4px 14px 12px; }
+.cal-today li, .cal-detail li { display: flex; gap: 10px; align-items: center; }
+.cal-today li.done .cal-text { color: var(--muted); text-decoration: line-through; }
+.cal-emoji { font-size: 20px; width: 26px; text-align: center; flex: none; }
+.cal-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cal-today .cal-text { display: block; }
+.small { font-size: 12px; margin: 0; }
+.cal-check { padding: 6px 12px; border: 1px solid var(--line); background: #fff; font-weight: 700; white-space: nowrap; }
+.cal-check.on { background: var(--green); border-color: var(--green); color: #fff; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 14px; }
+.cal-head { text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); }
+.cal-head.weekend { color: #b46a6a; }
+.cal-day {
+  min-height: 62px; padding: 5px 6px; border-radius: 10px; border: 1px solid var(--line); background: #fff;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; cursor: pointer;
+}
+.cal-day.weekend { background: #faf7f2; }
+.cal-day.other { opacity: 0.4; }
+.cal-day.p-open { background: #eef8f0; border-color: #bfe0c8; }
+.cal-day.p-santa { background: #fdf0ee; border-color: #f0c7c0; }
+.cal-day.p-reveal { background: #fff4d6; border-color: #f0cf6e; }
+.cal-day.today { box-shadow: 0 0 0 2px var(--red); }
+.cal-day.sel { outline: 2px solid #3a2f4a; outline-offset: 1px; }
+.cal-num { font-weight: 800; font-size: 13px; }
+.cal-evs { display: flex; flex-wrap: wrap; gap: 1px; font-size: 15px; line-height: 1.1; align-items: center; }
+.cal-tree { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-left: 2px; }
+.cal-legend { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.cal-legend .lg { display: inline-block; width: 12px; height: 12px; border-radius: 4px; border: 1px solid var(--line); }
+.lg.p-open { background: #eef8f0; } .lg.p-santa { background: #fdf0ee; } .lg.p-reveal { background: #fff4d6; }
+.cal-detail li { padding: 8px 10px; border-radius: 12px; background: #fff; border: 1px solid var(--line); }
+.cal-ev.k-mission { border-color: #f0c7c0; }
+.cal-ev.k-due { border-color: #e8b86b; }
+.cal-ev.k-reveal { border-color: #f0cf6e; background: #fffaf0; }
+.cal-all li { display: flex; gap: 12px; font-size: 14px; cursor: pointer; padding: 3px 0; }
+.cal-all li.past { opacity: 0.45; }
+.cal-all li.k-mission, .cal-all li.k-santa { color: var(--red); }
+.cal-when { width: 150px; flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .cal-day { min-height: 48px; padding: 3px; }
+  .cal-evs { font-size: 12px; }
+  .cal-when { width: 110px; font-size: 12px; }
+  .today-hud { top: 50px; font-size: 12px; }
+}
+
+/* ── 🎄 메시지 트리 돌아보기 (TreeShow.tsx, 발표 화면) ─────────── */
+.tree-show { width: min(1200px, 96vw); text-align: center; }
+.tree-show-q { font-size: clamp(26px, 3.6vw, 44px); margin: 0 0 20px; color: var(--red); line-height: 1.25; }
+.tree-show-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; text-align: left; }
+.tree-show-card { width: 260px; }
+.tree-show-cards.many { gap: 10px; }
+.tree-show-cards.many .tree-show-card { width: 215px; }
+.tree-show-card {
+  position: relative; padding: 14px 16px 12px; border-radius: 16px; background: #fff; border: 1px solid var(--line);
+  box-shadow: 0 8px 22px rgba(40, 30, 60, 0.1); display: flex; flex-direction: column; gap: 8px; animation: pop 0.3s ease-out both;
+}
+.tree-show-card p { margin: 0; font-family: var(--font-hand); font-size: 20px; line-height: 1.35; word-break: keep-all; overflow-wrap: anywhere; }
+.tree-show-cards.many .tree-show-card p { font-size: 17px; }
+.tree-show-card .by { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--muted); }
+.tree-show-card .by b { color: var(--red); }
+.tree-show-card.tone-0 { background: #fff1ef; } .tree-show-card.tone-1 { background: #fff8e4; }
+.tree-show-card.tone-2 { background: #eef8f0; } .tree-show-card.tone-3 { background: #fffdf7; } .tree-show-card.tone-4 { background: #eef3fb; }
+.tree-show-card.best { border: 2px solid #e8b931; box-shadow: 0 10px 28px rgba(232, 185, 49, 0.35); }
+.tree-show-card .crown { position: absolute; top: -16px; right: 12px; font-size: 26px; }
+.tree-show-end { max-width: 920px; }
+.tree-show-top { list-style: none; padding: 0; margin: 10px 0 18px; display: grid; gap: 10px; text-align: left; counter-reset: top; }
+.tree-show-top li { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 12px 18px 12px 56px; position: relative; counter-increment: top; }
+.tree-show-top li::before { content: counter(top); position: absolute; left: 18px; top: 12px; font-size: 26px; font-weight: 800; color: var(--red); font-family: var(--font-display); }
+.tree-show-top li p { margin: 4px 0; font-family: var(--font-hand); font-size: 22px; }
+
+/* ── 🗺️ 미니맵 (MiniMap.tsx): 동화책 지도 ─────────────────────── */
+.minimap { position: fixed; right: 18px; top: 100px; z-index: 4; line-height: 0; animation: pop 0.3s ease-out; }
+.minimap canvas {
+  display: block; border-radius: 50%; cursor: zoom-in;
+  border: 4px solid #fffaf0; box-shadow: 0 0 0 3px #e8b931, 0 10px 26px rgba(20, 10, 50, 0.4);
+  transition: transform 0.15s ease;
+}
+.minimap canvas:hover { transform: scale(1.03) rotate(-1deg); }
+.minimap.big canvas { cursor: zoom-out; }
+.minimap-star { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); font-size: 20px; line-height: 1; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3)); animation: twinkle 2.4s ease-in-out infinite; }
+@keyframes twinkle { 50% { transform: translateX(-50%) scale(1.18) rotate(12deg); } }
+.minimap-ribbon {
+  position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); white-space: nowrap; line-height: 1;
+  background: #d2392f; color: #fff; font-family: var(--font-display); font-weight: 700; font-size: 11px;
+  padding: 5px 10px 4px; border-radius: 999px; border: 2px solid #fffaf0; box-shadow: 0 4px 10px rgba(120, 20, 20, 0.35);
+}
+.minimap.big .minimap-ribbon { font-size: 13px; padding: 6px 14px 5px; }
+.minimap-x {
+  position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; padding: 0; border-radius: 50%;
+  background: #fffaf0; border: 2px solid #e8b931; color: #8a6a12; font-weight: 800; line-height: 1;
+}
+.minimap-open {
+  position: fixed; right: 18px; top: 100px; z-index: 4; width: 44px; height: 44px; padding: 0; border-radius: 50%;
+  background: #fffaf0; border: 3px solid #e8b931; font-size: 20px; box-shadow: 0 6px 16px rgba(20, 10, 50, 0.3);
+}
+@media (max-width: 640px) {
+  .minimap { top: 56px; right: 10px; }
+  .minimap canvas { width: 120px !important; height: 120px !important; }
+  .minimap-ribbon { font-size: 9px; }
+  .minimap-open { top: 56px; right: 10px; }
+}

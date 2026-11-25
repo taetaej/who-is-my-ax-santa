@@ -3,7 +3,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { COOKIE, LOCK_MINUTES, MAX_FAILS, PIN_RE, hashPin, issue, read, verifyPin } from './auth.js'
 import { PHASES, db, getPhase, type Phase } from './db.js'
 import { awardFor, cleanGift, isEmptyGift, type Gift } from '../src/awards.js'
-import { readProfile } from '../src/profile.js'
+import { isEmptyProfile, readProfile } from '../src/profile.js'
 import { INTERVIEW_MAX, cleanChat, nickname, questions, type QA } from '../src/interview.js'
 import { cleanLook } from '../src/look.js'
 import { FIRST_DAY, QUESTIONS, cleanQuestions, isDay, kstDay, questionDay, questionFor, treeDay } from '../src/questions.js'
@@ -12,6 +12,7 @@ import { EMPTY_GUESS, cleanGuess, guessDone, type Guess, type GuessStatus } from
 import { makeCycle } from './matching.js'
 import { RESCUE_FROM, SPOTS, spot, tierOf } from '../src/treasure.js'
 import { REAL, dudLine } from './treasure.js'
+import { isMissionId, missionById, missionOpen } from '../src/schedule.js'
 import { RECORD_KINDS, RECORD_MAX, XP_DAILY_CAP, XP_EVENT, XP_GAIN, XP_KINDS, levelOf, type RecordKind, type XpKind } from '../src/gameRules.js'
 
 type Me = { id: number; name: string; is_admin: boolean }
@@ -24,6 +25,8 @@ app.onError((err, c) => {
   return c.json({ error: '서버 오류가 났어요' }, 500)
 })
 
+/** 한국 시간 오늘. 로컬에서만 SANTA_TODAY=2026-12-09 처럼 날짜를 바꿔 일정 화면을 미리 볼 수 있다 */
+const today = () => (process.env.VERCEL_ENV !== 'production' && isDay(process.env.SANTA_TODAY) ? process.env.SANTA_TODAY : kstDay())
 const bad = (c: Context, error: string, status: 400 | 401 | 403 | 404 | 409 | 423 = 400) => c.json({ error }, status)
 
 function login(c: Context, pid: number, v: number) {
@@ -137,6 +140,8 @@ app.get('/me', async (c) => {
     guess: await guessStatus(me.id),
     look: row.look ? cleanLook(row.look, me.id) : null, // null = 아직 안 꾸밈 → 처음 들어올 때 꾸미기 창
     todo: { tree: todo.tree, given: todo.given, people: todo.people, gift: await giftTodo(me.id) },
+    missions: (await q<{ mission: string }>(`select mission from mission_checks where player_id = $1`, [me.id])).map((r) => r.mission).filter(isMissionId),
+    today: today(),
     // 실시간 마을: 키가 없으면 null → 화면은 혼자 돌아다니는 모드로 동작
     liveRoom: process.env.LIVEBLOCKS_SECRET_KEY ? LIVE_ROOM : null,
   })
@@ -156,6 +161,35 @@ app.post('/me/live-auth', async (c) => {
   session.allow(LIVE_ROOM, ['*:read', 'room:presence:write'])
   const { status, body } = await session.authorize()
   return new Response(body, { status, headers: { 'content-type': 'application/json' } })
+})
+
+// 🚀 2027 WithSet 호 염원: 마을에서 로켓을 쏠 때마다 하나씩 쌓인다 (모두 합친 수만)
+app.get('/me/rocket', async (c) => {
+  const q = await db()
+  const [r] = await q<{ value: string }>(`select value from settings where key = 'rocket_wishes'`)
+  return c.json({ wishes: Number(r?.value ?? 0) })
+})
+app.post('/me/rocket', async (c) => {
+  const q = await db()
+  const [r] = await q<{ value: string }>(
+    `insert into settings (key, value) values ('rocket_wishes', '1')
+     on conflict (key) do update set value = (settings.value::int + 1)::text returning value`,
+  )
+  return c.json({ wishes: Number(r.value) })
+})
+
+// 🎅 산타 미션 체크 (src/schedule.ts): 미션 시작일부터 공개일 전까지. 체크한 건 나만 본다
+app.put('/me/missions/:id', async (c) => {
+  const id = c.req.param('id')
+  if (!isMissionId(id)) return bad(c, '없는 미션이에요', 404)
+  if ((await getPhase()) !== 'ACTIVE') return bad(c, '산타 발표 뒤에 할 수 있어요', 409)
+  if (!missionOpen(missionById(id), today())) return bad(c, '아직 시작 안 한 미션이에요', 409)
+  const { done } = await c.req.json<{ done?: unknown }>().catch(() => ({ done: undefined }))
+  const q = await db()
+  const me = c.get('me')
+  if (done === false) await q(`delete from mission_checks where player_id = $1 and mission = $2`, [me.id, id])
+  else await q(`insert into mission_checks (player_id, mission) values ($1, $2) on conflict do nothing`, [me.id, id])
+  return c.json({ ok: true })
 })
 
 // 쿠키 꾸미기. 정해진 선택지만 저장한다
@@ -415,8 +449,21 @@ const isXpKind = (k: unknown): k is XpKind => typeof k === 'string' && (XP_KINDS
 
 async function xpBoard(meId: number) {
   const q = await db()
-  const rows = await q<{ id: number; name: string; play: number; letter: boolean; guess: boolean; tree_days: number; keywords: number; treasure: boolean; manito: boolean }>(
-    `select p.id, p.name,
+  const rows = await q<{
+    id: number
+    name: string
+    play: number
+    letter: boolean
+    guess: boolean
+    tree_days: number
+    keywords: number
+    treasure: boolean
+    manito: boolean
+    missions: number
+    profile: unknown
+  }>(
+    `select p.id, p.name, p.profile,
+       (select count(*) from mission_checks mc where mc.player_id = p.id)::int as missions,
        coalesce((select sum(xp) from xp_daily x where x.player_id = p.id), 0)::int as play,
        exists (select 1 from letters l where l.santa_id = p.id and l.submitted_at is not null) as letter,
        exists (select 1 from guesses g where g.player_id = p.id) as guess,
@@ -435,7 +482,9 @@ async function xpBoard(meId: number) {
         Number(r.tree_days) * XP_EVENT.treeDay +
         Number(r.keywords) * XP_EVENT.keyword +
         (r.treasure ? XP_EVENT.treasure : 0) +
-        (r.manito ? XP_EVENT.manito : 0)
+        (r.manito ? XP_EVENT.manito : 0) +
+        Number(r.missions) * XP_EVENT.mission +
+        (r.profile && !isEmptyProfile(readProfile(r.profile)) ? XP_EVENT.profile : 0)
       return { id: r.id, name: r.name, xp, ...levelOf(xp) }
     })
     .sort((a, b) => b.xp - a.xp || a.name.localeCompare(b.name))
@@ -693,6 +742,26 @@ app.get('/admin/reveal', async (c) => {
   })
 })
 
+// 🎄 메시지 트리 돌아보기 (공개일 발표 화면에서 다같이). 트리 답은 원래 모두에게 보이므로 단계와 상관없이 열린다
+app.get('/admin/tree-recap', async (c) => {
+  const q = await db()
+  const rows = await q<{ day: string; name: string; body: string; hearts: number }>(
+    `select m.day, p.name, m.body, (select count(*)::int from hearts h where h.message_id = m.id) as hearts
+     from messages m join players p on p.id = m.player_id order by m.day, m.created_at`,
+  )
+  const [{ people }] = await q<{ people: number }>(`select count(*)::int as people from players`)
+  const qs = await getQuestions()
+  const days = [...new Set(rows.map((r) => r.day))].sort()
+  return c.json({
+    people,
+    days: days.map((day) => ({
+      day,
+      question: questionFor(day, qs.list, qs.start),
+      messages: rows.filter((r) => r.day === day).map((r) => ({ name: r.name, body: r.body, hearts: Number(r.hearts) })),
+    })),
+  })
+})
+
 // 어워즈 진행: 사람마다 "몇 명에게 줬는지"만 (누구에게 무엇을 줬는지는 주지 않는다)
 app.get('/admin/awards', async (c) => {
   const q = await db()
@@ -800,9 +869,10 @@ app.post('/admin/reset-all', async (c) => {
     `delete from sled_runs`,
     `delete from game_records`,
     `delete from xp_daily`,
+    `delete from mission_checks`,
     `update players set pin_hash = null, failed_attempts = 0, locked_until = null, session_version = session_version + 1,
        manito_opened_at = null, profile = null, look = null`,
-    `delete from settings where key in ('questions', 'questions_start', 'awards')`,
+    `delete from settings where key in ('questions', 'questions_start', 'awards', 'rocket_wishes')`,
     `update settings set value = 'READY' where key = 'phase'`,
   ]) {
     await q(sql)

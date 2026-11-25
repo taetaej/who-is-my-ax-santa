@@ -18,8 +18,10 @@ import { ProfileForm } from './screens/ProfileForm'
 import { CarolPlayer } from './screens/CarolPlayer'
 import { EmoteBar } from './screens/EmoteBar'
 import { GameHud } from './screens/GameHud'
+import { MiniMap } from './screens/MiniMap'
+import { Calendar, headline } from './screens/Calendar'
 
-type Modal = 'manito' | 'profile' | 'letter' | 'guess' | 'look' | 'tree' | 'awards' | 'elf' | 'admin' | 'treasure' | null
+type Modal = 'manito' | 'profile' | 'letter' | 'guess' | 'look' | 'tree' | 'awards' | 'elf' | 'admin' | 'treasure' | 'calendar' | null
 
 const LETTER_CHIP = { none: '작성 전', draft: '쓰는 중', submitted: '제출 ✓' } as const
 const GUESS_CHIP = { none: '작성 전', draft: '쓰는 중', done: '완성 ✓' } as const
@@ -155,6 +157,7 @@ export function App() {
   // 엘프 NPC: 할 일이 남았으면 ❗ 와 혼잣말
   const elf = me ? elfChatter(me) : null
   const giftWaiting = me && me.phase === 'ACTIVE' && !me.manitoOpened
+  const head = me ? { ...headline(me), date: `${Number(me.today.slice(5, 7))}/${Number(me.today.slice(8, 10))}` } : null
 
   return (
     <>
@@ -216,6 +219,12 @@ export function App() {
               </button>
             )}
             {prompt && modal === null && <div className="prompt">{prompt}</div>}
+            {!firstVisit && modal === null && (
+              <button className={`today-hud ${head?.done ? 'done' : ''}`} onClick={() => setModal('calendar')} title="📅 일정 보기">
+                <span className="today-date">📅 {head?.date}</span> {head?.text}
+                {head?.done && ' ✅'}
+              </button>
+            )}
             {treasure?.active && !firstVisit && (
               <button className="treasure-hud" onClick={() => setModal('treasure')} title="숨은 선물 현황">
                 🎀 남은 선물{' '}
@@ -251,6 +260,7 @@ export function App() {
             <CarolPlayer level={carol} onSongChange={setToast} />
             <EmoteBar show={modal === null && !firstVisit} />
             <GameHud show={modal === null && !firstVisit} />
+            <MiniMap show={modal === null && !firstVisit && !overview} />
 
             <div className="help">
               <kbd>←↑↓→</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>Space</kbd> 인사 · <kbd>E</kbd> 말 걸기·앉기·썰매 등 · <kbd>F</kbd> 꾹 눌러 눈덩이 · <kbd>1~8</kbd> 반응 · <kbd>M</kbd> 전경
@@ -258,6 +268,7 @@ export function App() {
 
             <nav className="dock">
               <span className="who">🍪 {me.name}</span>
+              <button onClick={() => setModal('calendar')}>📅 일정</button>
               <button onClick={() => setModal('manito')}>🎅 내가 챙길 사람</button>
               <button onClick={() => setModal('letter')}>
                 🕵️ 관찰 리포트{' '}
@@ -333,6 +344,7 @@ export function App() {
                   {modal === 'letter' && <LetterForm meName={me.name} onSaved={refresh} />}
                   {modal === 'guess' && <GuessForm onSaved={refresh} />}
                   {modal === 'treasure' && treasure && <TreasureBoard t={treasure} />}
+                  {modal === 'calendar' && <Calendar me={me} onGo={setModal} onChange={refresh} />}
                   {modal === 'admin' && me.isAdmin && <Admin onPhaseChange={refresh} onQuestions={loadTree} />}
                 </div>
               </div>

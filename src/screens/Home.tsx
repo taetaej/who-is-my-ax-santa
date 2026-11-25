@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api, type Manito, type Me } from '../api'
 import { PROFILE_FIELDS } from '../profile'
+import { MATCH_DAY } from '../schedule'
+import { dayLabel } from './Calendar'
 
 // H0 마을 홈 / P0-2 시작 대기 / H1·H2 마니또 개봉과 카드 (연출은 자리만 잡아 둠)
 export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => void; onEditProfile: () => void }) {
@@ -14,8 +16,8 @@ export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => 
   if (me.phase === 'READY') {
     return (
       <div className="panel">
-        <h2>곧 마을이 열려요 ❄️</h2>
-        <p>운영자가 시작하면 내가 산타가 되어 몰래 챙길 사람이 정해져요.</p>
+        <h2>🎅 산타 발표는 {dayLabel(MATCH_DAY)}!</h2>
+        <p>그날 내가 산타가 되어 몰래 챙길 사람이 정해져요. 그 전까지는 오프닝 주간, 마을에서 놀면서 기다려요 🌱</p>
         {!me.profile && (
           <>
             <p className="hint">그 전에 내 프로필을 적어 주세요. 나를 챙길 산타에게 큰 도움이 돼요.</p>

@@ -30,7 +30,7 @@ export function relay(cards: RevealCard[], startTarget: number): RevealCard[] {
 
 export const isHit = (c: RevealCard) => c.guess?.suspect === c.santa.id
 
-export function RevealShow({ onClose }: { onClose: () => void }) {
+export function RevealShow({ onClose, onTree }: { onClose: () => void; onTree?: () => void }) {
   const [data, setData] = useState<Reveal | null>(null)
   const [error, setError] = useState('')
   const [order, setOrder] = useState<RevealCard[] | null>(null)
@@ -85,7 +85,7 @@ export function RevealShow({ onClose }: { onClose: () => void }) {
   if (!data) body = <p className="reveal-msg">{error || '불러오는 중…'}</p>
   else if (data.cards.length === 0) body = <p className="reveal-msg">짝이 없어요. 산타 배정을 먼저 시작해야 해요.</p>
   else if (!order) body = <Pick data={data} onStart={start} />
-  else if (done) body = <Summary order={order} />
+  else if (done) body = <Summary order={order} onTree={onTree} />
   else body = <Stage card={order[i]} step={step} n={i + 1} total={order.length} next={order[i + 1]} />
 
   return createPortal(
@@ -225,7 +225,7 @@ function Verdict({ card }: { card: RevealCard }) {
   )
 }
 
-function Summary({ order }: { order: RevealCard[] }) {
+function Summary({ order, onTree }: { order: RevealCard[]; onTree?: () => void }) {
   const hits = useMemo(() => order.filter(isHit), [order])
   const perfect = useMemo(() => order.filter((c) => c.guess && !isHit(c)), [order])
   return (
@@ -250,6 +250,11 @@ function Summary({ order }: { order: RevealCard[] }) {
         ))}
       </ul>
       <p className="reveal-lead">🏆 이제 어워즈 상장을 열어 볼까요? 마을의 🏆 어워즈 부스에서 모두의 상을 볼 수 있어요.</p>
+      {onTree && (
+        <button className="primary big" onClick={onTree}>
+          🎄 메시지 트리 돌아보기 →
+        </button>
+      )}
     </div>
   )
 }

@@ -9,17 +9,22 @@ describe('kstDay', () => {
 })
 
 describe('questionFor (평일만)', () => {
-  it('12/7(월)부터 평일마다 다음 질문, 주말은 금요일 질문 그대로', () => {
-    expect(questionFor('2026-12-07')).toBe(QUESTIONS[0]) // 월
-    expect(questionFor('2026-12-08')).toBe(QUESTIONS[1]) // 화
-    expect(questionFor('2026-12-11')).toBe(QUESTIONS[4]) // 금
-    expect(questionFor('2026-12-12')).toBe(QUESTIONS[4]) // 토 → 금요일 질문
-    expect(questionFor('2026-12-13')).toBe(QUESTIONS[4]) // 일 → 금요일 질문
-    expect(questionFor('2026-12-14')).toBe(QUESTIONS[5]) // 월
-    expect(questionFor('2026-12-16')).toBe(QUESTIONS[7]) // 수, 마지막 날
+  it('12/1(화) 오픈부터 평일마다 다음 질문, 주말은 금요일 질문 그대로', () => {
+    expect(questionFor('2026-12-01')).toBe(QUESTIONS[0]) // 화, 오픈
+    expect(questionFor('2026-12-04')).toBe(QUESTIONS[3]) // 금, 오프닝 마지막
+    expect(questionFor('2026-12-05')).toBe(QUESTIONS[3]) // 토 → 금요일 질문
+    expect(questionFor('2026-12-07')).toBe(QUESTIONS[4]) // 월, 산타 발표
+    expect(questionFor('2026-12-11')).toBe(QUESTIONS[8]) // 금
+    expect(questionFor('2026-12-13')).toBe(QUESTIONS[8]) // 일 → 금요일 질문
+    expect(questionFor('2026-12-16')).toBe(QUESTIONS[11]) // 수, 공개일 전날
+  })
+  it('행사 평일 12일에 질문이 겹치지 않는다', () => {
+    const days = Array.from({ length: 12 }, (_, i) => questionDay(FIRST_DAY, i))
+    expect(days.at(-1)).toBe('2026-12-16')
+    expect(new Set(days.map((d) => questionFor(d))).size).toBe(12)
   })
   it('시작 전에도 질문이 나오고, 목록이 끝나면 처음으로', () => {
-    expect(questionFor('2026-12-04')).toBe(QUESTIONS[QUESTIONS.length - 1]) // 시작 전 금요일
+    expect(questionFor('2026-11-30')).toBe(QUESTIONS[QUESTIONS.length - 1]) // 오픈 전 월요일
     expect(questionFor(questionDay(FIRST_DAY, QUESTIONS.length))).toBe(QUESTIONS[0])
   })
 })
@@ -31,7 +36,7 @@ describe('treeDay · questionDay', () => {
     expect(treeDay(Date.parse('2026-12-13T15:00:00Z'))).toBe('2026-12-14') // 월 00:00 KST
   })
   it('질문 번호 → 날짜 (평일만)', () => {
-    expect([0, 4, 5, 7].map((i) => questionDay(FIRST_DAY, i))).toEqual(['2026-12-07', '2026-12-11', '2026-12-14', '2026-12-16'])
+    expect([0, 3, 4, 11].map((i) => questionDay(FIRST_DAY, i))).toEqual(['2026-12-01', '2026-12-04', '2026-12-07', '2026-12-16'])
     expect(questionDay('2026-12-12', 0)).toBe('2026-12-14') // 시작일이 주말이면 월요일부터
   })
 })

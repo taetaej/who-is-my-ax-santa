@@ -8,6 +8,8 @@
 // 화면(React)과 3D 장면이 같이 쓰는 작은 저장소. 서버·DB 에는 아무것도 남기지 않는다.
 
 import { damageOf } from '../gameRules'
+import { emotes } from './emote'
+import { launch } from './rocket'
 import type { CookieState } from './Cookie'
 import { FORTS, SPOT, addCircle, at, inArena } from './world'
 
@@ -40,6 +42,7 @@ export type SnowMsg =
   | { k: 'ball'; x: number; z: number; rot: number; by: number; name: string; p?: number }
   | { k: 'hit'; by: number; name: string; dmg?: number; ko?: boolean }
   | { k: 'revive'; to: number; by: number; name: string }
+  | { k: 'rocket'; name: string } // 🚀 누가 WithSet 호를 쐈다 (src/scene/rocket.ts)
 export type Body = { id: number; name: string; s: CookieState }
 
 export const snow = {
@@ -84,6 +87,8 @@ export function receive(m: SnowMsg) {
   } else if (m.k === 'hit' && m.by === snow.me?.id) {
     snow.say?.(m.ko ? `KO! 🏆 ${m.name}님 기절 😵` : `명중! 🎯 ${m.name}님`)
     snow.scored?.(!!m.ko)
+  } else if (m.k === 'rocket') {
+    if (launch()) emotes.toast?.(`🚀 ${m.name}님이 2027 WithSet 호를 쐈어요! 가보자고!!`)
   } else if (m.k === 'revive' && m.to === snow.me?.id) {
     snow.revived?.(m.name)
   }

@@ -4,6 +4,7 @@ import type { Guess, GuessStatus } from './guess'
 import type { Look } from './look'
 import type { Profile } from './profile'
 import type { RecordKind, XpKind } from './gameRules'
+import type { MissionId } from './schedule'
 import type { Tier } from './treasure'
 
 export type Phase = 'READY' | 'ACTIVE' | 'REVEAL'
@@ -26,6 +27,8 @@ export type Me = {
     people: number // 나를 뺀 인원
     gift: { found: boolean; left: number; hint: string | null } | null // 🎁 보물찾기 (마니또 시작 전엔 null)
   }
+  missions: MissionId[] // 🎅 내가 체크한 산타 미션
+  today: string // 서버 기준 한국 날짜 (YYYY-MM-DD)
 }
 export type Awards = {
   phase: Phase
@@ -80,6 +83,7 @@ export type RevealCard = {
   guess: (Guess & { suspectName: string }) | null
   suspectIsMyTarget: boolean
 }
+export type TreeRecap = { people: number; days: { day: string; question: string; messages: { name: string; body: string; hearts: number }[] }[] }
 export type Reveal = { people: { id: number; name: string }[]; cards: RevealCard[] }
 export type Manito = { name: string; profile: Profile | null }
 export type AdminStatus = {
@@ -128,6 +132,9 @@ export const api = {
   manito: () => call<Manito>('GET', '/me/manito'),
   openManito: () => call('POST', '/me/manito/open'),
   saveLook: (look: Look) => call<Look>('PUT', '/me/look', look),
+  rocket: () => call<{ wishes: number }>('GET', '/me/rocket'),
+  rocketWish: () => call<{ wishes: number }>('POST', '/me/rocket'),
+  checkMission: (id: MissionId, done: boolean) => call<{ ok: true }>('PUT', `/me/missions/${id}`, { done }),
   treeSummary: () => call<TreeSummary>('GET', '/tree/summary'),
   tree: (day?: string) => call<TreeDay>('GET', `/tree${day ? `?day=${day}` : ''}`),
   postTree: (body: string) => call('PUT', '/tree/today', { body }),
@@ -148,6 +155,7 @@ export const api = {
   guess: () => call<GuessState>('GET', '/me/guess'),
   saveGuess: (body: Guess) => call<GuessState>('PUT', '/me/guess', body),
   adminReveal: () => call<Reveal>('GET', '/admin/reveal'),
+  adminTreeRecap: () => call<TreeRecap>('GET', '/admin/tree-recap'),
   adminStatus: () => call<AdminStatus>('GET', '/admin/status'),
   setPhase: (to: Phase) => call<{ phase: Phase }>('POST', '/admin/phase', { to }),
   questions: () => call<{ list: string[]; start: string; today: string }>('GET', '/admin/questions'),

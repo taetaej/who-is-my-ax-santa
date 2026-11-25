@@ -1,14 +1,15 @@
 import { useFrame } from '@react-three/fiber'
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { game } from './game'
+import { api } from '../api'
+import { rocket, rocketClock, rocketPose } from './rocket'
 import { M, rng } from './materials'
 import { SpotLabel } from './Spots'
 import { ARENA, ISLAND_EDGE, LANTERNS, ROCKET, ROLL, SCOPE, ZONE_PATHS, addCircle, onDecor, onPath, onSledRun, type V3 } from './world'
 
 // 🪐 넓어진 산타 행성 꾸미기: 옛 울타리 자리의 등불 기둥, 놀이 구역으로 가는 등불 돌길,
-// 🚀 산타 로켓 발사대, 🔭 별 망원경, 빛나는 얼음 수정 덤불.
+// 🚀 2027 WithSet 호 발사대, 🔭 별 망원경, 빛나는 얼음 수정 덤불.
 
 const GLOW_WARM = new THREE.MeshStandardMaterial({ color: '#ffe0a0', emissive: '#ffb04a', emissiveIntensity: 2.4, toneMapped: false })
 const GLOW_CYAN = new THREE.MeshStandardMaterial({ color: '#b8f4ff', emissive: '#4fd8ff', emissiveIntensity: 1.8, roughness: 0.15, toneMapped: false })
@@ -91,27 +92,76 @@ function Paths() {
   )
 }
 
-/** 🚀 산타 로켓: 빨강·흰 줄무늬 몸통, 둥근 창, 날개 셋, 꼭대기 별. 발사 버튼을 누르면 덜덜 떨며 연기 */
+const FLAME = new THREE.MeshStandardMaterial({ color: '#ffd27a', emissive: '#ff7a1a', emissiveIntensity: 3, toneMapped: false, transparent: true, opacity: 0.92 })
+
+/** 몸통에 두르는 띠: 남색 바탕에 "WithSet 2027" 두 번 (어느 쪽에서 봐도 읽힌다) */
+function bandTexture() {
+  const c = document.createElement('canvas')
+  c.width = 2048
+  c.height = 256
+  const g = c.getContext('2d')!
+  g.fillStyle = '#1d2a63'
+  g.fillRect(0, 0, c.width, c.height)
+  g.fillStyle = '#ffd86b'
+  g.fillRect(0, 10, c.width, 8)
+  g.fillRect(0, c.height - 18, c.width, 8)
+  g.textAlign = 'center'
+  g.textBaseline = 'middle'
+  for (const x of [512, 1536]) {
+    g.fillStyle = '#ffffff'
+    g.font = '900 128px "Pretendard", "Apple SD Gothic Neo", sans-serif'
+    g.fillText('WithSet', x - 70, 134)
+    g.fillStyle = '#ffd86b'
+    g.font = '800 64px "Pretendard", sans-serif'
+    g.fillText('2027', x + 290, 140)
+  }
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  t.anisotropy = 4
+  return t
+}
+
+/** 🚀 2027 WithSet 호: 빨강·흰 줄무늬 몸통에 WithSet 띠, 둥근 창, 날개 셋, 꼭대기 별.
+ *  E 를 누르면 (누가 눌러도 모두의 화면에서) 카운트다운 → 불꽃 뿜으며 발사 → 하늘 너머 → 다시 착륙 (src/scene/rocket.ts) */
 function Rocket() {
   const body = useRef<THREE.Group>(null)
   const smoke = useRef<THREE.Group>(null)
+  const flame = useRef<THREE.Group>(null)
+  const band = useMemo(() => new THREE.MeshStandardMaterial({ map: bandTexture(), roughness: 0.5, side: THREE.DoubleSide }), [])
+  const [wishes, setWishes] = useState<number | null>(null)
+  useEffect(() => {
+    const load = () => api.rocket().then((r) => (rocket.wishes = r.wishes), () => {})
+    void load()
+    const poll = setInterval(load, 30_000)
+    const show = setInterval(() => setWishes(rocket.wishes), 1000)
+    return () => {
+      clearInterval(poll)
+      clearInterval(show)
+    }
+  }, [])
   useFrame(({ clock }) => {
     const t = clock.elapsedTime
-    const k = t - game.rocketAt
-    const shaking = k >= 0 && k < 2.6
+    const p = rocketPose(rocketClock() - rocket.at)
     if (body.current) {
-      body.current.position.x = shaking ? Math.sin(t * 60) * 0.04 : 0
-      body.current.position.y = shaking ? Math.min(0.25, k * 0.15) : Math.max(0, body.current.position.y - 0.02)
+      body.current.visible = p.visible
+      body.current.position.x = p.shake ? Math.sin(t * 60) * p.shake : 0
+      body.current.position.y = p.y
+    }
+    if (flame.current) {
+      flame.current.visible = p.flame > 0
+      const f = p.flame * (0.85 + Math.sin(t * 40) * 0.15)
+      flame.current.scale.set(0.6 + f * 0.4, Math.max(0.01, f), 0.6 + f * 0.4)
     }
     if (smoke.current) {
-      smoke.current.visible = k >= 0 && k < 3.2
+      smoke.current.visible = p.smoke
       smoke.current.children.forEach((c, i) => {
-        const p = ((t * 0.9 + i * 0.21) % 1) // 0..1
-        c.position.set(Math.cos(i * 2.4) * (0.4 + p * 1.6), 0.25 + p * 0.6, Math.sin(i * 2.4) * (0.4 + p * 1.6))
-        c.scale.setScalar(0.25 + p * 0.6)
+        const q = (t * 0.9 + i * 0.21) % 1 // 0..1
+        c.position.set(Math.cos(i * 2.4) * (0.4 + q * 2.2), 0.25 + q * 0.7, Math.sin(i * 2.4) * (0.4 + q * 2.2))
+        c.scale.setScalar(0.3 + q * 0.8)
       })
     }
   })
+  const face = Math.atan2(-ROCKET.x, -ROCKET.z) // 마을 쪽
   return (
     <group position={[ROCKET.x, 0, ROCKET.z]}>
       {/* 발사대: 둥근 금속판 + 빛나는 테두리 */}
@@ -122,7 +172,7 @@ function Rocket() {
         <ringGeometry args={[ROCKET.r - 0.25, ROCKET.r - 0.12, 48]} />
       </mesh>
       <group ref={body}>
-        <group position={[0, 0.16, 0]}>
+        <group position={[0, 0.16, 0]} rotation={[0, face, 0]}>
           {/* 몸통: 흰색 + 빨간 띠 */}
           <mesh position={[0, 2.0, 0]} material={ROCKET_WHITE} castShadow>
             <cylinderGeometry args={[0.85, 0.95, 3.4, 24]} />
@@ -132,6 +182,10 @@ function Rocket() {
               <cylinderGeometry args={[0.9, 0.92, 0.32, 24]} />
             </mesh>
           ))}
+          {/* WithSet 띠 */}
+          <mesh position={[0, 1.95, 0]} material={band}>
+            <cylinderGeometry args={[0.915, 0.925, 0.78, 48, 1, true]} />
+          </mesh>
           <mesh position={[0, 4.4, 0]} material={ROCKET_RED} castShadow>
             <coneGeometry args={[0.85, 1.4, 24]} />
           </mesh>
@@ -139,38 +193,41 @@ function Rocket() {
             <octahedronGeometry args={[0.22, 0]} />
           </mesh>
           {/* 둥근 창 (마을 쪽) */}
-          {[2.05, 3.45].map((y) => (
-            <group key={y} position={[0, y, 0]} rotation={[0, Math.atan2(-ROCKET.x, -ROCKET.z), 0]}>
-              <mesh position={[0, 0, 0.86]} material={WINDOW}>
-                <circleGeometry args={[0.3, 20]} />
-              </mesh>
-              <mesh position={[0, 0, 0.855]} material={METAL}>
-                <ringGeometry args={[0.3, 0.38, 20]} />
-              </mesh>
-            </group>
-          ))}
+          <group position={[0, 3.45, 0]}>
+            <mesh position={[0, 0, 0.86]} material={WINDOW}>
+              <circleGeometry args={[0.3, 20]} />
+            </mesh>
+            <mesh position={[0, 0, 0.855]} material={METAL}>
+              <ringGeometry args={[0.3, 0.38, 20]} />
+            </mesh>
+          </group>
           {/* 날개 셋 */}
           {[0, 1, 2].map((i) => (
-            <group key={i} rotation={[0, (i / 3) * Math.PI * 2, 0]}>
+            <group key={i} rotation={[0, (i / 3) * Math.PI * 2 + Math.PI / 3, 0]}>
               <mesh position={[0, 0.65, 1.05]} material={ROCKET_RED} castShadow>
                 <boxGeometry args={[0.12, 1.3, 0.7]} />
               </mesh>
             </group>
           ))}
-          {/* 엔진 */}
+          {/* 엔진 + 불꽃 */}
           <mesh position={[0, 0.12, 0]} material={METAL}>
             <cylinderGeometry args={[0.55, 0.7, 0.3, 16]} />
           </mesh>
+          <group ref={flame} position={[0, -0.03, 0]} visible={false}>
+            <mesh position={[0, -1.1, 0]} rotation={[Math.PI, 0, 0]} material={FLAME}>
+              <coneGeometry args={[0.55, 2.2, 16, 1, true]} />
+            </mesh>
+          </group>
         </group>
       </group>
       <group ref={smoke} visible={false}>
-        {Array.from({ length: 8 }, (_, i) => (
+        {Array.from({ length: 10 }, (_, i) => (
           <mesh key={i} material={M.snowShade}>
             <sphereGeometry args={[1, 10, 8]} />
           </mesh>
         ))}
       </group>
-      <SpotLabel position={[0, 6.4, 0]} text="🚀 산타 로켓 발사대" />
+      <SpotLabel position={[0, 6.4, 0]} text={`🚀 2027 WithSet 호 · 가보자고!!${wishes ? ` · 염원 ${wishes.toLocaleString()}번` : ''}`} />
     </group>
   )
 }

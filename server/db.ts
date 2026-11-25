@@ -136,6 +136,13 @@ async function migrate(q: Query) {
     xp int not null default 0,
     primary key (player_id, day, kind)
   )`)
+  // 🎅 산타 미션 체크 (src/schedule.ts). 나만 보고, XP 계산에 쓴다
+  await q(`create table if not exists mission_checks (
+    player_id int not null references players(id),
+    mission text not null,
+    done_at timestamptz not null default now(),
+    primary key (player_id, mission)
+  )`)
   await q(`create table if not exists settings (key text primary key, value text not null)`)
   await q(`insert into settings (key, value) values ('phase', 'READY') on conflict (key) do nothing`)
   for (const name of ROSTER) {

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Me } from '../api'
+import { isWeekend } from '../questions'
+import { missionOn } from '../schedule'
 import { MOTTO } from '../team'
 
 // 🧝 AX 엘프와의 대화. 내 할 일(마니또 상자, 메시지 트리, 어워즈 인터뷰, 소개서)을 확인해서 잔소리하고,
 // 마을에서 할 수 있는 것을 하나씩 알려 준다. E·Space·Enter 로 넘기고 Esc 로 닫는다.
 
-export type ElfGo = 'manito' | 'tree' | 'awards' | 'letter' | 'guess' | 'look'
+export type ElfGo = 'manito' | 'tree' | 'awards' | 'letter' | 'guess' | 'look' | 'calendar'
 type Line = { text: string; go?: { to: ElfGo; label: string } }
 
 const TIPS = [
@@ -27,7 +29,15 @@ export function elfLines(me: Me, question: string | null, tipIndex: number): Lin
   if (me.phase === 'ACTIVE' && !me.manitoOpened) {
     nags.push({ text: '🎅 잠깐! 아직 누굴 챙길지도 확인 안 했어?! 산타라면 알아야지!', go: { to: 'manito', label: '🎅 확인하러 가기' } })
   }
-  if (!me.todo.tree) {
+  const mission = me.phase === 'ACTIVE' ? missionOn(me.today) : null
+  if (mission && !me.missions.includes(mission.id)) {
+    nags.push({
+      text: `${mission.emoji} 이번 산타 미션은 "${mission.title}"! ${mission.desc}. 하고 나면 📅 일정에서 체크해 둬 🤫`,
+      go: { to: 'calendar', label: '📅 미션 보러 가기' },
+    })
+  }
+  if (!me.todo.tree && !isWeekend(me.today)) {
+    // 주말엔 쉰다: 새 질문도 없고 잔소리도 없다
     nags.push({
       text: `🎄 오늘 메시지 트리 아직 안 썼지? 오늘 질문은 "${question ?? '…'}" 한 줄이면 돼!`,
       go: { to: 'tree', label: '🎄 메시지 트리 쓰기' },
