@@ -263,42 +263,61 @@ export function App() {
             <MiniMap show={modal === null && !firstVisit && !overview} />
 
             <div className="help">
-              <kbd>←↑↓→</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>Space</kbd> 인사 · <kbd>E</kbd> 말 걸기·앉기·썰매 등 · <kbd>F</kbd> 꾹 눌러 눈덩이 · <kbd>1~8</kbd> 반응 · <kbd>M</kbd> 전경
+              <kbd>←↑↓→</kbd> 이동 · <kbd>Shift</kbd> 달리기 · <kbd>Space</kbd> 인사 · <kbd>E</kbd> 말 걸기·타기 · <kbd>F</kbd> 꾹 눌러 눈덩이 · <kbd>1~8</kbd> 반응 · <kbd>M</kbd> 전경
             </div>
+            {modal === null && !firstVisit && (
+              <div className="help cam-help">
+                🎥 <kbd>화면 끌기</kbd> 또는 <kbd>Q</kbd>
+                <kbd>R</kbd> 시야 돌리기 · <kbd>휠</kbd> 줌 · <kbd>C</kbd> 원래대로
+              </div>
+            )}
 
             <nav className="dock">
-              <span className="who">🍪 {me.name}</span>
-              <button onClick={() => setModal('calendar')}>📅 일정</button>
-              <button onClick={() => setModal('manito')}>🎅 내가 챙길 사람</button>
+              <span className="who">
+                <i>🍪</i>
+                {me.name}
+              </span>
+              <button onClick={() => setModal('calendar')}>
+                <i>📅</i>일정
+              </button>
+              <button onClick={() => setModal('manito')}>
+                <i>🎅</i>챙길 사람
+              </button>
               <button onClick={() => setModal('letter')}>
-                🕵️ 관찰 리포트{' '}
-                <span className={`chip ${me.letter === 'submitted' ? 'ok' : me.phase === 'ACTIVE' && me.letter === 'none' ? 'warn' : ''}`}>
-                  {LETTER_CHIP[me.letter]}
-                </span>
+                <i>🕵️</i>관찰 리포트
+                <span className={`chip ${me.letter === 'submitted' ? 'ok' : me.phase === 'ACTIVE' && me.letter === 'none' ? 'warn' : ''}`}>{LETTER_CHIP[me.letter]}</span>
               </button>
               <button onClick={() => setModal('guess')}>
-                🔍 추리노트{' '}
-                <span className={`chip ${me.guess === 'done' ? 'ok' : me.phase === 'ACTIVE' && me.guess === 'none' ? 'warn' : ''}`}>
-                  {GUESS_CHIP[me.guess]}
-                </span>
+                <i>🔍</i>추리노트
+                <span className={`chip ${me.guess === 'done' ? 'ok' : me.phase === 'ACTIVE' && me.guess === 'none' ? 'warn' : ''}`}>{GUESS_CHIP[me.guess]}</span>
               </button>
-              <button onClick={() => setModal('tree')}>🎄 메시지 트리</button>
+              <button onClick={() => setModal('tree')}>
+                <i>🎄</i>메시지 트리
+              </button>
               <button onClick={() => setModal('awards')}>
-                🏆 어워즈{' '}
+                <i>🏆</i>어워즈
                 {me.phase !== 'REVEAL' && (
                   <span className={`chip ${me.todo.given >= me.todo.people ? 'ok' : ''}`}>
                     {me.todo.given}/{me.todo.people}
                   </span>
                 )}
               </button>
-              <button onClick={() => setModal('profile')}>✏️ 내 프로필</button>
-              {me.isAdmin && <button onClick={() => setModal('admin')}>⚙️ 운영</button>}
-              <button className={overview ? 'on' : ''} onClick={() => setOverview((v) => !v)} title="M">
-                🗺️ 전경
+              <button onClick={() => setModal('profile')}>
+                <i>✏️</i>내 프로필
               </button>
-              <button onClick={() => setModal('look')}>🎨 꾸미기</button>
+              <button onClick={() => setModal('look')}>
+                <i>🎨</i>꾸미기
+              </button>
+              <button className={overview ? 'on' : ''} onClick={() => setOverview((v) => !v)} title="M">
+                <i>🗺️</i>전경
+              </button>
+              {me.isAdmin && (
+                <button onClick={() => setModal('admin')}>
+                  <i>⚙️</i>운영
+                </button>
+              )}
               <button className="quiet" onClick={logout}>
-                로그아웃
+                <i>🚪</i>나가기
               </button>
             </nav>
 

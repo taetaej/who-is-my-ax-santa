@@ -103,3 +103,43 @@ describe('🛷 썰매 기록', () => {
     expect(bump(r, { s: 9, w: 0 }, 5)).toBe(false) // 멀면 안 부딪힘
   })
 })
+
+import { pickLane, shiftLane, climbPath } from './sledRide'
+import { ISLAND_EDGE, SLED_LANES, STAIRS } from './world'
+
+describe('🛷 여럿이 타는 넓은 썰매장', () => {
+  it('꼭대기 줄은 이미 있는 사람과 가장 먼 곳, 계단 길은 그 줄에서 끝난다', () => {
+    expect(SLED_LANES.every((l) => Math.abs(l) < SLED.track - 0.3)).toBe(true)
+    expect(pickLane([SLED_LANES[0]])).toBe(SLED_LANES[3])
+    expect(pickLane([-1.9, 1.9])).not.toBe(-1.9)
+    expect(climbPath(12, 4, 0.65).at(-1)).toEqual({ s: -0.5, w: 0.65 })
+  })
+  it('꼭대기에서 ←→ 로 줄을 옮기되 길 밖으로는 못 간다', () => {
+    const r = newRide(-0.5, 0, 0, 0)
+    for (let i = 0; i < 300; i++) shiftLane(r, 1 / 60, 1)
+    expect(r.w).toBeCloseTo(SLED.track - 0.4)
+  })
+  it('범퍼 눈더미는 끝내지 않고 옆으로 튕겨 낸다', () => {
+    const r = newRide(4.0, 0)
+    r.phase = 'down'
+    r.w = -1.3
+    r.v = 5
+    let res: string = 'go'
+    let pillowed = false
+    for (let i = 0; i < 30 && res === 'go'; i++) {
+      res = stepDown(r, 1 / 60, 0)
+      pillowed ||= r.pillowed
+    }
+    expect(res).toBe('go')
+    expect(pillowed).toBe(true)
+    expect(Math.abs(r.wv)).toBeGreaterThan(1)
+  })
+  it('산과 계단이 섬 안에 있다', () => {
+    for (const [s, w] of [
+      [-SLED.deck - SLED.back, -SLED.half],
+      [SLED.len, STAIRS.w + STAIRS.half],
+      [SLED.len + SLED.run, -SLED.track - 0.6],
+    ])
+      expect(Math.hypot(sledPoint(s, w).x, sledPoint(s, w).z)).toBeLessThan(ISLAND_EDGE - 1)
+  })
+})

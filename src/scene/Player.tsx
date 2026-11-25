@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 import type { Look } from '../look'
 import { Cookie, newCookieState, popOn, type CookieState } from './Cookie'
-import { CLIMB_SPEED, POWER_MAX, POWER_TAP, READY_SECS, alongPath, bump, newRide, sledDistance, stepDown, type Ride } from './sledRide'
+import { CLIMB_SPEED, POWER_MAX, POWER_TAP, READY_SECS, alongPath, bump, newRide, pickLane, shiftLane, sledDistance, stepDown, type Ride } from './sledRide'
 import { game } from './game'
 import { api } from '../api'
 import { launch, rocket } from './rocket'
@@ -53,7 +53,9 @@ import {
 
 const WALK = 3.2
 const RUN = 5.6
-const KEYS: Record<string, 'up' | 'down' | 'left' | 'right' | 'run'> = {
+const KEYS: Record<string, 'up' | 'down' | 'left' | 'right' | 'run' | 'rotL' | 'rotR'> = {
+  KeyQ: 'rotL', // 🎥 카메라 왼쪽으로 돌기
+  KeyR: 'rotR', // 🎥 카메라 오른쪽으로 돌기
   ArrowUp: 'up',
   KeyW: 'up',
   ArrowDown: 'down',
@@ -77,7 +79,7 @@ const FIRE = at(SPOT.fire)
 /** 지금 있는 곳에 맞는 카메라 위치와 바라볼 곳. slow = 천천히 넘어가는 연출용 시점 */
 function viewFor(s: CookieState, talking: boolean, overview: boolean, orbit: number): { cam: V; look: V; slow?: boolean } {
   // 🗺️ 마을 전경: 처음 들어올 때 화면처럼 마을 위를 천천히 한 바퀴 돈다 (움직일 수는 있다)
-  if (overview) return { cam: [Math.cos(orbit) * 66, 24, Math.sin(orbit) * 66], look: [0, -3, 0], slow: true }
+  if (overview) return { cam: [Math.cos(orbit - camView.yaw) * 66 * camView.zoom, 24 * camView.zoom, Math.sin(orbit - camView.yaw) * 66 * camView.zoom], look: [0, -3, 0], slow: true }
   // 🧝 엘프와 대화: 엘프 얼굴 쪽으로 다가간다
   if (talking) {
     // 나와 엘프가 함께 잡히도록 비스듬히, 둘 사이를 본다
@@ -121,8 +123,33 @@ function viewFor(s: CookieState, talking: boolean, overview: boolean, orbit: num
   }
   // 🎄 큰 트리(메시지 트리) 앞쪽: 트리를 올려다본다
   if (Math.hypot(s.x, s.z) < 4.6 && s.z > 0.8) return { cam: [s.x * 0.7, 2.1, s.z + 4.4], look: [0, 2.8, 0], slow: true }
-  return { cam: [s.x, 7.5, s.z + 9.5], look: [s.x, 0.7, s.z] }
+  // 평소: 내 뒤 위에서 따라간다. 🎥 마우스 끌기·Q/R 로 돌리고, 위아래로 끌어 높이, 휠로 멀리/가까이 (camView)
+  const r = CAM_DIST * camView.zoom
+  const p = camView.pitch
+  const y = Math.max(groundY(s.x, s.z) + 0.6, s.y + Math.sin(p) * r)
+  const lookUp = Math.max(0, (CAM_PITCH - p) * 2.2) // 낮게 볼수록 앞을 더 멀리, 높게 본다
+  return {
+    cam: [s.x + Math.sin(camView.yaw) * Math.cos(p) * r, y, s.z + Math.cos(camView.yaw) * Math.cos(p) * r],
+    look: [s.x - Math.sin(camView.yaw) * lookUp * 2, 0.7 + lookUp, s.z - Math.cos(camView.yaw) * lookUp * 2],
+  }
 }
+
+/** 🎥 평소 시점 기본값: 뒤 위에서 (예전 고정 시점과 같은 거리·높이) */
+const CAM_DIST = Math.hypot(7.5, 9.5)
+const CAM_PITCH = Math.atan2(7.5, 9.5)
+export const camView = {
+  yaw: 0, // 0 = 남쪽(입구 쪽)에서 북쪽을 본다
+  pitch: CAM_PITCH, // 위에서 내려다보는 각도 (0.12 ~ 1.3)
+  zoom: 1, // 거리 배율 (0.45 ~ 1.9)
+  facing: 0, // 지금 카메라가 바라보는 방향 (미니맵 시야 부채꼴)
+  reset() {
+    this.yaw = 0
+    this.pitch = CAM_PITCH
+    this.zoom = 1
+  },
+}
+const clampPitch = (p: number) => Math.max(0.12, Math.min(1.3, p))
+const clampZoom = (z: number) => Math.max(0.45, Math.min(1.9, z))
 
 export type PanelAction = 'letter' | 'manito' | 'tree' | 'awards' | 'elf'
 
@@ -188,7 +215,7 @@ export function Player({
   const overviewRef = useRef(false)
   const orbit = useRef(Math.PI / 2)
   overviewRef.current = !!overview
-  const { camera, clock } = useThree()
+  const { camera, clock, gl } = useThree()
   const camTarget = useMemo(() => new THREE.Vector3(), [])
   const lookTarget = useMemo(() => new THREE.Vector3(), [])
   const lookTmp = useMemo(() => new THREE.Vector3(), [])
@@ -496,7 +523,9 @@ export function Player({
         // 타는 곳에서 꼭대기까지 언덕길을 따라 올라간다 (영차영차)
         {
           const here = sledLocal(s.x, s.z)
-          ride.current = newRide(here.s, clock.elapsedTime, here.w)
+          // 꼭대기에 이미 있는 썰매들과 가장 먼 줄로 간다
+          const taken = [...snow.peers.values()].filter((p) => p.s.pose === 'sled').map((p) => sledLocal(p.s.x, p.s.z)).filter((q) => q.s < 0.6).map((q) => q.w)
+          ride.current = newRide(here.s, clock.elapsedTime, here.w, pickLane(taken))
         }
         s.cup = false
         say('영차영차 🧗', 1.6)
@@ -572,13 +601,17 @@ export function Player({
         if (q.done) {
           r.phase = 'ready'
           r.at = t
-          r.w = 0
           s.pose = 'sled'
           s.rot = SLED_ROT
           s.speed = 0
           say('Space 연타!! 💪💪', 1.4)
         }
       } else if (r.phase === 'ready') {
+        // ←→ 로 출발 줄 옮기기 (옆 사람 옆에 붙어서 출발하면 쿵쿵 범퍼카)
+        shiftLane(r, dt, Math.max(-1, Math.min(1, dx * -SLED_DIR.z + dz * SLED_DIR.x)))
+        const p = sledPoint(r.s, r.w)
+        s.x = p.x
+        s.z = p.z
         if (t - r.at > READY_SECS) {
           r.phase = 'down'
           say(r.power >= POWER_MAX ? '풀파워 출발!! 🚀' : '출발~! 🛷', 1.2)
@@ -604,6 +637,10 @@ export function Player({
           say(['와아아아~ 🎢', '꺄아아악 ❄️', '슝~~~ 🛷'][Math.floor(Math.random() * 3)], 1.6)
         }
         if (r.air > 0.3 && s.say?.startsWith('슈') !== true) say('슈우웅~ 🚀', 0.8)
+        if (r.pillowed) {
+          popOn(s, '💥')
+          say(['통! 🎈', '뽀잉~ 🎈', '으악 튕겼다 💫'][Math.floor(Math.random() * 3)], 1)
+        }
         if (r.landed) {
           popOn(s, '✨')
           say(['착지! ✨', '10점 만점에 10점 🏅', '쿵! 살았다 😅'][Math.floor(Math.random() * 3)], 1.2)
@@ -619,13 +656,13 @@ export function Player({
           if (res === 'crash') {
             popOn(s, '💫')
             knock.current = { x: -SLED_DIR.x * 3, z: -SLED_DIR.z * 3 }
-            say(`쾅! 눈사람이랑 박치기 ⛄💫 ${dist}m`, 2.4)
+            say(`쾅! 장애물이랑 박치기 💫 ${dist}m`, 2.4)
           } else say(`${dist}m! ${['🛷', '❄️', '😝', '🌀'][Math.floor(Math.random() * 4)]}`, 2.4)
           game.finish.sled?.(dist, res === 'crash')
         }
       }
       game.sledCharge = r.phase === 'ready' ? { power: r.power / POWER_MAX, left: Math.max(0, READY_SECS - (t - r.at)), taps: r.taps } : null
-      setPrompt(r.phase === 'down' ? '←→ 눈사람 피하기!' : r.phase === 'up' ? '🪜 계단 올라가는 중…' : null)
+      setPrompt(r.phase === 'down' ? '←→ 눈사람·선물상자 피하기! 썰매끼리 쿵 💥' : r.phase === 'up' ? '🪜 계단 올라가는 중…' : r.phase === 'ready' ? '←→ 출발 줄 옮기기' : null)
     }
 
     // ⚔️ 체력·눈덩이·기절 (매 프레임)
@@ -764,17 +801,73 @@ export function Player({
     // 카메라: 평소엔 뒤 위에서 따라가고, 특별한 곳에서는 그 장면을 바라보는 시점으로 부드럽게 바뀐다
     // 전경일 땐 각도를 조금씩 돌리고, 아니면 정면(남쪽)으로 되돌려 둔다 (다음에 켤 때 정면에서 시작)
     orbit.current = overviewRef.current ? orbit.current + dt * 0.035 : Math.PI / 2
+    // 🎥 Q / R 로 카메라 돌리기
+    if (h.has('rotL')) camView.yaw -= dt * 1.8
+    if (h.has('rotR')) camView.yaw += dt * 1.8
     const v = viewFor(s, talking.current, overviewRef.current, orbit.current)
     const k = Math.min(1, dt * (v.slow ? 2.4 : 4))
     camTarget.set(v.cam[0], v.cam[1], v.cam[2])
     camera.position.lerp(camTarget, k)
     lookTarget.lerp(lookTmp.set(v.look[0], v.look[1], v.look[2]), k)
     camera.lookAt(lookTarget)
+    camView.facing = Math.atan2(lookTarget.x - camera.position.x, lookTarget.z - camera.position.z)
   })
+
+  // 🎥 마우스(손가락)로 화면을 끌면 카메라가 돈다. 위아래로 끌면 높이, 휠은 멀리/가까이, 두 번 누르면 원래대로
+  useEffect(() => {
+    const el = gl.domElement
+    let drag: { x: number; y: number; id: number } | null = null
+    const down = (e: PointerEvent) => {
+      if (!enabled.current) return
+      drag = { x: e.clientX, y: e.clientY, id: e.pointerId }
+      el.setPointerCapture?.(e.pointerId)
+    }
+    const move = (e: PointerEvent) => {
+      if (!drag || e.pointerId !== drag.id) return
+      camView.yaw -= (e.clientX - drag.x) * 0.0075
+      camView.pitch = clampPitch(camView.pitch + (e.clientY - drag.y) * 0.005)
+      drag.x = e.clientX
+      drag.y = e.clientY
+      el.style.cursor = 'grabbing'
+    }
+    const up = (e: PointerEvent) => {
+      if (drag && e.pointerId === drag.id) drag = null
+      el.style.cursor = ''
+    }
+    const wheel = (e: WheelEvent) => {
+      if (!enabled.current) return
+      e.preventDefault()
+      camView.zoom = clampZoom(camView.zoom * Math.exp(e.deltaY * 0.0012))
+    }
+    const dbl = () => camView.reset()
+    const menu = (e: MouseEvent) => e.preventDefault()
+    el.addEventListener('pointerdown', down)
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+    el.addEventListener('wheel', wheel, { passive: false })
+    el.addEventListener('dblclick', dbl)
+    el.addEventListener('contextmenu', menu)
+    const key = (e: KeyboardEvent) => {
+      if (e.code === 'KeyC' && !e.repeat && !typing(e) && enabled.current) camView.reset()
+    }
+    window.addEventListener('keydown', key)
+    return () => {
+      el.removeEventListener('pointerdown', down)
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+      el.removeEventListener('wheel', wheel)
+      el.removeEventListener('dblclick', dbl)
+      el.removeEventListener('contextmenu', menu)
+      window.removeEventListener('keydown', key)
+    }
+  }, [gl, enabled])
 
   // 처음 들어올 때 카메라를 바로 내 쿠키 뒤로
   useEffect(() => {
     const s = state.current
+    camView.reset()
     camera.position.set(s.x, 7.5, s.z + 9.5)
     lookTarget.set(s.x, 0.7, s.z)
     camera.lookAt(lookTarget)

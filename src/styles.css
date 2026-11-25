@@ -908,3 +908,176 @@ button:focus-visible { box-shadow: var(--ring); }
   .minimap-ribbon { font-size: 9px; }
   .minimap-open { top: 56px; right: 10px; }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   🎮 게임 UI 테마 (전체 덮어쓰기). 금테 두른 크림색 창 + 빨간 머리띠, 눌리는 입체 버튼,
+   남색 유리 단축바(독), 같은 모양의 HUD 알약들. 위쪽 규칙보다 뒤에 있어서 이겨야 한다.
+   ══════════════════════════════════════════════════════════════════ */
+:root {
+  --gold: #f2c14e;
+  --gold-d: #b98a2c;
+  --gold-l: #ffe7a3;
+  --navy: #1c1a3f;
+  --navy-2: #2d2866;
+  --cream: #fffaf0;
+  --cream-2: #f6ecd6;
+  --red-d: #84201a;
+  --glass: linear-gradient(180deg, rgba(48, 42, 104, 0.92), rgba(24, 20, 60, 0.94));
+}
+
+/* ── 창 뒤 어둠 + 창이 튀어나오는 등장 ── */
+.backdrop {
+  z-index: 20; overflow-y: auto; padding-bottom: 40px;
+  background: radial-gradient(ellipse at 50% 40%, rgba(40, 32, 100, 0.42), rgba(8, 6, 28, 0.78));
+  backdrop-filter: blur(6px) saturate(1.1); -webkit-backdrop-filter: blur(6px) saturate(1.1);
+  animation: ui-fade 0.18s ease-out;
+}
+@keyframes ui-fade { from { opacity: 0; } }
+.modal { animation: ui-pop 0.34s cubic-bezier(0.2, 1.35, 0.4, 1) both; }
+@keyframes ui-pop { from { transform: translateY(22px) scale(0.92); opacity: 0; } }
+
+/* ── 창: 크림 종이 + 금테 + 남색 외곽선 ── */
+.panel {
+  position: relative; color: var(--ink);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.9), transparent 40%) padding-box,
+    linear-gradient(180deg, var(--cream) 0%, var(--cream-2) 100%) padding-box,
+    linear-gradient(150deg, var(--gold-l), var(--gold) 30%, var(--gold-d) 65%, var(--gold-l)) border-box;
+  border: 4px solid transparent; border-radius: 26px; padding: 30px 30px 26px;
+  box-shadow: 0 0 0 3px rgba(22, 18, 58, 0.9), 0 0 0 7px rgba(242, 193, 78, 0.28), 0 30px 70px rgba(5, 3, 25, 0.55);
+  scrollbar-width: thin; scrollbar-color: var(--gold) transparent;
+}
+.panel::-webkit-scrollbar { width: 8px; }
+.panel::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 8px; }
+
+/* 창 머리띠: 첫 줄 제목은 빨간 띠로 (금색 밑줄, 양쪽 별) */
+.modal .panel > h2:first-child,
+.panel.login > h2:first-child,
+.modal .panel > .letter-head:first-child,
+.modal .panel > .tree-head:first-child {
+  margin: -30px -30px 18px; padding: 15px 60px 14px; text-align: center; justify-content: center;
+  background: linear-gradient(180deg, #ea5243 0%, #c63328 55%, #a82a20 100%);
+  color: #fff; border-radius: 22px 22px 0 0; border-bottom: 3px solid var(--gold);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.32), inset 0 -6px 12px rgba(0, 0, 0, 0.12), 0 4px 0 rgba(120, 25, 15, 0.18);
+  text-shadow: 0 2px 0 rgba(90, 10, 5, 0.45); font-size: 22px; letter-spacing: -0.3px;
+}
+.modal .panel > h2:first-child::before, .modal .panel > h2:first-child::after,
+.panel.login > h2:first-child::before, .panel.login > h2:first-child::after { content: '✦'; color: var(--gold-l); margin: 0 10px; font-size: 14px; vertical-align: 3px; }
+.modal .panel > .letter-head:first-child h2, .modal .panel > .tree-head:first-child .tree-day { color: #fff; }
+.modal .panel > .letter-head:first-child .chip { background: rgba(255, 255, 255, 0.9); }
+.modal .panel > .tree-head:first-child .ghost { background: rgba(255, 255, 255, 0.92); }
+.panel h2 { color: var(--navy); }
+
+/* 닫기: 금테 두른 동그란 보석 */
+.close {
+  width: 38px; height: 38px; right: 14px; top: calc(10vh + 9px); z-index: 2; padding: 0; line-height: 1;
+  border-radius: 50%; font-size: 22px; font-weight: 800; color: var(--red);
+  background: radial-gradient(circle at 35% 30%, #fff, var(--cream-2)); border: 3px solid var(--gold);
+  box-shadow: 0 3px 0 var(--gold-d), 0 6px 14px rgba(0, 0, 0, 0.3);
+  transition: transform 0.12s ease;
+}
+.close:hover { transform: rotate(90deg) scale(1.08); }
+.close:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--gold-d); }
+.modal:has(.panel.letter) .close { top: calc(6vh + 9px); }
+
+/* ── 버튼: 눌리는 입체 ── */
+.primary {
+  background: linear-gradient(180deg, #f2604f 0%, #cf3a2c 55%, #b02e22 100%); color: #fff;
+  border: 2px solid var(--red-d); border-radius: 14px; font-weight: 800; letter-spacing: -0.2px;
+  box-shadow: 0 4px 0 var(--red-d), 0 9px 18px rgba(132, 32, 26, 0.32), inset 0 2px 0 rgba(255, 255, 255, 0.35);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3); transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+}
+.primary:hover:not(:disabled) { filter: brightness(1.08) saturate(1.05); }
+.primary:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--red-d), 0 4px 10px rgba(132, 32, 26, 0.3), inset 0 2px 0 rgba(255, 255, 255, 0.3); }
+.ghost, .name, .chip-btn, .cal-check {
+  background: linear-gradient(180deg, #ffffff, #f6ecd8); color: var(--ink);
+  border: 2px solid #e3c98f; border-radius: 12px; font-weight: 700;
+  box-shadow: 0 3px 0 #cfae66; transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
+}
+.ghost:hover:not(:disabled), .name:hover, .chip-btn:hover, .cal-check:hover:not(:disabled) { background: linear-gradient(180deg, #fffdf6, #fbe9bf); }
+.ghost:active:not(:disabled), .name:active, .chip-btn:active, .cal-check:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #cfae66; }
+.name.on, .chip-btn.on, .cal-check.on { background: linear-gradient(180deg, #3d9a64, #2a7448); color: #fff; border-color: #1d5534; box-shadow: 0 3px 0 #1d5534; }
+button:disabled { filter: grayscale(0.4); }
+
+/* ── 입력 칸: 살짝 파인 종이 ── */
+input, textarea, select {
+  background: #fffdf8; border: 2px solid #ead9b4; border-radius: 12px;
+  box-shadow: inset 0 2px 4px rgba(120, 90, 40, 0.1); transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--gold); box-shadow: inset 0 2px 4px rgba(120, 90, 40, 0.08), 0 0 0 4px rgba(242, 193, 78, 0.3); }
+
+/* ── 칩 ── */
+.chip { background: linear-gradient(180deg, #fff, #efe4cf); border: 1px solid #e0cc9f; color: #7a6a52; }
+.chip.ok { background: linear-gradient(180deg, #e9f8ee, #cdeed9); border-color: #9fd6b2; color: #22683f; }
+.chip.warn { background: linear-gradient(180deg, #fff1e6, #fdd9c2); border-color: #f2b48e; color: #a8441a; }
+
+/* ── 아래 단축바(독): 남색 유리 + 금테, 아이콘 타일 ── */
+.dock {
+  background: var(--glass); border: 2px solid rgba(242, 193, 78, 0.8); border-radius: 22px; padding: 7px 8px; gap: 5px;
+  box-shadow: 0 0 0 3px rgba(12, 10, 35, 0.55), 0 16px 36px rgba(5, 3, 25, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  max-width: calc(100vw - 16px); overflow-x: auto; scrollbar-width: none;
+}
+.dock::-webkit-scrollbar { display: none; }
+.dock button {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-width: 62px; padding: 7px 8px 6px; border-radius: 14px; font-size: 11.5px; font-weight: 700; color: #efeaff;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03));
+  border: 1.5px solid rgba(255, 255, 255, 0.14); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.22);
+  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.dock button i { font-style: normal; font-size: 22px; line-height: 1; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4)); }
+.dock button:hover { background: linear-gradient(180deg, rgba(242, 193, 78, 0.32), rgba(242, 193, 78, 0.1)); border-color: var(--gold); transform: translateY(-3px); }
+.dock button.on { background: linear-gradient(180deg, var(--gold-l), var(--gold)); color: var(--navy); border-color: #fff3c8; }
+.dock button.quiet { color: #a9a3c9; font-weight: 600; }
+.dock .chip { position: absolute; top: -8px; right: -6px; margin: 0; padding: 1px 6px; font-size: 10px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); }
+.dock .who {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0 10px 0 6px; margin-right: 2px;
+  color: var(--gold-l); font-size: 12px; border-right: 1px solid rgba(255, 255, 255, 0.14);
+}
+.dock .who i { font-style: normal; font-size: 24px; line-height: 1; }
+
+/* ── HUD 알약들: 같은 남색 유리 ── */
+.today-hud, .treasure-hud, .help, .prompt, .xp-hud {
+  background: var(--glass); color: #fff; border: 1.5px solid rgba(242, 193, 78, 0.65);
+  box-shadow: 0 0 0 2px rgba(12, 10, 35, 0.35), 0 8px 20px rgba(5, 3, 25, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.today-hud:hover, .treasure-hud:hover { background: linear-gradient(180deg, rgba(70, 60, 140, 0.95), rgba(34, 28, 80, 0.96)); }
+.today-date { color: var(--gold); }
+.today-hud.done { color: #a6ebb8; }
+.help { border-radius: 12px; }
+.help kbd { background: rgba(242, 193, 78, 0.22); color: var(--gold-l); border: 1px solid rgba(242, 193, 78, 0.4); }
+.prompt { font-size: 15px; padding: 11px 22px; }
+
+/* 알림 띠 (챙길 사람이 정해졌어요 등) */
+.notice {
+  background: linear-gradient(180deg, #ef5a4a, #c0392b 60%, #a92e22); border: 2px solid var(--gold);
+  box-shadow: 0 4px 0 var(--red-d), 0 10px 26px rgba(132, 32, 26, 0.45), inset 0 2px 0 rgba(255, 255, 255, 0.3);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3); animation: pop 0.25s ease-out, notice-glow 2.4s ease-in-out infinite;
+}
+@keyframes notice-glow { 50% { box-shadow: 0 4px 0 var(--red-d), 0 10px 34px rgba(242, 193, 78, 0.55), inset 0 2px 0 rgba(255, 255, 255, 0.3); } }
+.toast { background: var(--glass); border: 2px solid var(--gold); box-shadow: 0 0 0 3px rgba(12, 10, 35, 0.45), 0 12px 30px rgba(5, 3, 25, 0.45); }
+
+/* 로고: 흰 테두리 글씨 */
+.topbar h1 {
+  color: #fff; letter-spacing: -0.5px;
+  text-shadow: 0 2px 0 var(--red-d), 2px 0 0 var(--red-d), -2px 0 0 var(--red-d), 0 -2px 0 var(--red-d), 0 5px 10px rgba(10, 5, 40, 0.45);
+}
+.topbar h1 .ax { background: linear-gradient(180deg, #ef5a4a, #b02e22); border: 2px solid var(--gold); text-shadow: none; box-shadow: 0 3px 0 var(--red-d); }
+
+/* 창 안 작은 카드들도 금빛 테두리 */
+.cal-today, .cal-detail li, .tier, .profile-row { border-color: #ead9b4; box-shadow: 0 2px 0 rgba(207, 174, 102, 0.35); }
+
+@media (max-width: 640px) {
+  .dock button { min-width: 54px; font-size: 10.5px; padding: 6px 6px 5px; }
+  .dock button i { font-size: 19px; }
+  .modal .panel > h2:first-child { font-size: 18px; padding: 13px 52px 12px; }
+}
+
+/* 왼쪽 반응 바도 같은 유리 */
+.emote-bar { background: var(--glass); border: 2px solid rgba(242, 193, 78, 0.75); box-shadow: 0 0 0 3px rgba(12, 10, 35, 0.45), 0 12px 28px rgba(5, 3, 25, 0.4); }
+.emote-bar button:hover { background: rgba(242, 193, 78, 0.22); }
+.emote-label { color: #e4defc; }
+.emote-hint { color: #a9a3c9; }
+.help { max-width: min(620px, 70vw); text-align: right; }
+.cam-help { top: auto; bottom: 100px; right: auto; left: 14px; font-size: 12px; z-index: 3; text-align: left; }
+@media (max-width: 640px) { .cam-help { display: none; } }

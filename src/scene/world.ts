@@ -106,22 +106,22 @@ export function onIce(x: number, z: number): boolean {
 }
 
 // ── 🛷 큰 썰매 산 ─────────────────────────────────────────────
-// 섬 왼쪽 바깥 링. 꼭대기(앞쪽 왼편)에서 뒤쪽으로 길게 내려온다. 비탈 → 점프대 → 슬라롬 눈사람 → 끝.
-// s = 꼭대기 출발점에서 내려온 거리, w = 옆으로 비킨 거리
-const SLED_FROM = { x: -28.7, z: 8.7 } // 꼭대기 출발점
-const SLED_TO = { x: -19.6, z: -14.6 } // 다 미끄러진 끝 (방향만 쓴다)
+// 섬 왼쪽 바깥 링. 꼭대기(앞쪽 왼편)에서 뒤쪽으로 길게 내려온다. 넓은 비탈(여럿이 나란히) → 범퍼 눈더미 → 점프대 → 장애물 숲 → 끝.
+// s = 꼭대기 출발점에서 내려온 거리, w = 옆으로 비킨 거리 (+ 가 마을 쪽)
+const SLED_FROM = { x: -24.0, z: 10.2 } // 꼭대기 출발점
+const SLED_TO = { x: -23.2, z: -16 } // 다 미끄러진 끝 (방향만 쓴다)
 export const SLED = {
-  h: 5.5, // 산 높이
-  len: 10, // 비탈 길이
-  back: 3.0, // 꼭대기 뒤로 내려가는 길이
-  deck: 1.4, // 꼭대기 평평한 곳
-  track: 1.1, // 썰매 길 반폭
-  half: 3.2, // 산 반폭
-  run: 15, // 비탈 끝에서 평지로 미끄러지는 최대 거리
+  h: 6.2, // 산 높이
+  len: 11, // 비탈 길이
+  back: 2.6, // 꼭대기 뒤로 내려가는 길이
+  deck: 2.2, // 꼭대기 평평한 곳 (여럿이 줄 서서 출발)
+  track: 2.8, // 썰매 길 반폭 (네 명이 나란히)
+  half: 5.0, // 산 반폭
+  run: 16, // 비탈 끝에서 평지로 미끄러지는 최대 거리
   gate: 1.0, // 비탈 끝에서 타는 곳까지
-  jump: 13.2, // 점프대 끝 (여기서 날아오른다)
-  jumpLen: 1.4, // 점프대 오르막 길이
-  jumpH: 0.55, // 점프대 높이
+  jump: 15.4, // 점프대 끝 (여기서 날아오른다)
+  jumpLen: 1.8, // 점프대 오르막 길이
+  jumpH: 0.7, // 점프대 높이
 } as const
 const SLED_LEN = Math.hypot(SLED_TO.x - SLED_FROM.x, SLED_TO.z - SLED_FROM.z)
 /** 내려가는 방향 */
@@ -135,12 +135,26 @@ export function sledLocal(x: number, z: number) {
   const dz = z - SLED_FROM.z
   return { s: dx * SLED_DIR.x + dz * SLED_DIR.z, w: dx * SLED_SIDE.x + dz * SLED_SIDE.z }
 }
-/** 슬라롬 눈사람 (박으면 끝). 점프대 착지 뒤 왼쪽·오른쪽 번갈아 */
-export const SLED_OBSTACLES = [
-  { s: 17.2, w: -0.45 },
-  { s: 20.4, w: 0.55 },
-  { s: 23.3, w: -0.3 },
-] as const
+/** 출발 줄: 꼭대기에서 고를 수 있는 자리 (←→ 로 옮긴다) */
+export const SLED_LANES = [-1.9, -0.65, 0.65, 1.9] as const
+/** 장애물. snowman·gift 는 박으면 끝, bumper(통통 눈더미)는 옆으로 튕겨 낸다 */
+export type SledObstacle = { s: number; w: number; kind: 'snowman' | 'gift' | 'bumper' }
+export const SLED_OBSTACLES: readonly SledObstacle[] = [
+  // 비탈: 범퍼 눈더미가 길을 어지럽힌다
+  { s: 4.6, w: -1.3, kind: 'bumper' },
+  { s: 6.4, w: 1.4, kind: 'bumper' },
+  { s: 8.2, w: -0.1, kind: 'bumper' },
+  { s: 12.2, w: -1.7, kind: 'bumper' },
+  { s: 12.4, w: 1.8, kind: 'bumper' },
+  // 점프대 착지 뒤: 장애물 숲 (줄마다 빈틈이 있다)
+  { s: 19.6, w: -1.7, kind: 'snowman' },
+  { s: 19.8, w: 1.6, kind: 'gift' },
+  { s: 21.9, w: 0, kind: 'snowman' },
+  { s: 23.9, w: -2.1, kind: 'gift' },
+  { s: 24.1, w: 1.1, kind: 'snowman' },
+  { s: 26.0, w: -0.5, kind: 'gift' },
+  { s: 26.2, w: 2.2, kind: 'snowman' },
+]
 const smooth = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t))
 /** 산 가운데 줄의 높이 (점프대 포함) */
 export function sledProfile(s: number): number {
@@ -155,7 +169,7 @@ export function sledProfile(s: number): number {
 /** 산 단면: 썰매 길은 평평하고, 양옆은 둥글게 내려간다 */
 const sledSide = (w: number) => 1 - smooth((Math.abs(w) - SLED.track - 0.4) / (SLED.half - SLED.track - 0.4))
 /** 🪜 산 옆 계단: 타는 곳 쪽(오른쪽)에서 꼭대기까지. 꼭대기에서는 나무 다리를 건너 출발선으로 간다 */
-export const STAIRS = { w: SLED.half + 0.75, half: 0.55, from: SLED.len, to: 0.2, steps: 18 } as const
+export const STAIRS = { w: SLED.half + 0.75, half: 0.6, from: SLED.len, to: 0.2, steps: 22 } as const
 /** 계단 높이 (한 칸씩 올라간다) */
 export function stairY(s: number): number {
   const k = (STAIRS.from - s) / (STAIRS.from - STAIRS.to)

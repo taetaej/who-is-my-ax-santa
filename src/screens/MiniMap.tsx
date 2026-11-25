@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { rng } from '../scene/materials'
+import { camView } from '../scene/Player'
 import { snow } from '../scene/snowball'
 import { ARENA, ELF, ISLAND_EDGE, PARTY, ROCKET, ROLL, SCOPE, SLED, SPOT, VILLAGE_R, ZONE_PATHS, at, sledLocal, sledPoint } from '../scene/world'
 
@@ -310,6 +311,18 @@ export function MiniMap({ show }: { show: boolean }) {
       if (me) {
         const x = X(me.x)
         const y = Z(me.z)
+        // 🎥 지금 화면이 보고 있는 쪽 (노란 부채꼴)
+        const a = Math.atan2(Math.cos(camView.facing), Math.sin(camView.facing))
+        const reach = big ? 46 : 28
+        const cone = g.createRadialGradient(x, y, 2, x, y, reach)
+        cone.addColorStop(0, 'rgba(255, 216, 107, 0.65)')
+        cone.addColorStop(1, 'rgba(255, 216, 107, 0)')
+        g.fillStyle = cone
+        g.beginPath()
+        g.moveTo(x, y)
+        g.arc(x, y, reach, a - 0.55, a + 0.55)
+        g.closePath()
+        g.fill()
         const wave = (t * 0.9) % 1
         g.strokeStyle = `rgba(255, 90, 90, ${0.7 * (1 - wave)})`
         g.lineWidth = 2

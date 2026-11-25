@@ -5,7 +5,7 @@
 export type RecordKind = 'sled' | 'roll'
 export const RECORD_KINDS: readonly RecordKind[] = ['sled', 'roll']
 /** 기록 최댓값: 이보다 크면 서버가 거른다. 썰매 = m (산 길이와 같다, sled.test.ts 가 확인), 눈굴리기 = 눈덩이 지름 cm */
-export const RECORD_MAX: Record<RecordKind, number> = { sled: 25, roll: 400 }
+export const RECORD_MAX: Record<RecordKind, number> = { sled: 27, roll: 400 }
 
 // ── ⚔️ 눈싸움 체력 ─────────────────────────────────────────────
 export const HP_MAX = 100
