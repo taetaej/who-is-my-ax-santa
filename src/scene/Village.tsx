@@ -1,5 +1,5 @@
 import { Pets } from './Pets'
-import { Chimney, GlowPools } from './Warmth'
+import { Chimney, GlowPools, SledLights } from './Warmth'
 import { Users } from '@phosphor-icons/react'
 import { Sparkles } from '@react-three/drei'
 import { Canvas, useFrame } from '@react-three/fiber'
@@ -289,6 +289,7 @@ export function Village({
 
         <Ground />
         <GlowPools />
+        <SledLights />
         <Plaza />
         <Spots tree={tree} />
         <Festive />

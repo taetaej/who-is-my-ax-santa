@@ -1,11 +1,12 @@
 import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { LANTERNS, LAMP_ANGLES, LAMP_R, PARTY, SPOT, ZONE_PATHS, at, groundY, polar } from './world'
+import { LANTERNS, LAMP_ANGLES, LAMP_R, PARTY, SLED, SPOT, ZONE_PATHS, at, groundY, polar, sledPoint } from './world'
 
 // 🕯️ 마을에 온기: 추운 밤 눈밭 위로 따뜻한 불빛이 고인다.
 //  · GlowPools: 등불·창문·모닥불·트리 아래 바닥에 주황빛 웅덩이 (빛을 더하는 평면 한 묶음)
 //  · Chimney: 지붕 위 벽돌 굴뚝 + 몽글몽글 올라가는 연기
+//  · SledLights: 썰매장 위 공중 등불 + 큰 풍등
 
 type Pool = { x: number; z: number; r: number; k: number; hue?: 'warm' | 'gold' | 'fire' }
 
@@ -35,7 +36,34 @@ const front = (s: { a: number; r: number }, back: number) => {
   return { x, z }
 }
 
+/** 🏮 썰매장 위 공중 등불: 길 양옆을 따라 떠 있다 (산 위는 더 높이). big = 산 위의 큰 풍등 */
+export const SLED_FLOATERS = (() => {
+  const out: { x: number; y: number; z: number; big: boolean; flat: boolean; color: 'warm' | 'red' | 'gold' | 'green' }[] = []
+  const colors = ['warm', 'gold', 'red', 'warm', 'green', 'gold'] as const
+  let i = 0
+  for (let s = -1.5; s <= SLED.len + SLED.run - 1; s += 2.6) {
+    for (const side of [-1, 1]) {
+      const p = sledPoint(s, side * (SLED.track + 0.9 + (i % 3) * 0.25))
+      out.push({ ...p, y: groundY(p.x, p.z) + 2.7 + ((i * 37) % 7) * 0.12, big: false, flat: s > SLED.len, color: colors[i % colors.length] })
+      i++
+    }
+  }
+  // 산 위로 크게 떠 있는 풍등 넷
+  for (const [s, w, y] of [
+    [-0.5, 0, 9.2],
+    [3.5, -1.6, 8.4],
+    [6.5, 1.8, 7.6],
+    [9.5, -0.4, 6.4],
+  ]) {
+    const p = sledPoint(s, w)
+    out.push({ ...p, y, big: true, flat: false, color: 'warm' })
+  }
+  return out
+})()
+
 export const POOLS: Pool[] = [
+  ...SLED_FLOATERS.filter((f) => f.flat).map((f) => ({ x: f.x, z: f.z, r: 2.4, k: 0.75 })),
+  ...[12.2, 16, 19, 22, 25].map((s) => ({ ...sledPoint(s), r: 3.4, k: 0.5 })), // 평지 미끄럼 길 (비탈은 공중 등불 빛으로)
   ...LAMP_ANGLES.map((a) => ({ ...xz(polar(a, LAMP_R)), r: 2.6, k: 0.9 })),
   ...LANTERNS.map((l) => ({ x: l.x * 0.97, z: l.z * 0.97, r: 1.7, k: 0.65 })),
   ...pathLamps().map((p) => ({ ...p, r: 1.5, k: 0.6 })),
@@ -148,6 +176,68 @@ export function Chimney({ position, h = 0.9 }: { position: [number, number, numb
           </mesh>
         ))}
       </group>
+    </group>
+  )
+}
+
+const FLOAT_MATS = {
+  warm: new THREE.MeshStandardMaterial({ color: '#ffd8a0', emissive: '#ffa24a', emissiveIntensity: 2.6, toneMapped: false }),
+  gold: new THREE.MeshStandardMaterial({ color: '#ffe6a0', emissive: '#ffc84a', emissiveIntensity: 2.6, toneMapped: false }),
+  red: new THREE.MeshStandardMaterial({ color: '#ff9a8a', emissive: '#ff4a3a', emissiveIntensity: 2.4, toneMapped: false }),
+  green: new THREE.MeshStandardMaterial({ color: '#b8ffcc', emissive: '#3ad07a', emissiveIntensity: 2.2, toneMapped: false }),
+}
+const LANTERN_PAPER = new THREE.MeshStandardMaterial({ color: '#ffcf8a', emissive: '#ff9a3a', emissiveIntensity: 2.2, toneMapped: false, side: THREE.DoubleSide })
+const LANTERN_RIM = new THREE.MeshStandardMaterial({ color: '#7a3a20', roughness: 0.8 })
+
+/** 🏮 썰매장 공중 등불: 동그란 빛 구슬이 둥실둥실, 산 위에는 큰 풍등. 썰매 산을 은은하게 비춘다 */
+export function SledLights() {
+  const group = useRef<THREE.Group>(null)
+  useFrame(({ clock }) => {
+    const g = group.current
+    if (!g) return
+    const t = clock.elapsedTime
+    g.children.forEach((c, i) => {
+      const f = SLED_FLOATERS[i]
+      if (!f) return
+      c.position.y = f.y + Math.sin(t * (f.big ? 0.6 : 1.1) + i * 1.7) * (f.big ? 0.25 : 0.12)
+      c.rotation.y = t * 0.3 + i
+    })
+  })
+  const mid = sledPoint(SLED.len * 0.45)
+  const top = sledPoint(-0.5)
+  const run = sledPoint(SLED.len + SLED.run * 0.5)
+  return (
+    <group>
+      <group ref={group}>
+        {SLED_FLOATERS.map((f, i) =>
+          f.big ? (
+            <group key={i} position={[f.x, f.y, f.z]}>
+              <mesh material={LANTERN_PAPER}>
+                <cylinderGeometry args={[0.42, 0.32, 0.8, 12, 1, true]} />
+              </mesh>
+              <mesh position={[0, 0.42, 0]} material={LANTERN_RIM}>
+                <cylinderGeometry args={[0.44, 0.44, 0.06, 12]} />
+              </mesh>
+              <mesh position={[0, -0.36, 0]} material={FLOAT_MATS.gold}>
+                <sphereGeometry args={[0.12, 10, 8]} />
+              </mesh>
+            </group>
+          ) : (
+            <group key={i} position={[f.x, f.y, f.z]}>
+              <mesh material={FLOAT_MATS[f.color]}>
+                <sphereGeometry args={[0.17, 14, 10]} />
+              </mesh>
+              <mesh position={[0, 0.2, 0]} material={LANTERN_RIM}>
+                <cylinderGeometry args={[0.05, 0.07, 0.06, 8]} />
+              </mesh>
+            </group>
+          ),
+        )}
+      </group>
+      {/* 산과 미끄럼 길을 은은하게 밝히는 따뜻한 빛 셋 (그림자 없음) */}
+      <pointLight position={[top.x, SLED.h + 4, top.z]} color="#ffb070" intensity={18} distance={16} decay={1.6} />
+      <pointLight position={[mid.x, SLED.h * 0.6 + 4, mid.z]} color="#ffb070" intensity={16} distance={14} decay={1.6} />
+      <pointLight position={[run.x, 4, run.z]} color="#ffc080" intensity={16} distance={16} decay={1.6} />
     </group>
   )
 }
