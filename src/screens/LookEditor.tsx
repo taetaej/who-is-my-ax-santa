@@ -73,7 +73,7 @@ export function LookEditor({ seed, name, current, first, onDone }: { seed: numbe
 
   return (
     <div className="panel look">
-      <h2>{first ? `🍪 ${name} 님, 어서 오세요!` : '🎨 내 쿠키 꾸미기'}</h2>
+      <h2>{first ? `${name} 님, 어서 오세요!` : '내 쿠키 꾸미기'}</h2>
       <p className="muted">{first ? '마을에 들어가기 전에 내 쿠키를 꾸며 주세요. 나중에 언제든 바꿀 수 있어요.' : '바꾼 모습은 다른 사람들에게도 바로 보여요.'}</p>
 
       <div className="look-body">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ApiError, api, type Letter, type LetterState, type Stat } from '../api'
+import { PeekButton, mask, usePeek } from './SecretName'
 
 // H5 마니또 소개서 (PRD 5.5). 왼쪽은 문항, 오른쪽은 공개일에 띄워질 카드 미리보기.
 // 카드 앞면은 산타 이름 없이 낭독되고, 정체 공개 때 뒤집으면 산타 이름과 선물이 나온다.
@@ -13,6 +14,7 @@ const HINTS = ['저는 이분보다 출근 시간이 빠릅니다.', '최근 이
 
 export function LetterForm({ meName, onSaved }: { meName: string; onSaved: () => void }) {
   const [st, setSt] = useState<LetterState | null>(null)
+  const peek = usePeek() // 🤫 챙길 사람 이름은 꾹 누를 때만
   const [l, setL] = useState<Letter | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -32,7 +34,7 @@ export function LetterForm({ meName, onSaved }: { meName: string; onSaved: () =>
   if (!st || !l) {
     return (
       <div className="panel center">
-        <h2>🕵️ 산타의 관찰 리포트</h2>
+        <h2>산타의 관찰 리포트</h2>
         <p className="muted">{error || '불러오는 중…'}</p>
       </div>
     )
@@ -77,12 +79,18 @@ export function LetterForm({ meName, onSaved }: { meName: string; onSaved: () =>
   return (
     <div className="panel letter">
       <div className="letter-head">
-        <h2>🕵️ {st.target ? `${st.target} 님 관찰 리포트` : '산타의 관찰 리포트'}</h2>
+        <h2>산타의 관찰 리포트</h2>
         <span className={`chip ${submitted ? 'ok' : dirty ? 'warn' : ''}`}>
           {submitted ? '제출 완료' : st.updatedAt ? '임시저장' : '작성 전'}
           {dirty && ' · 저장 안 된 내용 있음'}
         </span>
       </div>
+      {st.target && (
+        <p className="letter-to">
+          To. <b className="secret">{peek.peek ? st.target : mask(st.target)}</b> 님 <PeekButton {...peek} />
+          <span className="muted small"> 옆자리에서 보일까 봐 이름은 가려 뒀어요 🤫</span>
+        </p>
+      )}
       <p className="muted">
         공개일에 <b>쓴 사람 이름 없이</b> 카드 앞면이 펼쳐지고, 다같이 산타가 누군지 추리해요. 카드를 뒤집으면 산타 이름과 선물이 공개돼요 🤫
       </p>
@@ -171,7 +179,7 @@ export function LetterForm({ meName, onSaved }: { meName: string; onSaved: () =>
           </section>
         </fieldset>
 
-        <LetterCard l={l} target={st.target} santa={meName} />
+        <LetterCard l={l} target={st.target && (peek.peek ? st.target : mask(st.target))} santa={meName} />
       </div>
 
       <div className="letter-actions">

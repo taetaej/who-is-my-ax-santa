@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AX Santa HUD 시안</title>
+<style>
+@font-face { font-family: 'Paperlogy'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight: 500; }
+@font-face { font-family: 'Paperlogy'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2'); font-weight: 800; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Paperlogy', 'Apple SD Gothic Neo', sans-serif; background: #f3efe6; color: #3a3045; padding: 28px 20px 60px; }
+h1 { font-size: 26px; margin: 0 0 6px; font-weight: 800; }
+.lead { margin: 0 0 22px; color: #6d6378; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); gap: 26px; }
+.opt h2 { font-size: 19px; margin: 0 0 4px; font-weight: 800; }
+.opt p { margin: 0 0 10px; color: #6d6378; font-size: 14px; }
+.tag { display: inline-block; font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: #ff7a6b; color: #fff; margin-left: 6px; vertical-align: 2px; }
+
+/* 가짜 3D 월드: 밤하늘 + 눈 섬 */
+.world { position: relative; height: 440px; border-radius: 22px; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 120%, #f5f8ff 0 34%, #dfe6f7 34.5% 40%, transparent 40.5%),
+              radial-gradient(circle at 78% 18%, #6fb6ff 0 22px, transparent 23px),
+              radial-gradient(circle at 20% 25%, rgba(255,255,255,.9) 0 1.5px, transparent 2px),
+              radial-gradient(circle at 60% 12%, rgba(255,255,255,.8) 0 1.2px, transparent 2px),
+              radial-gradient(circle at 35% 40%, rgba(255,255,255,.7) 0 1px, transparent 2px),
+              linear-gradient(180deg, #2a2360 0%, #463c8e 55%, #6a5fb0 100%); }
+.tree { position: absolute; left: 50%; bottom: 88px; transform: translateX(-50%); width: 0; height: 0; border-left: 46px solid transparent; border-right: 46px solid transparent; border-bottom: 110px solid #2f8a5b; filter: drop-shadow(0 6px 0 #22694a); }
+.tree::after { content: '⭐'; position: absolute; left: -12px; top: -24px; font-size: 22px; }
+.cookie { position: absolute; left: 58%; bottom: 70px; font-size: 34px; }
+
+/* 공통 배치 */
+.status { position: absolute; left: 14px; top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.cap { display: flex; align-items: center; gap: 8px; padding: 4px 14px 4px 4px; font-weight: 800; font-size: 13px; }
+.cap .ic { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 16px; }
+.xp { position: absolute; right: 14px; top: 14px; display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; font-weight: 800; font-size: 13px; }
+.xp .lv { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; }
+.bar { width: 90px; height: 10px; border-radius: 99px; overflow: hidden; }
+.bar i { display: block; width: 46%; height: 100%; border-radius: 99px; }
+.emote { position: absolute; left: 14px; bottom: 96px; width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; }
+.emote small { position: absolute; bottom: -18px; font-size: 11px; font-weight: 800; }
+.fan { position: absolute; left: 78px; bottom: 100px; display: flex; gap: 6px; padding: 6px; }
+.fan span { width: 38px; height: 38px; display: grid; place-items: center; font-size: 20px; border-radius: 50%; }
+.dock { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 8px; padding: 8px; align-items: flex-end; }
+.dk { position: relative; width: 58px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 800; }
+.dk .b { width: 48px; height: 48px; display: grid; place-items: center; font-size: 24px; }
+.dk em { position: absolute; top: -6px; right: -2px; font-style: normal; font-size: 10px; padding: 1px 6px; border-radius: 99px; }
+.modal { position: absolute; left: 50%; top: 62px; transform: translateX(-50%); width: 290px; padding: 34px 18px 16px; }
+.modal .plate { position: absolute; left: 50%; top: -20px; transform: translateX(-50%) rotate(-2deg); white-space: nowrap; padding: 8px 22px; font-weight: 800; font-size: 16px; }
+.modal .row { display: flex; align-items: center; gap: 8px; padding: 9px 10px; margin-bottom: 7px; font-size: 13px; font-weight: 500; }
+.modal .row b { margin-left: auto; font-size: 12px; padding: 5px 12px; }
+.modal .x { position: absolute; right: -10px; top: -12px; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; }
+.tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.tabs span { flex: 1; text-align: center; padding: 6px 0; font-size: 12px; font-weight: 800; }
+
+/* ── A. 크림 클레이 (동숲 · 쿠키런 킹덤) ── */
+.A .cap, .A .xp { background: #fffaf0; border-radius: 999px; box-shadow: 0 3px 0 #e3d6b8, 0 8px 18px rgba(30, 20, 60, .25); color: #5b4a3a; }
+.A .cap .ic { background: #ffe9a8; } .A .cap:nth-child(2) .ic { background: #ffd3dc; }
+.A .xp .lv { background: #8fd6a8; color: #fff; box-shadow: inset 0 -3px 0 #63b383; }
+.A .bar { background: #efe5cf; } .A .bar i { background: #ffc94d; }
+.A .emote { background: #fffaf0; box-shadow: 0 4px 0 #e3d6b8, 0 10px 20px rgba(30,20,60,.3); }
+.A .emote small { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+.A .fan { background: #fffaf0; border-radius: 999px; box-shadow: 0 3px 0 #e3d6b8, 0 8px 18px rgba(30,20,60,.25); }
+.A .fan span:hover { background: #fff0c9; }
+.A .dock { background: #fffaf0; border-radius: 26px; box-shadow: 0 5px 0 #e3d6b8, 0 14px 30px rgba(30, 20, 60, .3); }
+.A .dk { color: #6b5a48; }
+.A .dk .b { border-radius: 18px; background: #fff3dc; box-shadow: inset 0 -4px 0 #f0ddb5; }
+.A .dk:nth-child(1) .b { background: #ffe1e1; box-shadow: inset 0 -4px 0 #f5bcbc; }
+.A .dk:nth-child(2) .b { background: #e2f3ff; box-shadow: inset 0 -4px 0 #b9dcf5; }
+.A .dk:nth-child(3) .b { background: #e6f7e9; box-shadow: inset 0 -4px 0 #b9e3c2; }
+.A .dk em { background: #ff7a6b; color: #fff; }
+.A .modal { background: #fffaf0; border-radius: 28px; box-shadow: 0 6px 0 #e3d6b8, 0 24px 50px rgba(20, 10, 50, .45); }
+.A .plate { background: #ff7a6b; color: #fff; border-radius: 14px; box-shadow: 0 4px 0 #d65a4c; }
+.A .row { background: #fff; border-radius: 16px; box-shadow: 0 2px 0 #efe3c8; }
+.A .row b { background: #8fd6a8; color: #fff; border-radius: 999px; box-shadow: 0 3px 0 #63b383; }
+.A .x { background: #fff; color: #ff7a6b; box-shadow: 0 3px 0 #e3d6b8; }
+.A .tabs span { background: #f3ead6; border-radius: 999px; color: #8a7760; } .A .tabs span.on { background: #ffc94d; color: #5b3d00; box-shadow: 0 3px 0 #e0a92a; }
+
+/* ── B. 프로스티드 화이트 글래스 (블루 아카이브 느낌) ── */
+.B .cap, .B .xp, .B .emote, .B .fan, .B .dock, .B .modal {
+  background: rgba(255, 255, 255, .58); backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 10px 28px rgba(20, 10, 60, .28); color: #2e2a55; }
+.B .cap, .B .xp, .B .fan { border-radius: 999px; } .B .emote { border-radius: 50%; } .B .dock { border-radius: 24px; } .B .modal { border-radius: 26px; }
+.B .cap .ic { background: rgba(255,255,255,.85); } .B .xp .lv { background: #6c7cff; color: #fff; }
+.B .bar { background: rgba(255,255,255,.6); } .B .bar i { background: linear-gradient(90deg, #8ab4ff, #c79bff); }
+.B .emote small { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+.B .dk { color: #2e2a55; } .B .dk .b { border-radius: 16px; background: rgba(255,255,255,.75); }
+.B .dk em { background: #6c7cff; color: #fff; }
+.B .plate { background: linear-gradient(90deg, #8ab4ff, #c79bff); color: #fff; border-radius: 999px; box-shadow: 0 6px 16px rgba(108, 124, 255, .4); }
+.B .row { background: rgba(255,255,255,.72); border-radius: 14px; }
+.B .row b { background: #6c7cff; color: #fff; border-radius: 999px; }
+.B .x { background: rgba(255,255,255,.9); color: #6c7cff; }
+.B .tabs span { background: rgba(255,255,255,.55); border-radius: 999px; } .B .tabs span.on { background: #6c7cff; color: #fff; }
+
+/* ── C. 캔디 팝 (스플래툰 · 폴가이즈) ── */
+.C .cap, .C .xp, .C .emote, .C .fan, .C .dock, .C .modal { border: 3px solid #2b2350; box-shadow: 0 5px 0 #2b2350; }
+.C .cap, .C .xp { background: #fff; border-radius: 999px; color: #2b2350; }
+.C .cap .ic { background: #ffe14d; border: 2px solid #2b2350; } .C .cap:nth-child(2) .ic { background: #ff8fc7; }
+.C .xp .lv { background: #39d98a; color: #2b2350; border: 2px solid #2b2350; transform: rotate(-6deg); }
+.C .bar { background: #eee; border: 2px solid #2b2350; } .C .bar i { background: #ffe14d; }
+.C .emote { background: #ff8fc7; border-radius: 50%; } .C .emote small { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.C .fan { background: #fff; border-radius: 18px; }
+.C .dock { background: #fff; border-radius: 22px; }
+.C .dk { color: #2b2350; }
+.C .dk .b { border-radius: 16px; border: 2.5px solid #2b2350; box-shadow: 0 4px 0 #2b2350; background: #ffe14d; }
+.C .dk:nth-child(2) .b { background: #6fd6ff; } .C .dk:nth-child(3) .b { background: #39d98a; } .C .dk:nth-child(4) .b { background: #ff8fc7; } .C .dk:nth-child(5) .b { background: #b79bff; }
+.C .dk em { background: #ff4d6d; color: #fff; border: 2px solid #2b2350; transform: rotate(8deg); }
+.C .modal { background: #fff; border-radius: 26px; }
+.C .plate { background: #ffe14d; color: #2b2350; border: 3px solid #2b2350; border-radius: 12px; box-shadow: 0 4px 0 #2b2350; transform: translateX(-50%) rotate(-4deg); }
+.C .row { background: #f6f3ff; border: 2px solid #2b2350; border-radius: 14px; }
+.C .row b { background: #39d98a; color: #2b2350; border: 2px solid #2b2350; border-radius: 999px; box-shadow: 0 3px 0 #2b2350; }
+.C .x { background: #ff4d6d; color: #fff; border: 3px solid #2b2350; box-shadow: 0 3px 0 #2b2350; }
+.C .tabs span { background: #f6f3ff; border: 2px solid #2b2350; border-radius: 999px; } .C .tabs span.on { background: #6fd6ff; }
+
+.notes { margin-top: 30px; background: #fffaf0; border-radius: 20px; padding: 18px 22px; box-shadow: 0 3px 0 #e3d6b8; }
+.notes h3 { margin: 0 0 8px; font-weight: 800; }
+.notes li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<h1>🎄 AX 산타 HUD 시안 3종</h1>
+<p class="lead">세 시안 모두 구조 개편은 같아요: 아래 메뉴 12개 → 자주 쓰는 6개 + ☰ 더보기, 왼쪽 반응 10개 → 😊 버튼 하나(누르면 펼침), 왼쪽 위 상태창은 동그란 아이콘 + 캡슐, 팝업 제목은 위로 튀어나온 명패.</p>
+
+<div class="grid">
+  <section class="opt A">
+    <h2>A. 크림 클레이 <span class="tag">추천</span></h2>
+    <p>동숲 · 쿠키런 킹덤 느낌. 아이보리 바탕, 테두리 선 없음, 아래로 두툼한 단색 그림자. 3D 쿠키·눈 섬과 재질감이 제일 잘 맞아요.</p>
+    <div class="world">
+      <div class="tree"></div><div class="cookie">🍪</div>
+      <div class="status"><div class="cap"><span class="ic">📅</span>12/9 · 🍪 간식 챙기기 ✅</div><div class="cap"><span class="ic">🎀</span>남은 선물 7</div></div>
+      <div class="xp"><span class="lv">Lv.4</span><span class="bar"><i></i></span>1위</div>
+      <div class="emote">😊<small>반응</small></div>
+      <div class="fan"><span>👋</span><span>💖</span><span>💀</span><span>🤣</span><span>🔥</span></div>
+      <div class="modal">
+        <div class="plate">📅 AX 산타 일정</div><div class="x">✕</div>
+        <div class="tabs"><span class="on">오늘 할 일</span><span>달력</span><span>전체 일정</span></div>
+        <div class="row">🎄 오늘의 메시지 트리 <b>쓰기</b></div>
+        <div class="row">🍪 산타 미션 ② 간식 <b>했어요</b></div>
+      </div>
+      <div class="dock"><div class="dk"><span class="b">🎅</span>챙길 사람</div><div class="dk"><span class="b">🕵️</span>리포트<em>작성 전</em></div><div class="dk"><span class="b">🎄</span>트리</div><div class="dk"><span class="b">📅</span>일정</div><div class="dk"><span class="b">🏆</span>어워즈<em>0/13</em></div><div class="dk"><span class="b">☰</span>더보기</div></div>
+    </div>
+  </section>
+
+  <section class="opt B">
+    <h2>B. 프로스티드 화이트 글래스</h2>
+    <p>블루 아카이브 느낌. 밝은 반투명 유리라 뒤의 3D 불빛과 하늘이 은은하게 비쳐요. 세련됐지만 귀여움은 A보다 덜해요.</p>
+    <div class="world">
+      <div class="tree"></div><div class="cookie">🍪</div>
+      <div class="status"><div class="cap"><span class="ic">📅</span>12/9 · 🍪 간식 챙기기 ✅</div><div class="cap"><span class="ic">🎀</span>남은 선물 7</div></div>
+      <div class="xp"><span class="lv">Lv.4</span><span class="bar"><i></i></span>1위</div>
+      <div class="emote">😊<small>반응</small></div>
+      <div class="fan"><span>👋</span><span>💖</span><span>💀</span><span>🤣</span><span>🔥</span></div>
+      <div class="modal">
+        <div class="plate">📅 AX 산타 일정</div><div class="x">✕</div>
+        <div class="tabs"><span class="on">오늘 할 일</span><span>달력</span><span>전체 일정</span></div>
+        <div class="row">🎄 오늘의 메시지 트리 <b>쓰기</b></div>
+        <div class="row">🍪 산타 미션 ② 간식 <b>했어요</b></div>
+      </div>
+      <div class="dock"><div class="dk"><span class="b">🎅</span>챙길 사람</div><div class="dk"><span class="b">🕵️</span>리포트<em>작성 전</em></div><div class="dk"><span class="b">🎄</span>트리</div><div class="dk"><span class="b">📅</span>일정</div><div class="dk"><span class="b">🏆</span>어워즈<em>0/13</em></div><div class="dk"><span class="b">☰</span>더보기</div></div>
+    </div>
+  </section>
+
+  <section class="opt C">
+    <h2>C. 캔디 팝</h2>
+    <p>스플래툰 · 폴가이즈 느낌. 굵은 남색 외곽선 + 비비드 파스텔 + 살짝 기운 배지. 제일 신나고 게임 같지만, 화면이 시끌벅적해져요.</p>
+    <div class="world">
+      <div class="tree"></div><div class="cookie">🍪</div>
+      <div class="status"><div class="cap"><span class="ic">📅</span>12/9 · 🍪 간식 챙기기 ✅</div><div class="cap"><span class="ic">🎀</span>남은 선물 7</div></div>
+      <div class="xp"><span class="lv">Lv.4</span><span class="bar"><i></i></span>1위</div>
+      <div class="emote">😊<small>반응</small></div>
+      <div class="fan"><span>👋</span><span>💖</span><span>💀</span><span>🤣</span><span>🔥</span></div>
+      <div class="modal">
+        <div class="plate">📅 AX 산타 일정</div><div class="x">✕</div>
+        <div class="tabs"><span class="on">오늘 할 일</span><span>달력</span><span>전체 일정</span></div>
+        <div class="row">🎄 오늘의 메시지 트리 <b>쓰기</b></div>
+        <div class="row">🍪 산타 미션 ② 간식 <b>했어요</b></div>
+      </div>
+      <div class="dock"><div class="dk"><span class="b">🎅</span>챙길 사람</div><div class="dk"><span class="b">🕵️</span>리포트<em>작성 전</em></div><div class="dk"><span class="b">🎄</span>트리</div><div class="dk"><span class="b">📅</span>일정</div><div class="dk"><span class="b">🏆</span>어워즈<em>0/13</em></div><div class="dk"><span class="b">☰</span>더보기</div></div>
+    </div>
+  </section>
+</div>
+
+<div class="notes">
+  <h3>레퍼런스에서 가져온 원칙</h3>
+  <ul>
+    <li>🌙 밤하늘 위에는 <b>밝은 HUD</b>: 어두운 반투명 + 얇은 금테 대신 크림·화이트 바탕 (동숲, 블루 아카이브)</li>
+    <li>🧱 입체감은 <b>테두리 선 대신 아래쪽 단색 그림자</b> <code>0 4px 0</code> + 누르면 쑥 들어가기 (스플래툰, 폴가이즈)</li>
+    <li>💊 버튼·상태창은 <b>알약/동그라미</b>, 아이콘은 크게 (브롤스타즈, 클래시 로얄)</li>
+    <li>🏷️ 팝업 제목은 창 위로 <b>튀어나온 명패</b>, 탭은 큼직한 둥근 탭 (쿠키런 킹덤, 카트라이더)</li>
+    <li>🧹 버튼 수 줄이기: 독 12개 → 6개 + 더보기, 반응 10개 → 버튼 1개로 접기</li>
+    <li>🪀 팝업은 통통 튀는 스프링 등장 (지금도 있음, 유지)</li>
+  </ul>
+</div>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AX Santa 팝업 시안</title>
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css" />
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css" />
+<style>
+@font-face { font-family: 'Paperlogy'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight: 500; }
+@font-face { font-family: 'Paperlogy'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2'); font-weight: 800; }
+:root { --red: #c8372d; --red-d: #8f2a22; --green: #3e8e5e; --green-d: #2c6a45; --gold: #f4c14e; --gold-d: #c99526; --ink: #2f2950; --ink-2: #6f6888; --snow: #fffdf8; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: 'Paperlogy', 'Apple SD Gothic Neo', sans-serif; background: #ece8f2; color: var(--ink); padding: 28px 20px 60px; }
+h1 { font-size: 26px; margin: 0 0 6px; font-weight: 800; }
+.lead { margin: 0 0 22px; color: #6d6378; max-width: 1000px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); gap: 26px; }
+.opt h2 { font-size: 19px; margin: 0 0 4px; font-weight: 800; }
+.opt > p { margin: 0 0 10px; color: #6d6378; font-size: 14px; }
+.stage { position: relative; height: 640px; border-radius: 22px; overflow: hidden; padding: 56px 30px 0;
+  background: radial-gradient(ellipse at 25% 30%, rgba(120,255,200,.22) 0 18%, transparent 40%), radial-gradient(circle at 85% 15%, #79b8ff 0 26px, transparent 27px), linear-gradient(180deg, #221c55 0%, #3f3586 60%, #6a5fb0 100%); }
+.stage::after { content: ''; position: absolute; inset: 0; background: rgba(28,20,70,.35); backdrop-filter: blur(3px); }
+.pop { position: relative; z-index: 1; margin: 0 auto; max-width: 500px; }
+
+/* ── 이전 (시안 3) ── */
+.old .panel { border-radius: 26px; overflow: hidden; padding-bottom: 16px; background: #fffdf7; background-image: radial-gradient(#efe6d3 1.2px, transparent 1.4px); background-size: 18px 18px;
+  box-shadow: 0 0 0 6px #b9774a, 0 0 0 8px #8f5634, 0 10px 0 4px #7a462a, 0 30px 60px rgba(10,5,40,.5); }
+.old .head { position: relative; background: var(--red); color: #fff; text-align: center; padding: 14px 16px 22px; font-weight: 800; font-size: 18px; }
+.old .head::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 14px; background: radial-gradient(circle at 10px 0, var(--red) 9px, transparent 9.5px) repeat-x; background-size: 20px 14px; }
+.old .body { padding: 14px 18px 0; }
+.old .card { background: #fff; border-radius: 18px; padding: 11px 14px; margin-bottom: 9px; box-shadow: 0 3px 0 #ead9b4, 0 0 0 1.5px #f2e6cc; }
+.old h4 { margin: 0 0 6px; font-size: 14px; display: flex; gap: 8px; align-items: center; } .old h4 span { width: 22px; height: 22px; border-radius: 50%; background: var(--green); color: #fff; display: grid; place-items: center; font-size: 12px; }
+.old .in { background: #fffaf0; border: 2px dashed #e6d3ab; border-radius: 12px; padding: 7px 12px; color: #b9a988; font-size: 13px; }
+.old .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+
+/* ── 새 안: 하얀 아이싱 + 명패 + 차분한 문항 ── */
+.new .panel { position: relative; border-radius: 30px; padding: 40px 30px 22px; background: var(--snow);
+  box-shadow: 0 0 0 5px #fff, 0 9px 0 5px #e6e1f0, 0 30px 60px rgba(10, 5, 40, 0.45); }
+/* 아이싱이 흘러내린 듯한 윗가장자리 */
+.new .panel::before { content: ''; position: absolute; left: 22px; right: 22px; top: -5px; height: 16px; border-radius: 0 0 12px 12px;
+  background: radial-gradient(circle at 14px 0, #fff 10px, transparent 10.5px) repeat-x; background-size: 34px 16px; }
+.new .plate { position: absolute; left: 50%; top: -22px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; white-space: nowrap;
+  padding: 9px 20px 9px 10px; border-radius: 999px; background: var(--red); color: #fff; font-weight: 800; font-size: 17px; box-shadow: 0 4px 0 var(--red-d), 0 10px 20px rgba(140, 30, 25, .3); }
+.new .plate .orn { position: relative; width: 30px; height: 30px; border-radius: 50%; background: var(--gold); color: #7a4f00; display: grid; place-items: center; font-size: 16px; box-shadow: inset 0 -3px 0 var(--gold-d); }
+.new .plate .orn::before { content: ''; position: absolute; top: -4px; left: 50%; width: 9px; height: 6px; margin-left: -4.5px; border-radius: 3px 3px 1px 1px; background: #fff; }
+.new .x { position: absolute; right: -12px; top: -12px; width: 40px; height: 40px; border-radius: 50%; background: #fff; color: var(--red); display: grid; place-items: center; font-size: 18px; box-shadow: 0 4px 0 #e6e1f0, 0 8px 16px rgba(10,5,40,.3); }
+.new .to { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; color: var(--ink-2); margin: 0 0 18px; }
+.new .to b { color: var(--ink); letter-spacing: 2px; }
+.new .peek { display: inline-flex; align-items: center; gap: 4px; padding: 4px 11px; border-radius: 999px; background: #f2eff8; color: var(--ink); font-size: 11.5px; font-weight: 800; }
+.new .q { padding: 14px 0; border-top: 1.5px dashed #ebe6f2; }
+.new .q:first-of-type { border-top: 0; padding-top: 0; }
+.new h4 { margin: 0 0 2px; font-size: 15px; display: flex; align-items: baseline; gap: 8px; }
+.new h4 small { font-size: 12px; font-weight: 800; color: var(--red); letter-spacing: .5px; }
+.new .sub { margin: 0 0 9px; font-size: 12.5px; color: var(--ink-2); }
+.new .in { background: #f6f3fa; border-radius: 14px; padding: 10px 14px; color: #a7a1bb; font-size: 13.5px; }
+.new .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.new .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.btns span { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border-radius: 999px; font-weight: 800; font-size: 13.5px; }
+.btns .g { background: #fff; color: var(--ink); box-shadow: inset 0 0 0 2px #ebe6f2, 0 3px 0 #ddd6ea; }
+.btns .p { background: var(--green); color: #fff; box-shadow: 0 4px 0 var(--green-d); }
+.old .btns { display: flex; justify-content: flex-end; gap: 8px; padding: 2px 18px 0; }
+.notes { margin-top: 24px; background: #fff; border-radius: 18px; padding: 14px 20px; box-shadow: 0 3px 0 #ddd6e6; max-width: 1200px; }
+.notes li { margin: 4px 0; font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>팝업 다시: 하얀 아이싱 테두리 + 명패 + 차분한 문항</h1>
+<p class="lead">갈색 쿠키 테두리 → 설탕 쿠키 위 <b>하얀 아이싱</b>, 꽉 찬 빨간 머리띠 → 창 위로 걸린 <b>빨간 명패</b>(금색 오너먼트), 하얀 카드·초록 번호·점선 칸 → <b>얇은 점선 구분 + 연보라 회색 입력칸</b>.</p>
+<div class="grid">
+  <section class="opt old">
+    <h2>이전 (시안 3)</h2>
+    <p>테두리·머리띠·카드가 다 굵어서 무겁고 복잡해요.</p>
+    <div class="stage"><div class="pop"><div class="panel">
+      <div class="head">산타의 관찰 리포트</div>
+      <div class="body">
+        <div class="card"><h4><span>1</span>해시태그 3개</h4><div class="row"><div class="in"># 프로집중러</div><div class="in"># 아아수혈중</div><div class="in"># 리액션장인</div></div></div>
+        <div class="card"><h4><span>2</span>첫인상 vs 몰래 지켜본 현인상</h4><div class="in">처음엔 ___ 한 분인 줄 알았는데…</div></div>
+        <div class="card"><h4><span>3</span>산타가 스캔한 캐릭터 스탯</h4><div class="in">업무 몰입도 · 점심 메뉴 결정력</div></div>
+      </div>
+      <div class="btns"><span class="g">임시저장</span><span class="p">제출하기</span></div>
+    </div></div></div>
+  </section>
+  <section class="opt new">
+    <h2>새 안</h2>
+    <p>하얀 아이싱 테두리로 가볍게, 명패는 창 위에 걸고, 문항은 줄만 그어 숨 쉴 틈을.</p>
+    <div class="stage"><div class="pop"><div class="panel">
+      <div class="plate"><span class="orn"><i class="ph-fill ph-detective"></i></span>산타의 관찰 리포트</div>
+      <span class="x"><i class="ph-bold ph-x"></i></span>
+      <p class="to">To. <b>●●●</b> 님 <span class="peek"><i class="ph-fill ph-eye"></i>꾹 눌러 보기</span></p>
+      <div class="q"><h4><small>01</small>해시태그 3개</h4><p class="sub">이분을 가장 잘 설명하는 키워드</p><div class="row"><div class="in"># 프로집중러</div><div class="in"># 아아수혈중</div><div class="in"># 리액션장인</div></div></div>
+      <div class="q"><h4><small>02</small>첫인상 vs 몰래 지켜본 현인상</h4><div class="in">처음엔 ___ 한 분인 줄 알았는데…</div></div>
+      <div class="q"><h4><small>03</small>산타가 스캔한 캐릭터 스탯</h4><p class="sub">관찰 결과로 매겨 본 능력치 3가지</p><div class="in">업무 몰입도 · 점심 메뉴 결정력 · 퇴근 준비 속도</div></div>
+      <div class="btns"><span class="g">임시저장</span><span class="p"><i class="ph-fill ph-paper-plane-tilt"></i>제출하기</span></div>
+    </div></div></div>
+  </section>
+</div>
+<div class="notes"><ul>
+  <li>🤍 <b>테두리</b>: 갈색 쿠키 → 하얀 아이싱(윗가장자리에 살짝 흘러내린 물결). 바깥 그림자는 연보라라 밤하늘과 이어져요</li>
+  <li>🏷️ <b>제목</b>: 꽉 찬 머리띠 → 창 위에 걸린 빨간 알약 명패 + 금색 오너먼트 아이콘. 닫기는 모서리에 걸친 흰 동그라미</li>
+  <li>📝 <b>문항</b>: 카드·초록 번호·점선 칸 → 빨간 작은 번호(01, 02), 문항 사이 얇은 점선, 입력칸은 연한 보라 회색 바탕</li>
+  <li>버튼: 제출=초록, 그 외=흰 알약 (그대로)</li>
+</ul></div>
+</body>
+</html>

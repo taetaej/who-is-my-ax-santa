@@ -3,6 +3,7 @@ import { api, type Manito, type Me } from '../api'
 import { PROFILE_FIELDS } from '../profile'
 import { MATCH_DAY } from '../schedule'
 import { dayLabel } from './Calendar'
+import { SecretName } from './SecretName'
 
 // H0 마을 홈 / P0-2 시작 대기 / H1·H2 마니또 개봉과 카드 (연출은 자리만 잡아 둠)
 export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => void; onEditProfile: () => void }) {
@@ -16,7 +17,7 @@ export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => 
   if (me.phase === 'READY') {
     return (
       <div className="panel">
-        <h2>🎅 산타 발표는 {dayLabel(MATCH_DAY)}!</h2>
+        <h2>산타 발표는 {dayLabel(MATCH_DAY)}!</h2>
         <p>그날 내가 산타가 되어 몰래 챙길 사람이 정해져요. 그 전까지는 오프닝 주간, 마을에서 놀면서 기다려요 🌱</p>
         {!me.profile && (
           <>
@@ -31,7 +32,7 @@ export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => 
   if (me.phase === 'REVEAL') {
     return (
       <div className="panel">
-        <h2>공개일이에요 🎄</h2>
+        <h2>공개일이에요</h2>
         <p className="muted">공개일 화면(R0~R4)은 아직 만들지 않았어요.</p>
       </div>
     )
@@ -50,7 +51,7 @@ export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => 
     }
     return (
       <div className="panel center">
-        <h2>내가 챙길 사람이 정해졌어요 🎅</h2>
+        <h2>내가 챙길 사람이 정해졌어요</h2>
         <p className="muted">이번 크리스마스에 몰래 챙길 사람이에요. 주변에 보는 사람이 없는지 먼저 살펴 주세요!</p>
         <button className="primary big" onClick={open}>확인하기</button>
         {error && <p className="error">{error}</p>}
@@ -60,8 +61,10 @@ export function Home({ me, onChange, onEditProfile }: { me: Me; onChange: () => 
 
   return (
     <div className="panel">
-      <p className="muted">🎅 나는 이분의 산타예요</p>
-      <h2 className="manito">{manito?.name ?? '…'}</h2>
+      <h2>내가 챙길 사람</h2>
+      <p className="muted">나는 이분의 산타예요</p>
+      <h2 className="manito">{manito ? <SecretName name={manito.name} /> : '…'}</h2>
+      <p className="muted small">옆자리에서 보일까 봐 이름은 가려 뒀어요. 👁 버튼을 꾹 누르고 있는 동안만 보여요 🤫</p>
       {manito?.profile ? (
         <dl className="profile">
           {PROFILE_FIELDS.map((f) => (

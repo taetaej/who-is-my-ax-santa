@@ -910,174 +910,239 @@ button:focus-visible { box-shadow: var(--ring); }
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   🎮 게임 UI 테마 (전체 덮어쓰기). 금테 두른 크림색 창 + 빨간 머리띠, 눌리는 입체 버튼,
-   남색 유리 단축바(독), 같은 모양의 HUD 알약들. 위쪽 규칙보다 뒤에 있어서 이겨야 한다.
+   🪟🍪 UI 테마 (design/hud-proposals-3.html + design/popup-v2.html)
+   · 늘 떠 있는 작은 HUD = 밝은 화이트 글래스 (우주 하늘·등불 빛이 비친다)
+   · 눌러서 여는 창 = 하얀 아이싱 테두리의 설탕 쿠키 + 창 위에 걸린 빨간 명패
+   · 아이콘 = 트리 오너먼트 공(빨강·초록·금·파랑 + 금색 고리) 위 Phosphor 아이콘 한 벌
+   · 색 역할: 빨강 = 명패·배지·알림, 초록 = 완료·제출, 금 = 고리·게이지
    ══════════════════════════════════════════════════════════════════ */
 :root {
-  --gold: #f2c14e;
-  --gold-d: #b98a2c;
-  --gold-l: #ffe7a3;
-  --navy: #1c1a3f;
-  --navy-2: #2d2866;
-  --cream: #fffaf0;
-  --cream-2: #f6ecd6;
-  --red-d: #84201a;
-  --glass: linear-gradient(180deg, rgba(48, 42, 104, 0.92), rgba(24, 20, 60, 0.94));
+  --x-red: #c8372d;
+  --x-red-d: #8f2a22;
+  --x-green: #3e8e5e;
+  --x-green-d: #2c6a45;
+  --x-gold: #f4c14e;
+  --x-gold-d: #c99526;
+  --x-blue: #4f6fc2;
+  --x-blue-d: #36509a;
+  --x-ink: #2f2950; /* 밤하늘과 이어지는 짙은 남색 글씨 */
+  --x-ink-2: #6f6888;
+  --x-snow: #fffdf8;
+  --x-field: #f6f3fa;
+  --x-line: #ebe6f2;
+  --x-rim: #e6e1f0; /* 아이싱 아래 그림자 */
+  --glass-bg: rgba(255, 255, 255, 0.52);
+  --glass: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.55), 0 10px 26px rgba(15, 8, 50, 0.3);
 }
 
-/* ── 창 뒤 어둠 + 창이 튀어나오는 등장 ── */
+/* ── 창 뒤: 살짝 어둡고 흐리게, 창은 통통 튀며 등장. 긴 창은 배경째 스크롤 ── */
 .backdrop {
-  z-index: 20; overflow-y: auto; padding-bottom: 40px;
-  background: radial-gradient(ellipse at 50% 40%, rgba(40, 32, 100, 0.42), rgba(8, 6, 28, 0.78));
-  backdrop-filter: blur(6px) saturate(1.1); -webkit-backdrop-filter: blur(6px) saturate(1.1);
+  z-index: 20; overflow-y: auto; padding-bottom: 60px;
+  background: rgba(28, 20, 70, 0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
   animation: ui-fade 0.18s ease-out;
 }
 @keyframes ui-fade { from { opacity: 0; } }
-.modal { animation: ui-pop 0.34s cubic-bezier(0.2, 1.35, 0.4, 1) both; }
-@keyframes ui-pop { from { transform: translateY(22px) scale(0.92); opacity: 0; } }
+.modal { animation: ui-pop 0.38s cubic-bezier(0.2, 1.45, 0.4, 1) both; margin-bottom: 40px; }
+@keyframes ui-pop { from { transform: translateY(26px) scale(0.92); opacity: 0; } }
 
-/* ── 창: 크림 종이 + 금테 + 남색 외곽선 ── */
-.panel {
-  position: relative; color: var(--ink);
-  background:
-    radial-gradient(circle at 12% 0%, rgba(255, 255, 255, 0.9), transparent 40%) padding-box,
-    linear-gradient(180deg, var(--cream) 0%, var(--cream-2) 100%) padding-box,
-    linear-gradient(150deg, var(--gold-l), var(--gold) 30%, var(--gold-d) 65%, var(--gold-l)) border-box;
-  border: 4px solid transparent; border-radius: 26px; padding: 30px 30px 26px;
-  box-shadow: 0 0 0 3px rgba(22, 18, 58, 0.9), 0 0 0 7px rgba(242, 193, 78, 0.28), 0 30px 70px rgba(5, 3, 25, 0.55);
-  scrollbar-width: thin; scrollbar-color: var(--gold) transparent;
+/* ── 🍪 창: 하얀 아이싱 테두리 ── */
+.panel, .panel.wide, .panel.letter, .panel.tree, .panel.awards {
+  position: relative; color: var(--x-ink); background: var(--x-snow); border: 0; border-radius: 30px;
+  padding: 42px 30px 24px; max-height: none; overflow: visible;
+  box-shadow: 0 0 0 5px #fff, 0 9px 0 5px var(--x-rim), 0 30px 60px rgba(10, 5, 40, 0.45);
 }
-.panel::-webkit-scrollbar { width: 8px; }
-.panel::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 8px; }
+.panel h2, .panel h3, .panel h4 { color: var(--x-ink); }
+.panel .muted, .q-help { color: var(--x-ink-2); }
+.modal .panel { margin-top: calc(10vh + 14px); }
+.modal .panel.letter { margin-top: calc(6vh + 14px); }
 
-/* 창 머리띠: 첫 줄 제목은 빨간 띠로 (금색 밑줄, 양쪽 별) */
+/* 🏷️ 명패: 첫 제목은 창 위에 걸린 빨간 알약 + 금색 오너먼트 */
 .modal .panel > h2:first-child,
 .panel.login > h2:first-child,
 .modal .panel > .letter-head:first-child,
 .modal .panel > .tree-head:first-child {
-  margin: -30px -30px 18px; padding: 15px 60px 14px; text-align: center; justify-content: center;
-  background: linear-gradient(180deg, #ea5243 0%, #c63328 55%, #a82a20 100%);
-  color: #fff; border-radius: 22px 22px 0 0; border-bottom: 3px solid var(--gold);
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.32), inset 0 -6px 12px rgba(0, 0, 0, 0.12), 0 4px 0 rgba(120, 25, 15, 0.18);
-  text-shadow: 0 2px 0 rgba(90, 10, 5, 0.45); font-size: 22px; letter-spacing: -0.3px;
+  position: absolute; left: 50%; top: -24px; transform: translateX(-50%); z-index: 2; margin: 0; max-width: calc(100% - 70px);
+  display: flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap;
+  padding: 9px 22px 9px 10px; border-radius: 999px; background: var(--x-red); color: #fff; font-size: 18px; letter-spacing: -0.3px;
+  box-shadow: 0 4px 0 var(--x-red-d), 0 10px 20px rgba(140, 30, 25, 0.3);
 }
-.modal .panel > h2:first-child::before, .modal .panel > h2:first-child::after,
-.panel.login > h2:first-child::before, .panel.login > h2:first-child::after { content: '✦'; color: var(--gold-l); margin: 0 10px; font-size: 14px; vertical-align: 3px; }
-.modal .panel > .letter-head:first-child h2, .modal .panel > .tree-head:first-child .tree-day { color: #fff; }
-.modal .panel > .letter-head:first-child .chip { background: rgba(255, 255, 255, 0.9); }
-.modal .panel > .tree-head:first-child .ghost { background: rgba(255, 255, 255, 0.92); }
-.panel h2 { color: var(--navy); }
+.modal .panel > h2:first-child::before,
+.panel.login > h2:first-child::before,
+.modal .panel > .letter-head:first-child::before {
+  content: '★'; flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-size: 15px;
+  background: var(--x-gold); color: #fff; box-shadow: inset 0 -3px 0 var(--x-gold-d), 0 -3px 0 -1px #fff;
+}
+.modal .panel > .letter-head:first-child h2 { margin: 0; color: #fff; font-size: 18px; }
+.modal .panel > .letter-head:first-child .chip { background: rgba(255, 255, 255, 0.92); color: var(--x-ink); }
+.modal .panel > .tree-head:first-child { padding: 6px 8px; }
+.modal .panel > .tree-head:first-child .tree-day { color: #fff; }
+.modal .panel > .tree-head:first-child .ghost { background: rgba(255, 255, 255, 0.95); box-shadow: none; }
 
-/* 닫기: 금테 두른 동그란 보석 */
+/* 닫기: 창 모서리에 걸친 흰 동그라미 */
 .close {
-  width: 38px; height: 38px; right: 14px; top: calc(10vh + 9px); z-index: 2; padding: 0; line-height: 1;
-  border-radius: 50%; font-size: 22px; font-weight: 800; color: var(--red);
-  background: radial-gradient(circle at 35% 30%, #fff, var(--cream-2)); border: 3px solid var(--gold);
-  box-shadow: 0 3px 0 var(--gold-d), 0 6px 14px rgba(0, 0, 0, 0.3);
-  transition: transform 0.12s ease;
+  width: 40px; height: 40px; top: calc(10vh + 2px); right: -12px; z-index: 3; padding: 0; line-height: 1;
+  display: grid; place-items: center; border-radius: 50%; font-size: 20px; font-weight: 800; color: var(--x-red); background: #fff; border: 0;
+  box-shadow: 0 4px 0 var(--x-rim), 0 8px 16px rgba(10, 5, 40, 0.3); transition: transform 0.15s ease;
 }
 .close:hover { transform: rotate(90deg) scale(1.08); }
-.close:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--gold-d); }
-.modal:has(.panel.letter) .close { top: calc(6vh + 9px); }
+.close:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--x-rim); }
+.modal:has(.panel.letter) .close { top: calc(6vh + 2px); }
 
-/* ── 버튼: 눌리는 입체 ── */
+/* 📝 문항: 카드 없이 얇은 점선으로만 나눈다 */
+.letter-form section { border-top: 1.5px dashed var(--x-line); }
+.letter-form section:first-child { border-top: 0; }
+.cal-today, .cal-detail li, .tier, .profile-row { background: #fff; border: 0; box-shadow: inset 0 0 0 1.5px var(--x-line); }
+.cal-day { border: 0; box-shadow: inset 0 0 0 1.5px var(--x-line); }
+
+/* ── 버튼: 알약 + 눌리는 그림자. 주 버튼 = 초록 ── */
 .primary {
-  background: linear-gradient(180deg, #f2604f 0%, #cf3a2c 55%, #b02e22 100%); color: #fff;
-  border: 2px solid var(--red-d); border-radius: 14px; font-weight: 800; letter-spacing: -0.2px;
-  box-shadow: 0 4px 0 var(--red-d), 0 9px 18px rgba(132, 32, 26, 0.32), inset 0 2px 0 rgba(255, 255, 255, 0.35);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3); transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+  background: var(--x-green); color: #fff; border: 0; border-radius: 999px; font-weight: 800;
+  box-shadow: 0 4px 0 var(--x-green-d), 0 8px 16px rgba(44, 106, 69, 0.25);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
 }
-.primary:hover:not(:disabled) { filter: brightness(1.08) saturate(1.05); }
-.primary:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--red-d), 0 4px 10px rgba(132, 32, 26, 0.3), inset 0 2px 0 rgba(255, 255, 255, 0.3); }
-.ghost, .name, .chip-btn, .cal-check {
-  background: linear-gradient(180deg, #ffffff, #f6ecd8); color: var(--ink);
-  border: 2px solid #e3c98f; border-radius: 12px; font-weight: 700;
-  box-shadow: 0 3px 0 #cfae66; transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
+.primary:hover:not(:disabled) { filter: brightness(1.07); }
+.primary:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--x-green-d); }
+.ghost, .name, .chip-btn, .cal-check, .peek {
+  background: #fff; color: var(--x-ink); border: 0; border-radius: 999px; font-weight: 700;
+  box-shadow: inset 0 0 0 2px var(--x-line), 0 3px 0 #ddd6ea; transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s;
 }
-.ghost:hover:not(:disabled), .name:hover, .chip-btn:hover, .cal-check:hover:not(:disabled) { background: linear-gradient(180deg, #fffdf6, #fbe9bf); }
-.ghost:active:not(:disabled), .name:active, .chip-btn:active, .cal-check:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 #cfae66; }
-.name.on, .chip-btn.on, .cal-check.on { background: linear-gradient(180deg, #3d9a64, #2a7448); color: #fff; border-color: #1d5534; box-shadow: 0 3px 0 #1d5534; }
-button:disabled { filter: grayscale(0.4); }
+.ghost:hover:not(:disabled), .name:hover, .chip-btn:hover, .cal-check:hover:not(:disabled), .peek:hover { background: #faf8fd; }
+.ghost:active:not(:disabled), .name:active, .chip-btn:active, .cal-check:active:not(:disabled), .peek.on {
+  transform: translateY(2px); box-shadow: inset 0 0 0 2px var(--x-line), 0 1px 0 #ddd6ea;
+}
+.name.on, .chip-btn.on, .cal-check.on { background: var(--x-green); color: #fff; box-shadow: 0 3px 0 var(--x-green-d); }
+.peek { display: inline-flex; align-items: center; gap: 5px; }
+.peek.on { background: #fff3cf; }
+button:disabled { filter: saturate(0.5); }
 
-/* ── 입력 칸: 살짝 파인 종이 ── */
-input, textarea, select {
-  background: #fffdf8; border: 2px solid #ead9b4; border-radius: 12px;
-  box-shadow: inset 0 2px 4px rgba(120, 90, 40, 0.1); transition: border-color 0.15s, box-shadow 0.15s;
-}
-input:focus, textarea:focus, select:focus { outline: none; border-color: var(--gold); box-shadow: inset 0 2px 4px rgba(120, 90, 40, 0.08), 0 0 0 4px rgba(242, 193, 78, 0.3); }
+/* ── 입력 칸: 연한 보라 회색 바탕 ── */
+input, textarea, select { background: var(--x-field); border: 2px solid transparent; border-radius: 14px; color: var(--x-ink); transition: border-color 0.15s, box-shadow 0.15s, background 0.15s; }
+input::placeholder, textarea::placeholder { color: #a7a1bb; }
+input:focus, textarea:focus, select:focus { outline: none; background: #fff; border-color: var(--x-gold); box-shadow: 0 0 0 4px rgba(244, 193, 78, 0.28); }
+input[type='range'] { background: transparent; border: 0; box-shadow: none; }
 
 /* ── 칩 ── */
-.chip { background: linear-gradient(180deg, #fff, #efe4cf); border: 1px solid #e0cc9f; color: #7a6a52; }
-.chip.ok { background: linear-gradient(180deg, #e9f8ee, #cdeed9); border-color: #9fd6b2; color: #22683f; }
-.chip.warn { background: linear-gradient(180deg, #fff1e6, #fdd9c2); border-color: #f2b48e; color: #a8441a; }
+.chip { background: var(--x-field); border: 0; color: var(--x-ink-2); }
+.chip.ok { background: #e2f2e8; color: var(--x-green-d); }
+.chip.warn { background: #fbe3e0; color: var(--x-red); }
 
-/* ── 아래 단축바(독): 남색 유리 + 금테, 아이콘 타일 ── */
+/* ── 🎄 오너먼트 아이콘 (Ornament.tsx) ── */
+.orn {
+  position: relative; display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 50%; color: #fff;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), inset 0 3px 0 rgba(255, 255, 255, 0.35);
+}
+.orn::before { content: ''; position: absolute; top: -4px; left: 50%; width: 9px; height: 6px; margin-left: -4.5px; border-radius: 3px 3px 1px 1px; background: var(--x-gold); box-shadow: 0 1px 0 var(--x-gold-d); }
+.orn svg { filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.25)); }
+.orn.red { background: var(--x-red); } .orn.green { background: var(--x-green); } .orn.gold { background: var(--x-gold); }
+.orn.blue { background: var(--x-blue); } .orn.snow { background: var(--x-snow); color: var(--x-ink); box-shadow: inset 0 0 0 2px var(--x-line), inset 0 -3px 0 var(--x-line); }
+.orn.snow svg { filter: none; }
+
+/* ── 🪟 아래 단축바(독): 유리 받침 위 오너먼트 ── */
 .dock {
-  background: var(--glass); border: 2px solid rgba(242, 193, 78, 0.8); border-radius: 22px; padding: 7px 8px; gap: 5px;
-  box-shadow: 0 0 0 3px rgba(12, 10, 35, 0.55), 0 16px 36px rgba(5, 3, 25, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  max-width: calc(100vw - 16px); overflow-x: auto; scrollbar-width: none;
+  background: var(--glass-bg); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 0; border-radius: 28px; padding: 12px 12px 7px; gap: 6px; align-items: flex-end; box-shadow: var(--glass); max-width: calc(100vw - 16px);
 }
-.dock::-webkit-scrollbar { display: none; }
-.dock button {
-  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  min-width: 62px; padding: 7px 8px 6px; border-radius: 14px; font-size: 11.5px; font-weight: 700; color: #efeaff;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03));
-  border: 1.5px solid rgba(255, 255, 255, 0.14); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.22);
-  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+.dock > button, .dock .more > button {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 62px; padding: 0;
+  background: transparent; border: 0; box-shadow: none; color: var(--x-ink); font-size: 11.5px; font-weight: 800; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
 }
-.dock button i { font-style: normal; font-size: 22px; line-height: 1; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4)); }
-.dock button:hover { background: linear-gradient(180deg, rgba(242, 193, 78, 0.32), rgba(242, 193, 78, 0.1)); border-color: var(--gold); transform: translateY(-3px); }
-.dock button.on { background: linear-gradient(180deg, var(--gold-l), var(--gold)); color: var(--navy); border-color: #fff3c8; }
-.dock button.quiet { color: #a9a3c9; font-weight: 600; }
-.dock .chip { position: absolute; top: -8px; right: -6px; margin: 0; padding: 1px 6px; font-size: 10px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); }
-.dock .who {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0 10px 0 6px; margin-right: 2px;
-  color: var(--gold-l); font-size: 12px; border-right: 1px solid rgba(255, 255, 255, 0.14);
-}
-.dock .who i { font-style: normal; font-size: 24px; line-height: 1; }
+.dock button .orn { width: 46px; height: 46px; transition: transform 0.15s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.dock button .orn::before { width: 11px; height: 7px; margin-left: -5.5px; top: -5px; }
+.dock button:hover .orn { transform: translateY(-4px) rotate(-6deg); }
+.dock button:active .orn { transform: translateY(1px) scale(0.95); }
+.dock button.on .orn, .dock .more.open > button .orn { background: var(--x-gold); color: #fff; box-shadow: inset 0 -3px 0 var(--x-gold-d); }
+.dock .chip { position: absolute; top: -9px; right: -3px; margin: 0; padding: 1px 7px; font-size: 10px; background: var(--x-red); color: #fff; box-shadow: 0 2px 0 var(--x-red-d); }
+.dock .chip.ok { background: var(--x-green); box-shadow: 0 2px 0 var(--x-green-d); }
 
-/* ── HUD 알약들: 같은 남색 유리 ── */
-.today-hud, .treasure-hud, .help, .prompt, .xp-hud {
-  background: var(--glass); color: #fff; border: 1.5px solid rgba(242, 193, 78, 0.65);
-  box-shadow: 0 0 0 2px rgba(12, 10, 35, 0.35), 0 8px 20px rgba(5, 3, 25, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+/* ☰ 더보기: 유리 판 */
+.more { position: relative; }
+.more-menu {
+  position: absolute; right: -6px; bottom: calc(100% + 16px); min-width: 200px; padding: 10px; border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); box-shadow: var(--glass);
+  display: flex; flex-direction: column; gap: 4px; animation: ui-pop 0.3s cubic-bezier(0.2, 1.45, 0.4, 1) both; transform-origin: bottom right;
 }
-.today-hud:hover, .treasure-hud:hover { background: linear-gradient(180deg, rgba(70, 60, 140, 0.95), rgba(34, 28, 80, 0.96)); }
-.today-date { color: var(--gold); }
-.today-hud.done { color: #a6ebb8; }
-.help { border-radius: 12px; }
-.help kbd { background: rgba(242, 193, 78, 0.22); color: var(--gold-l); border: 1px solid rgba(242, 193, 78, 0.4); }
+.more-menu .me { display: flex; align-items: center; gap: 8px; padding: 4px 8px 10px; margin-bottom: 4px; border-bottom: 1.5px dashed rgba(47, 41, 80, 0.15); font-weight: 800; color: var(--x-ink); }
+.more-menu button { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 14px; border: 0; background: transparent; color: var(--x-ink); font-weight: 700; text-align: left; white-space: nowrap; }
+.more-menu button:hover { background: rgba(255, 255, 255, 0.8); }
+.more-menu button.quiet { color: var(--x-ink-2); }
+
+/* ── 🪟 화면 위 캡슐들: 유리 알약 + 오너먼트 ── */
+.today-hud, .treasure-hud, .xp-hud, .help, .prompt, .toast {
+  background: var(--glass-bg); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  color: var(--x-ink); border: 0; box-shadow: var(--glass);
+}
+.today-hud, .treasure-hud { padding: 5px 14px 5px 5px; gap: 8px; font-weight: 800; }
+.today-hud:hover, .treasure-hud:hover { background: rgba(255, 255, 255, 0.7); transform: translateY(-1px); }
+.today-date { color: var(--x-red); }
+.today-hud.done { color: var(--x-green-d); }
+.treasure-hud { top: 102px; }
+.medal { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 999px; color: #fff; font-size: 11px; font-weight: 800; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.2); }
+.medal.t1 { background: #e7ad22; } .medal.t2 { background: #a9adbd; } .medal.t3 { background: #c9814b; } .medal.t4 { background: var(--x-red); }
+.xp-hud { padding: 4px 12px 4px 4px; }
+.xp-hud b { display: flex; align-items: center; gap: 4px; height: 32px; padding: 0 11px; border-radius: 999px; background: var(--x-green); color: #fff; box-shadow: inset 0 -3px 0 var(--x-green-d); font-size: 12.5px; }
+.xp-bar { background: rgba(255, 255, 255, 0.65); height: 10px; }
+.xp-bar i { background: var(--x-gold); }
+.xp-num { color: var(--x-ink-2); }
+.xp-rank { background: rgba(255, 255, 255, 0.7); color: var(--x-ink); }
+.help { border-radius: 16px; max-width: min(620px, 70vw); text-align: right; }
+.help kbd { background: rgba(255, 255, 255, 0.85); color: var(--x-ink); border: 0; box-shadow: 0 2px 0 #ddd6ea; }
+.cam-help { top: 142px; bottom: auto; right: auto; left: 16px; font-size: 12px; z-index: 3; text-align: left; border-radius: 999px; }
 .prompt { font-size: 15px; padding: 11px 22px; }
-
-/* 알림 띠 (챙길 사람이 정해졌어요 등) */
+.toast { border-radius: 999px; }
 .notice {
-  background: linear-gradient(180deg, #ef5a4a, #c0392b 60%, #a92e22); border: 2px solid var(--gold);
-  box-shadow: 0 4px 0 var(--red-d), 0 10px 26px rgba(132, 32, 26, 0.45), inset 0 2px 0 rgba(255, 255, 255, 0.3);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3); animation: pop 0.25s ease-out, notice-glow 2.4s ease-in-out infinite;
+  background: var(--x-red); color: #fff; border: 0; border-radius: 999px; font-weight: 800;
+  box-shadow: 0 4px 0 var(--x-red-d), 0 10px 22px rgba(140, 30, 25, 0.35); animation: pop 0.25s ease-out, notice-bob 2.6s ease-in-out infinite;
 }
-@keyframes notice-glow { 50% { box-shadow: 0 4px 0 var(--red-d), 0 10px 34px rgba(242, 193, 78, 0.55), inset 0 2px 0 rgba(255, 255, 255, 0.3); } }
-.toast { background: var(--glass); border: 2px solid var(--gold); box-shadow: 0 0 0 3px rgba(12, 10, 35, 0.45), 0 12px 30px rgba(5, 3, 25, 0.45); }
+@keyframes notice-bob { 50% { transform: translateY(-3px); } }
+.emote-ping { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); color: var(--x-ink); box-shadow: var(--glass); }
 
-/* 로고: 흰 테두리 글씨 */
-.topbar h1 {
-  color: #fff; letter-spacing: -0.5px;
-  text-shadow: 0 2px 0 var(--red-d), 2px 0 0 var(--red-d), -2px 0 0 var(--red-d), 0 -2px 0 var(--red-d), 0 5px 10px rgba(10, 5, 40, 0.45);
+/* 로고: 흰 글씨 + 남색 테두리 */
+.topbar h1 { color: #fff; letter-spacing: -0.5px; text-shadow: 0 2px 0 #3b3270, 2px 0 0 #3b3270, -2px 0 0 #3b3270, 0 -2px 0 #3b3270, 0 5px 0 rgba(20, 10, 50, 0.35); }
+.topbar h1 .ax { background: var(--x-red); color: #fff; border: 0; text-shadow: none; box-shadow: 0 3px 0 var(--x-red-d); border-radius: 10px; }
+
+/* ── 😊 반응: 유리 동그라미 하나 → 옆으로 펼침 ── */
+.emote-fab {
+  position: fixed; left: 16px; bottom: 104px; z-index: 4; display: grid; place-items: center; width: 58px; height: 58px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--glass-bg); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4); color: var(--x-gold);
+  box-shadow: var(--glass); transition: transform 0.15s cubic-bezier(0.2, 1.6, 0.4, 1);
 }
-.topbar h1 .ax { background: linear-gradient(180deg, #ef5a4a, #b02e22); border: 2px solid var(--gold); text-shadow: none; box-shadow: 0 3px 0 var(--red-d); }
+.emote-fab svg { filter: drop-shadow(0 2px 0 var(--x-gold-d)); }
+.emote-fab:hover { transform: scale(1.07) rotate(-6deg); }
+.emote-fab.open { background: rgba(255, 255, 255, 0.8); color: var(--x-ink); }
+.emote-fab.open svg { filter: none; }
+.emote-fab small { position: absolute; left: 50%; bottom: -18px; transform: translateX(-50%); font-size: 11px; font-weight: 800; color: #fff; text-shadow: 0 1px 3px rgba(20, 10, 50, 0.8); white-space: nowrap; }
+.emote-fan {
+  position: fixed; left: 86px; bottom: 106px; z-index: 4; display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4); box-shadow: var(--glass);
+  animation: fan-in 0.3s cubic-bezier(0.2, 1.45, 0.4, 1) both; transform-origin: left center;
+}
+@keyframes fan-in { from { transform: scaleX(0.4); opacity: 0; } }
+.emote-fan button { position: relative; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; font-size: 23px; transition: transform 0.12s ease; }
+.emote-fan button:hover { background: rgba(255, 255, 255, 0.85); transform: translateY(-3px) scale(1.1); }
+.emote-fan button kbd { position: absolute; right: -1px; bottom: -1px; font-size: 9px; padding: 0 4px; border-radius: 6px; background: rgba(255, 255, 255, 0.9); color: var(--x-ink-2); }
+.emote-fan .emote-hint { width: auto; padding: 0 6px 0 4px; color: var(--x-ink-2); font-size: 10.5px; white-space: nowrap; }
 
-/* 창 안 작은 카드들도 금빛 테두리 */
-.cal-today, .cal-detail li, .tier, .profile-row { border-color: #ead9b4; box-shadow: 0 2px 0 rgba(207, 174, 102, 0.35); }
+/* 🗺️ 미니맵 테두리도 유리 */
+.minimap canvas { border: 5px solid rgba(255, 255, 255, 0.75); box-shadow: var(--glass); }
+.minimap-ribbon { background: var(--x-red); border: 0; box-shadow: 0 3px 0 var(--x-red-d); }
+.minimap-x, .minimap-open { background: rgba(255, 255, 255, 0.85); border: 0; color: var(--x-ink); box-shadow: 0 3px 0 #ddd6ea; }
 
 @media (max-width: 640px) {
-  .dock button { min-width: 54px; font-size: 10.5px; padding: 6px 6px 5px; }
-  .dock button i { font-size: 19px; }
-  .modal .panel > h2:first-child { font-size: 18px; padding: 13px 52px 12px; }
+  .dock { gap: 3px; padding: 10px 8px 5px; }
+  .dock > button, .dock .more > button { min-width: 46px; font-size: 10px; }
+  .dock button .orn { width: 38px; height: 38px; }
+  .modal .panel > h2:first-child, .modal .panel > .letter-head:first-child { font-size: 15px; }
+  .close { right: 4px; }
+  .cam-help { display: none; }
+  .emote-fab { bottom: 92px; width: 50px; height: 50px; }
+  .emote-fan { left: 74px; bottom: 94px; max-width: calc(100vw - 84px); overflow-x: auto; }
+  .panel, .panel.wide, .panel.letter { padding: 40px 18px 20px; }
 }
+/* 좁은 화면에서는 위쪽 조작법 안내를 숨긴다 (로고·알림과 겹치지 않게) */
+@media (max-width: 1180px) { .help:not(.cam-help) { display: none; } }
 
-/* 왼쪽 반응 바도 같은 유리 */
-.emote-bar { background: var(--glass); border: 2px solid rgba(242, 193, 78, 0.75); box-shadow: 0 0 0 3px rgba(12, 10, 35, 0.45), 0 12px 28px rgba(5, 3, 25, 0.4); }
-.emote-bar button:hover { background: rgba(242, 193, 78, 0.22); }
-.emote-label { color: #e4defc; }
-.emote-hint { color: #a9a3c9; }
-.help { max-width: min(620px, 70vw); text-align: right; }
-.cam-help { top: auto; bottom: 100px; right: auto; left: 14px; font-size: 12px; z-index: 3; text-align: left; }
-@media (max-width: 640px) { .cam-help { display: none; } }
+/* 🤫 챙길 사람 이름 가리기 (SecretName.tsx) */
+.secret-name { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.secret { letter-spacing: 2px; }
+.peek { font-size: 13px; font-weight: 800; padding: 6px 12px; vertical-align: middle; user-select: none; -webkit-user-select: none; touch-action: none; letter-spacing: 0; }
+.letter-to { justify-content: center; margin: 0 0 6px; font-size: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

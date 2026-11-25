@@ -4,7 +4,7 @@ import { KEYWORDS } from '../awards'
 import { tierOf } from '../treasure'
 import { TreeShow } from './TreeShow'
 import { RevealShow } from './RevealShow'
-import { QUESTIONS_LIMIT, QUESTION_MAX, cleanQuestions, questionDay } from '../questions'
+import { FIRST_DAY, QUESTIONS, QUESTIONS_LIMIT, QUESTION_MAX, cleanQuestions, questionDay } from '../questions'
 
 const NEXT: Partial<Record<Phase, { to: Phase; label: string; confirm: string }>> = {
   READY: {
@@ -303,6 +303,16 @@ function Questions({ onSaved }: { onSaved: () => void }) {
       </div>
       <div className="letter-actions">
         {msg && <span className="ok-text">{msg}</span>}
+        <button
+          className="ghost"
+          onClick={() => {
+            setText(QUESTIONS.join('\n'))
+            setStart(FIRST_DAY)
+            setMsg('기본 질문 12개(12/1 시작)를 불러왔어요. 저장을 눌러야 적용돼요')
+          }}
+        >
+          🔄 기본 질문 불러오기
+        </button>
         <button className="primary" disabled={!list.length || !start} onClick={save}>
           저장
         </button>

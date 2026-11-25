@@ -124,7 +124,7 @@ export function Calendar({ me, onGo, onChange }: { me: Me; onGo: (to: CalGo) => 
 
   return (
     <div className="panel wide calendar">
-      <h2>📅 AX 산타 일정</h2>
+      <h2>AX 산타 일정</h2>
       <p className="muted">
         {dayLabel(OPEN_DAY)} 오픈 · {dayLabel(MATCH_DAY)} 산타 발표 · {dayLabel(REVEAL_DAY)} 공개일
         {dday > 0 && <b className="cal-dday"> 공개일까지 D-{dday}</b>}

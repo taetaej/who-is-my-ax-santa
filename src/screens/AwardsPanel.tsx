@@ -56,7 +56,7 @@ function Give({ data, setData, onChange, reload }: { data: Awards; setData: (d: 
   return (
     <div className="panel awards">
       <div className="letter-head">
-        <h2>🏆 AX 어워즈 · 엘프 인터뷰</h2>
+        <h2>AX 어워즈 · 엘프 인터뷰</h2>
         <span className={`chip ${given === total ? 'ok' : 'warn'}`}>
           {given}/{total}명
         </span>
@@ -259,7 +259,7 @@ function Results({ results, meId }: { results: NonNullable<Awards['results']>; m
   const mine = results.find((r) => r.id === meId)
   return (
     <div className="panel awards">
-      <h2>🏆 2026 AX 어워즈</h2>
+      <h2>2026 AX 어워즈</h2>
       {mine && <Certificate name={mine.name} card={mine} />}
       <h3 className="kw-all-title">모두의 상 🎉</h3>
       <div className="award-results">

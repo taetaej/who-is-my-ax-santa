@@ -20,6 +20,24 @@ import { EmoteBar } from './screens/EmoteBar'
 import { GameHud } from './screens/GameHud'
 import { MiniMap } from './screens/MiniMap'
 import { Calendar, headline } from './screens/Calendar'
+import { Orn } from './screens/Ornament'
+import {
+  CalendarCheck,
+  CalendarDots,
+  Detective,
+  DoorOpen,
+  Gear,
+  Gift,
+  HandHeart,
+  List,
+  MagnifyingGlass,
+  MapTrifold,
+  PaintBrush,
+  PencilSimple,
+  TreeEvergreen,
+  Trophy,
+  X,
+} from '@phosphor-icons/react'
 
 type Modal = 'manito' | 'profile' | 'letter' | 'guess' | 'look' | 'tree' | 'awards' | 'elf' | 'admin' | 'treasure' | 'calendar' | null
 
@@ -32,6 +50,20 @@ export function App() {
   const [prompt, setPrompt] = useState<string | null>(null)
   const [carol, setCarol] = useState(0)
   const [overview, setOverview] = useState(false) // 🗺️ 마을 전경 보기
+  const [more, setMore] = useState(false) // ☰ 더보기 메뉴
+  // 더보기 메뉴는 밖을 누르거나 Esc 로 닫힌다
+  useEffect(() => {
+    if (!more) return
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !(e.target as HTMLElement).closest('.more')) setMore(false)
+    }
+    window.addEventListener('pointerdown', close)
+    window.addEventListener('keydown', close)
+    return () => {
+      window.removeEventListener('pointerdown', close)
+      window.removeEventListener('keydown', close)
+    }
+  }, [more])
   const [tree, setTree] = useState<TreeSummary | null>(null)
   const inputEnabled = useRef(false)
   // 처음 들어온 사람은 쿠키부터 꾸민다 (사우나 게임처럼 입장 전에)
@@ -221,16 +253,16 @@ export function App() {
             {prompt && modal === null && <div className="prompt">{prompt}</div>}
             {!firstVisit && modal === null && (
               <button className={`today-hud ${head?.done ? 'done' : ''}`} onClick={() => setModal('calendar')} title="📅 일정 보기">
-                <span className="today-date">📅 {head?.date}</span> {head?.text}
+                <Orn icon={CalendarCheck} color="red" />
+                <span className="today-date">{head?.date}</span> {head?.text}
                 {head?.done && ' ✅'}
               </button>
             )}
             {treasure?.active && !firstVisit && (
               <button className="treasure-hud" onClick={() => setModal('treasure')} title="숨은 선물 현황">
-                🎀 남은 선물{' '}
-                {TIERS.map((t) => (
-                  <span key={t.tier}>
-                    {t.label.split(' ')[0]}
+                <Orn icon={Gift} color="green" />남은 선물
+                {TIERS.map((t, i) => (
+                  <span key={t.tier} className={`medal t${i + 1}`} title={t.label}>
                     {t.count - treasure.found.filter((f) => f.tier === t.tier).length}
                   </span>
                 ))}
@@ -273,52 +305,62 @@ export function App() {
             )}
 
             <nav className="dock">
-              <span className="who">
-                <i>🍪</i>
-                {me.name}
-              </span>
               <button onClick={() => setModal('calendar')}>
-                <i>📅</i>일정
+                <Orn icon={CalendarDots} color="red" size={22} />일정
               </button>
               <button onClick={() => setModal('manito')}>
-                <i>🎅</i>챙길 사람
+                <Orn icon={HandHeart} color="green" size={22} />챙길 사람
               </button>
               <button onClick={() => setModal('letter')}>
-                <i>🕵️</i>관찰 리포트
+                <Orn icon={Detective} color="gold" size={22} />관찰 리포트
                 <span className={`chip ${me.letter === 'submitted' ? 'ok' : me.phase === 'ACTIVE' && me.letter === 'none' ? 'warn' : ''}`}>{LETTER_CHIP[me.letter]}</span>
               </button>
               <button onClick={() => setModal('guess')}>
-                <i>🔍</i>추리노트
+                <Orn icon={MagnifyingGlass} color="blue" size={22} />추리노트
                 <span className={`chip ${me.guess === 'done' ? 'ok' : me.phase === 'ACTIVE' && me.guess === 'none' ? 'warn' : ''}`}>{GUESS_CHIP[me.guess]}</span>
               </button>
               <button onClick={() => setModal('tree')}>
-                <i>🎄</i>메시지 트리
+                <Orn icon={TreeEvergreen} color="red" size={22} />메시지 트리
               </button>
               <button onClick={() => setModal('awards')}>
-                <i>🏆</i>어워즈
+                <Orn icon={Trophy} color="green" size={22} />어워즈
                 {me.phase !== 'REVEAL' && (
                   <span className={`chip ${me.todo.given >= me.todo.people ? 'ok' : ''}`}>
                     {me.todo.given}/{me.todo.people}
                   </span>
                 )}
               </button>
-              <button onClick={() => setModal('profile')}>
-                <i>✏️</i>내 프로필
-              </button>
-              <button onClick={() => setModal('look')}>
-                <i>🎨</i>꾸미기
-              </button>
-              <button className={overview ? 'on' : ''} onClick={() => setOverview((v) => !v)} title="M">
-                <i>🗺️</i>전경
-              </button>
-              {me.isAdmin && (
-                <button onClick={() => setModal('admin')}>
-                  <i>⚙️</i>운영
+              <div className={`more ${more ? 'open' : ''}`}>
+                <button onClick={() => setMore((v) => !v)} aria-expanded={more}>
+                  <Orn icon={more ? X : List} color="snow" size={20} />더보기
                 </button>
-              )}
-              <button className="quiet" onClick={logout}>
-                <i>🚪</i>나가기
-              </button>
+                {more && (
+                  <div className="more-menu" onClick={() => setMore(false)}>
+                    <div className="me">
+                      <span className="orn gold">🍪</span>
+                      {me.name}
+                    </div>
+                    <button onClick={() => setModal('profile')}>
+                      <Orn icon={PencilSimple} color="blue" />내 프로필
+                    </button>
+                    <button onClick={() => setModal('look')}>
+                      <Orn icon={PaintBrush} color="red" />쿠키 꾸미기
+                    </button>
+                    <button onClick={() => setOverview((v) => !v)}>
+                      <Orn icon={MapTrifold} color="green" />
+                      {overview ? '전경 닫기' : '마을 전경 보기'}
+                    </button>
+                    {me.isAdmin && (
+                      <button onClick={() => setModal('admin')}>
+                        <Orn icon={Gear} color="gold" />운영
+                      </button>
+                    )}
+                    <button className="quiet" onClick={logout}>
+                      <Orn icon={DoorOpen} color="snow" />나가기
+                    </button>
+                  </div>
+                )}
+              </div>
             </nav>
 
             {modal === 'elf' && <ElfDialog me={me} question={tree?.question ?? null} onGo={(to: ElfGo) => setModal(to)} onClose={() => setModal(null)} />}
@@ -327,7 +369,7 @@ export function App() {
               <div className="backdrop" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
                 <div className="modal">
                   <button className="close" onClick={() => setModal(null)} aria-label="닫기">
-                    ×
+                    <X size={20} weight="bold" />
                   </button>
                   {modal === 'manito' && <Home me={me} onChange={refresh} onEditProfile={() => setModal('profile')} />}
                   {modal === 'profile' && (
@@ -380,7 +422,7 @@ function TreasureBoard({ t }: { t: TreasureState }) {
   const left = t.total - t.found.length
   return (
     <div className="panel treasure-board">
-      <h2>🎀 숨은 선물 현황</h2>
+      <h2>숨은 선물 현황</h2>
       <p className="muted">
         마을 곳곳에 진짜 선물과 꽝이 숨어 있어요. 진짜는 1인 1개! 지금 <b>{left}개</b> 남았어요.
         {t.mine && (

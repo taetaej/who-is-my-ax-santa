@@ -28,7 +28,7 @@ export function GuessForm({ onSaved }: { onSaved: () => void }) {
   if (!st || !g) {
     return (
       <div className="panel center">
-        <h2>🔍 내 산타 추리노트</h2>
+        <h2>내 산타 추리노트</h2>
         <p className="muted">{error || '불러오는 중…'}</p>
       </div>
     )
@@ -62,7 +62,7 @@ export function GuessForm({ onSaved }: { onSaved: () => void }) {
   return (
     <div className="panel letter guess">
       <div className="letter-head">
-        <h2>🔍 내 산타 추리노트</h2>
+        <h2>내 산타 추리노트</h2>
         <span className={`chip ${done && !dirty ? 'ok' : st.updatedAt ? 'warn' : ''}`}>
           {done ? '완성' : st.updatedAt ? '쓰는 중' : '작성 전'}
           {dirty && ' · 저장 안 된 내용 있음'}
