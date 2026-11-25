@@ -41,7 +41,7 @@ AX팀 연말 마니또 웹 서비스. 기획 문서는 `docs/`(PRD, IA, VILLAGE)
 | 3D 후처리 | @react-three/postprocessing (Bloom, Vignette) | 전구·불빛이 은은하게 번지는 저녁 분위기 |
 | API | Hono 4 | `server/app.ts` 하나. Vercel 에서는 함수(`api/index.ts`), 로컬에서는 Node 서버(`server/dev.ts`) |
 | DB | Postgres — 배포: **Neon**, 로컬: **PGlite** | 같은 SQL 을 그대로 쓴다. 로컬은 설치 없이 `.data/pglite` 파일에 저장 |
-| 실시간 | **Liveblocks** (presence) | 다른 사람의 위치·자세·꾸미기·인사를 실시간으로 |
+| 실시간 | **Cloudflare Durable Object** (`realtime/`, 무료) · 예비: Liveblocks | 다른 사람의 위치·자세·꾸미기·인사·반응, 눈덩이·로켓 이벤트 |
 | 음악 | HTML Audio + Web Audio 분석 | 📻 AX 캐롤 라디오: `src/carols/` 음원 파일(`번호 제목 - 작곡자.mp3`)을 차례로. 거리 따라 볼륨, 모두 같은 곡·같은 소절, 박자에 맞춰 무대가 반응 |
 | 서체 · 아이콘 | Sora(영문 제목) · 페이퍼로지(한글) · 서툰이야기 Poor Story(말풍선 손글씨) · Phosphor Icons | Google Fonts + 눈누 CDN, `@phosphor-icons/react` |
 | 테스트 | Vitest | 매칭, 관찰 리포트·꾸미기·질문·어워즈 규칙, 일정·미션, 썰매·눈싸움·눈굴리기·로켓 물리, 펫 길, 엘프 잔소리 |
@@ -68,7 +68,8 @@ src/
     SledHill.tsx · sledRide.ts   🛷 썰매 레이스 (그리기 · 물리)     Zones.tsx · rolling.ts  ⚔️ 눈싸움장 · ⛄ 눈굴리기
     Warmth.tsx         불빛 웅덩이·굴뚝 연기·썰매장 공중 등불   Pets.tsx · petPath.ts  고양이·강아지
     rocket.ts · game.ts · snowball.ts · emote.ts   로켓·놀이 상태·눈덩이·반응 (실시간 이벤트 포함)
-    live.tsx           Liveblocks 연결 (내 상태 보내기, 다른 사람 그리기)
+    live.tsx · rt.ts   실시간 연결 (우리 Cloudflare 서버 또는 Liveblocks, 같은 모양의 훅) · 내 상태 보내기, 다른 사람 그리기
+realtime/            🛰️ Cloudflare Worker + Durable Object 실시간 서버 (따로 배포: `cd realtime && npx wrangler deploy`)
     TextSign.tsx       간판 글씨를 캔버스로 그려 3D 판에 붙이기 (자동 줄바꿈·크기 맞춤)
   look.ts · questions.ts · awards.ts · timeline.ts · carol.ts · team.ts
                      화면과 서버가 같이 쓰는 데이터·규칙 (꾸미기 선택지, 오늘의 질문, 어워즈 키워드 칩과 상 규칙, 연대기, 캐롤, 팀 명언)
@@ -108,14 +109,27 @@ api/index.ts         Vercel 함수 진입점
 - 운영 기능은 화면과 서버 양쪽에서 운영자만 허용. 운영자도 **매칭·남의 관찰 리포트·누가 누구에 대해 무슨 말을 했는지는 볼 수 없어요**. 상장은 받은 사람별로 합친 내용으로만 만들어요.
 - 실시간(Liveblocks)에는 위치·자세·꾸미기·인사만 보내요. 이름은 서버가 넣어서 남의 이름으로 들어갈 수 없어요.
 
-## 실시간 마을 켜기 (Liveblocks)
+## 실시간 마을 (우리 실시간 서버: Cloudflare)
 
-1. https://liveblocks.io 가입 → 프로젝트 만들기 → API keys 에서 **Secret key**(`sk_…`) 복사
-2. 로컬: 프로젝트 폴더에 `.env` 파일을 만들고 `LIVEBLOCKS_SECRET_KEY=sk_…` 한 줄 넣기 → `npm run dev` 다시 실행
-3. Vercel: Environment Variables 에 같은 값 추가
+14명이 동시에 들어와도 되도록, 실시간 연결은 **Cloudflare Workers 무료 플랜의 Durable Object** 하나(`realtime/`)로 해요.
+Liveblocks 무료 플랜은 한 방 동시 접속이 적어서 바꿨어요. `REALTIME_URL`·`REALTIME_SECRET` 이 없으면 예전처럼 Liveblocks(`LIVEBLOCKS_SECRET_KEY`)를 써요.
 
-공유하는 정보는 위치·방향·자세·핫초코·꾸미기·인사뿐이고, 토큰은 우리 API(`/api/me/live-auth`)가
-로그인한 사람에게만 "읽기 + 위치 공유" 권한으로 발급해요. 방 이름은 `santa-village-{local|preview|production}` 이에요.
+- 주고받는 것: 위치·방향·자세·핫초코·꾸미기·인사·반응·체력·레벨, 눈덩이·로켓 같은 순간 이벤트. 저장하지 않아요.
+- 입장권: 우리 API(`POST /api/me/live-auth`)가 로그인한 사람에게 `REALTIME_SECRET` 으로 서명한 10분짜리 토큰을 줘요. 실시간 서버는 서명·방 이름·만료를 확인해요. 이름은 서버가 넣어서 남의 이름으로 못 들어와요.
+- 끊기면 화면이 알아서 다시 붙고(1초 → 최대 15초), 연결이 안 돼도 마을은 혼자 모드로 돌아요. 20초마다 ping, 70초 동안 조용한 연결은 서버가 정리해요.
+- 방 이름: `santa-village-{local|preview|production}`
+
+처음 한 번 배포 (클라우드플레어 무료 가입 필요, 결제 수단 필요 없음):
+
+```bash
+cd realtime && npm install
+npx wrangler login            # 브라우저에서 클라우드플레어 로그인
+npx wrangler deploy           # https://ax-santa-realtime.<계정>.workers.dev
+npx wrangler secret put REALTIME_SECRET   # 길고 무작위인 값
+```
+
+그다음 Vercel 환경변수에 `REALTIME_URL=wss://ax-santa-realtime.<계정>.workers.dev` 와 같은 `REALTIME_SECRET` 을 넣고 다시 배포.
+로컬: `realtime/.dev.vars` 와 루트 `.env` 에 같은 `REALTIME_SECRET`, `.env` 에 `REALTIME_URL=ws://localhost:8790`, 그리고 `cd realtime && npm run dev`.
 
 ## 로컬 실행
 

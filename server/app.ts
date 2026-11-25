@@ -143,20 +143,36 @@ app.get('/me', async (c) => {
     missions: (await q<{ mission: string }>(`select mission from mission_checks where player_id = $1`, [me.id])).map((r) => r.mission).filter(isMissionId),
     today: today(),
     // 실시간 마을: 키가 없으면 null → 화면은 혼자 돌아다니는 모드로 동작
-    liveRoom: process.env.LIVEBLOCKS_SECRET_KEY ? LIVE_ROOM : null,
+    liveRoom: liveKind() ? LIVE_ROOM : null,
+    liveKind: liveKind(),
   })
 })
 
-// ── 실시간 마을 (Liveblocks) ─────────────────────────────────────
-// 로그인한 사람에게만, 마을 방 하나의 "읽기 + 위치 공유" 권한만 준다.
+// ── 실시간 마을 ─────────────────────────────────────────────────
+// 로그인한 사람에게만, 마을 방 하나의 "위치 공유" 입장권을 준다.
 // 이름은 서버가 넣으므로 남의 이름으로 들어갈 수 없다. 매칭 정보는 여기로 절대 보내지 않는다.
+// REALTIME_URL + REALTIME_SECRET 이 있으면 우리 실시간 서버(Cloudflare, realtime/), 아니면 Liveblocks.
 const LIVE_ROOM = `santa-village-${process.env.VERCEL_ENV ?? 'local'}`
+const liveKind = (): 'rt' | 'liveblocks' | null =>
+  process.env.REALTIME_URL && process.env.REALTIME_SECRET ? 'rt' : process.env.LIVEBLOCKS_SECRET_KEY ? 'liveblocks' : null
+
+/** 우리 실시간 서버 입장권: base64url(JSON) + "." + HMAC-SHA256 (realtime/src/index.ts 가 확인). 10분짜리, 끊기면 새로 받는다 */
+async function rtTicket(pid: number, name: string) {
+  const { createHmac } = await import('node:crypto')
+  const body = Buffer.from(JSON.stringify({ pid, name, room: LIVE_ROOM, exp: Date.now() + 10 * 60_000 }), 'utf8').toString('base64url')
+  const sig = createHmac('sha256', process.env.REALTIME_SECRET!).update(body).digest('base64url')
+  return `${body}.${sig}`
+}
 
 app.post('/me/live-auth', async (c) => {
+  const me = c.get('me')
+  if (liveKind() === 'rt') {
+    const url = `${process.env.REALTIME_URL!.replace(/\/$/, '')}/room/${LIVE_ROOM}`
+    return c.json({ url, token: await rtTicket(me.id, me.name) })
+  }
   const secret = process.env.LIVEBLOCKS_SECRET_KEY
   if (!secret) return bad(c, '실시간 기능이 꺼져 있어요', 404)
   const { Liveblocks } = await import('@liveblocks/node')
-  const me = c.get('me')
   const session = new Liveblocks({ secret }).prepareSession(String(me.id), { userInfo: { name: me.name } })
   session.allow(LIVE_ROOM, ['*:read', 'room:presence:write'])
   const { status, body } = await session.authorize()

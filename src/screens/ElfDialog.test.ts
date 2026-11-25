@@ -10,6 +10,7 @@ const base: Me = {
   manitoOpened: true,
   profile: null,
   liveRoom: null,
+  liveKind: null,
   letter: 'submitted',
   guess: 'done',
   look: null,

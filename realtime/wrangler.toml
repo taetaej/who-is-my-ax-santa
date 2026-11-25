@@ -1,0 +1,15 @@
+# 🛰️ AX 산타 마을 실시간 서버 (Cloudflare Workers 무료 플랜 + Durable Object 하나 = 마을 방 하나)
+name = "ax-santa-realtime"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+
+[[durable_objects.bindings]]
+name = "VILLAGE"
+class_name = "Village"
+
+# 무료 플랜은 SQLite 기반 Durable Object 만 쓸 수 있다
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Village"]
+
+# 비밀 값 REALTIME_SECRET 은 여기 적지 않는다: `npx wrangler secret put REALTIME_SECRET` (로컬은 .dev.vars)

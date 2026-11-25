@@ -220,7 +220,7 @@ export function App() {
   return (
     <>
       {me?.liveRoom ? (
-        <LiveRoot room={me.liveRoom}>
+        <LiveRoot room={me.liveRoom} kind={me.liveKind ?? 'liveblocks'}>
           <Village
             me={{ id: me.id, name: me.name, look: me.look }}
             inputEnabled={inputEnabled}

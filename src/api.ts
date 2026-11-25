@@ -18,6 +18,7 @@ export type Me = {
   manitoOpened: boolean
   profile: Profile | null
   liveRoom: string | null
+  liveKind: 'rt' | 'liveblocks' | null // 실시간 연결 종류 (rt = 우리 Cloudflare 서버)
   letter: LetterStatus
   guess: GuessStatus
   look: Look | null

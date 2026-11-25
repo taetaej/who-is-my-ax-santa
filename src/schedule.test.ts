@@ -11,6 +11,7 @@ const me: Me = {
   manitoOpened: false,
   profile: null,
   liveRoom: null,
+  liveKind: null,
   letter: 'none',
   guess: 'none',
   look: null,
