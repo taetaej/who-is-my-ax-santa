@@ -1,8 +1,9 @@
 import { Canvas, useFrame } from '@react-three/fiber'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { api } from '../api'
-import { CHEEKS, COLORED_HATS, COLORS, DECOS, DOUGHS, EXTRAS, EYES, HATS, MOUTHS, defaultLook, randomLook, type Look } from '../look'
+import { CHEEKS, COLORED_HATS, COLORS, DECOS, DOUGHS, EXTRAS, EYES, HATS, MOUTHS, OUTFITS, defaultLook, randomLook, unlockLevel, type LockKind, type Look } from '../look'
+import { xpStore } from '../scene/game'
 import { Cookie, newCookieState } from '../scene/Cookie'
 
 // 쿠키 꾸미기. 처음 마을에 들어올 때 한 번 나오고, 아래 메뉴 🎨 로 언제든 바꿀 수 있다.
@@ -57,7 +58,16 @@ export function LookEditor({ seed, name, current, first, onDone }: { seed: numbe
   const [error, setError] = useState('')
   const set = (patch: Partial<Look>) => setLook((l) => ({ ...l, ...patch }))
   const hatColored = COLORED_HATS.includes(look.hat)
-  const random = () => setLook(randomLook())
+  // 🔓 내 레벨 (오른쪽 위 XP 와 같은 값). XP 를 늦게 불러오면 그때 다시 그린다
+  const [lv, setLv] = useState(xpStore.board?.mine?.lv ?? 1)
+  useEffect(() => {
+    const on = (b: typeof xpStore.board) => setLv(b?.mine?.lv ?? 1)
+    xpStore.listeners.add(on)
+    return () => void xpStore.listeners.delete(on)
+  }, [])
+  // 개발 중 확인용: localStorage 'santa-unlock-all' 이면 전부 열기 (배포 빌드에는 없음)
+  const level = import.meta.env.DEV && localStorage.getItem('santa-unlock-all') ? 99 : lv
+  const random = () => setLook(randomLook(Math.random, level))
 
   const save = async () => {
     setBusy(true)
@@ -101,15 +111,21 @@ export function LookEditor({ seed, name, current, first, onDone }: { seed: numbe
             <>
               <h3>반죽</h3>
               <div className="chips">
-                {keys(DOUGHS).map((k) => (
-                  <button key={k} className={`chip-btn ${look.dough === k ? 'on' : ''}`} onClick={() => set({ dough: k })}>
-                    <i className="dot" style={{ background: DOUGHS[k].color }} />
-                    {DOUGHS[k].label}
-                  </button>
-                ))}
+                {keys(DOUGHS).map((k) => {
+                  const need = unlockLevel('dough', k)
+                  const locked = need > level
+                  return (
+                    <button key={k} className={`chip-btn ${look.dough === k ? 'on' : ''} ${locked ? 'locked' : ''}`} disabled={locked} onClick={() => set({ dough: k })} title={locked ? `Lv.${need} 에 열려요` : undefined}>
+                      <i className="dot" style={{ background: DOUGHS[k].color }} />
+                      {DOUGHS[k].label}
+                      {locked && <em className="lock">🔒 Lv.{need}</em>}
+                    </button>
+                  )
+                })}
               </div>
+              <Pick title="옷" options={OUTFITS} value={look.outfit} onPick={(outfit) => set({ outfit })} lock="outfit" level={level} />
               <Pick title="배 장식" options={DECOS} value={look.deco} onPick={(deco) => set({ deco })} />
-              <h3>목도리 색</h3>
+              <h3>목도리 색 (니트·패딩도 이 색)</h3>
               <Swatches value={look.scarf} onPick={(c) => set({ scarf: c })} />
             </>
           )}
@@ -124,7 +140,7 @@ export function LookEditor({ seed, name, current, first, onDone }: { seed: numbe
 
           {tab === 'head' && (
             <>
-              <Pick title="머리" options={HATS} value={look.hat} onPick={(hat) => set({ hat })} />
+              <Pick title="머리" options={HATS} value={look.hat} onPick={(hat) => set({ hat })} lock="hat" level={level} />
               {hatColored && (
                 <>
                   <h3>{HATS[look.hat].replace(/^\S+\s/, '')} 색</h3>
@@ -136,7 +152,7 @@ export function LookEditor({ seed, name, current, first, onDone }: { seed: numbe
 
           {tab === 'extra' && (
             <>
-              <Pick title="소품" options={EXTRAS} value={look.extra} onPick={(extra) => set({ extra })} />
+              <Pick title="소품" options={EXTRAS} value={look.extra} onPick={(extra) => set({ extra })} lock="extra" level={level} />
               {(look.extra === 'mittens' || look.extra === 'cape') && (
                 <>
                   <h3>{look.extra === 'mittens' ? '장갑' : '망토'} 색 (목도리와 같은 색)</h3>
@@ -161,16 +177,36 @@ export function LookEditor({ seed, name, current, first, onDone }: { seed: numbe
   )
 }
 
-function Pick<K extends string>({ title, options, value, onPick }: { title: string; options: Record<K, string>; value: K; onPick: (k: K) => void }) {
+/** 고르기 칸. lock 이 있으면 레벨이 모자란 것은 🔒 Lv.N 으로 잠가 둔다 */
+function Pick<K extends string>({
+  title,
+  options,
+  value,
+  onPick,
+  lock,
+  level = 1,
+}: {
+  title: string
+  options: Record<K, string>
+  value: K
+  onPick: (k: K) => void
+  lock?: LockKind
+  level?: number
+}) {
   return (
     <>
       <h3>{title}</h3>
       <div className="chips">
-        {keys(options).map((k) => (
-          <button key={k} className={`chip-btn ${value === k ? 'on' : ''}`} onClick={() => onPick(k)}>
-            {options[k]}
-          </button>
-        ))}
+        {keys(options).map((k) => {
+          const need = lock ? unlockLevel(lock, k) : 1
+          const locked = need > level
+          return (
+            <button key={k} className={`chip-btn ${value === k ? 'on' : ''} ${locked ? 'locked' : ''}`} disabled={locked} onClick={() => onPick(k)} title={locked ? `Lv.${need} 에 열려요` : undefined}>
+              {options[k]}
+              {locked && <em className="lock">🔒 Lv.{need}</em>}
+            </button>
+          )
+        })}
       </div>
     </>
   )

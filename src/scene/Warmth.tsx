@@ -2,7 +2,7 @@ import { useFrame } from '@react-three/fiber'
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { TIMELINE } from '../timeline'
-import { ARCH_Z, EXHIBIT, LANTERNS, LAMP_ANGLES, LAMP_R, PARTY, SLED, SPOT, ZONE_PATHS, at, exhibitAngle, groundY, polar, sledPoint } from './world'
+import { ARCH_Z, ARENA, EXHIBIT, LANTERNS, LAMP_ANGLES, LAMP_R, PARTY, SLED, SPOT, ZONE_PATHS, at, exhibitAngle, groundY, polar, sledPoint } from './world'
 
 // 🕯️ 마을에 온기: 추운 밤 눈밭 위로 따뜻한 불빛이 고인다.
 //  · GlowPools: 등불·창문·모닥불·트리 아래 바닥에 주황빛 웅덩이 (빛을 더하는 평면 한 묶음)
@@ -75,6 +75,7 @@ export const POOLS: Pool[] = [
   { ...front(SPOT.church, 3.2), r: 3.4, k: 0.8 }, // ⛪
   { x: PARTY.x, z: PARTY.z, r: 2.8, k: 0.7 }, // 🎂 파티
   { x: 0, z: ARCH_Z + 0.4, r: 3.4, k: 0.8 }, // 🎄 입구 아치 아래
+  { x: ARENA.x, z: ARENA.z, r: ARENA.r + 1, k: 0.35, hue: 'gold' }, // ⚔️ 조명탑이 비추는 눈싸움장
   ...TIMELINE.map((_, i) => ({ ...xz(polar(exhibitAngle(i, TIMELINE.length), EXHIBIT.r - 0.7)), r: 1.5, k: 0.6 })), // 📜 연대기 패널 앞
 ]
 function xz(p: [number, number, number]) {

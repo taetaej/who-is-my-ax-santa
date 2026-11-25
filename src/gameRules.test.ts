@@ -15,15 +15,16 @@ describe('⭐ 레벨', () => {
 
 describe('⚔️ 체력', () => {
   it('세게 모을수록 아프고, 3~7번 맞으면 기절', () => {
-    expect(damageOf(0)).toBe(15)
-    expect(damageOf(1)).toBe(40)
-    expect(Math.ceil(HP_MAX / damageOf(1))).toBe(3)
-    expect(Math.ceil(HP_MAX / damageOf(0))).toBe(7)
+    expect(damageOf(0)).toBe(25)
+    expect(damageOf(1)).toBe(55)
+    expect(Math.ceil(HP_MAX / damageOf(1))).toBe(2) // 꾹 모은 눈덩이 두 방
+    expect(Math.ceil(HP_MAX / damageOf(0))).toBe(4) // 톡톡 네 방
+    expect(damageOf(1, true)).toBe(110) // 💥 왕눈덩이 한 방
   })
   it('처음 기절은 15초, 10분 안에 또 기절하면 1분', () => {
-    expect(koSecs(1)).toBe(15)
-    expect(koSecs(2)).toBe(60)
-    expect(koSecs(5)).toBe(60)
+    expect(koSecs(1)).toBe(6)
+    expect(koSecs(2)).toBe(15)
+    expect(koSecs(5)).toBe(15)
   })
 })
 

@@ -233,7 +233,9 @@ app.put('/me/missions/:id', async (c) => {
 // 쿠키 꾸미기. 정해진 선택지만 저장한다
 app.put('/me/look', async (c) => {
   const me = c.get('me')
-  const look = cleanLook(await c.req.json(), me.id)
+  // 🔓 레벨이 안 된 꾸미기는 저장하지 않는다 (기본값으로 바뀐다)
+  const level = (await xpBoard(me.id)).mine?.lv ?? 1
+  const look = cleanLook(await c.req.json(), me.id, level)
   const q = await db()
   await q(`update players set look = $2 where id = $1`, [me.id, JSON.stringify(look)])
   return c.json(look)
@@ -478,6 +480,18 @@ app.post('/records/:kind', async (c) => {
   )
   const newBest = !before || v > Number(before.best) + 1e-6
   return c.json({ ...(await recordBoard(kind, me.id)), value: v, newBest })
+})
+
+// ⚔️ 오늘의 눈싸움 왕: 오늘 기절시킨 수 (놀이 XP 'ko' 를 한 번에 주는 양으로 나눈 값, 하루 상한까지)
+app.use('/arena/*', requireLogin)
+app.get('/arena/today', async (c) => {
+  const q = await db()
+  const rows = await q<{ id: number; name: string; xp: number }>(
+    `select p.id, p.name, x.xp from xp_daily x join players p on p.id = x.player_id where x.kind = 'ko' and x.day = $1 and x.xp > 0 order by x.xp desc, p.name limit 5`,
+    [kstDay()],
+  )
+  const me = c.get('me').id
+  return c.json({ top: rows.map((r, i) => ({ rank: i + 1, name: r.name, kos: Math.round(Number(r.xp) / XP_GAIN.ko), me: r.id === me })) })
 })
 
 // ── ⭐ XP · 레벨 ─────────────────────────────────────────────

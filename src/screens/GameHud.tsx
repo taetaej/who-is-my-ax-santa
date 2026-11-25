@@ -2,6 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { AMMO_MAX, HP_MAX, XP_GAIN, XP_LABEL, type XpKind } from '../gameRules'
 import { game, xpStore } from '../scene/game'
+import { POWER_INFO, buff, buffOn, nowSec } from '../scene/powerups'
+import { DOUGHS, EXTRAS, HATS, OUTFITS, unlocksAt } from '../look'
+
+/** 이 레벨에 열리는 꾸미기 이름들 */
+const unlockNames = (lv: number) =>
+  unlocksAt(lv).map((k) => {
+    const [kind, key] = k.split(':')
+    const label = kind === 'hat' ? HATS[key as keyof typeof HATS] : kind === 'extra' ? EXTRAS[key as keyof typeof EXTRAS] : kind === 'outfit' ? OUTFITS[key as keyof typeof OUTFITS] : DOUGHS[key as keyof typeof DOUGHS]?.label
+    return typeof label === 'string' ? label : key
+  })
+import { snow } from '../scene/snowball'
 
 // 🎮 놀이 화면: ⭐ 레벨·XP 바 (오른쪽 위), ❤️ 체력·⚪ 눈덩이·💪 모으기 (눈싸움할 때), 😵 기절 화면, ⛄ 눈굴리기 시계, 레벨업 축하
 
@@ -15,6 +26,7 @@ type View = {
   koBy: string
   roll: { left: number; cm: number } | null
   mash: { power: number; left: number; taps: number } | null
+  buff: { icon: string; name: string; left: number; shots: number } | null
 }
 
 const read = (): View => ({
@@ -27,6 +39,10 @@ const read = (): View => ({
   koBy: game.koBy,
   roll: game.roll ? { left: Math.ceil(game.roll.left), cm: game.roll.cm } : null,
   mash: game.sledCharge ? { ...game.sledCharge } : null,
+  buff:
+    buff.kind && buffOn(buff.kind)
+      ? { icon: POWER_INFO[buff.kind].icon, name: POWER_INFO[buff.kind].name, left: Math.ceil(buff.until - nowSec()), shots: buff.shots }
+      : null,
 })
 
 export function GameHud({ show }: { show: boolean }) {
@@ -35,6 +51,18 @@ export function GameHud({ show }: { show: boolean }) {
   const [gains, setGains] = useState<{ id: number; text: string }[]>([])
   const [levelUp, setLevelUp] = useState<number | null>(null)
   const gid = useRef(0)
+  // ⚔️ 눈싸움 소식판: 기절·연속 KO·아이템 (5초 뒤 사라짐, 최대 4줄)
+  const [feed, setFeed] = useState<{ id: number; text: string }[]>([])
+  useEffect(() => {
+    snow.feed = (text) => {
+      const id = ++gid.current
+      setFeed((f) => [...f.slice(-3), { id, text }])
+      setTimeout(() => setFeed((f) => f.filter((x) => x.id !== id)), 5000)
+    }
+    return () => {
+      snow.feed = null
+    }
+  }, [])
 
   // 놀이 상태는 10번/초로 읽는다 (3D 장면이 매 프레임 바꾼다)
   useEffect(() => {
@@ -53,7 +81,7 @@ export function GameHud({ show }: { show: boolean }) {
       const now = b.mine?.lv
       if (before && now && now > before) {
         setLevelUp(now)
-        setTimeout(() => alive && setLevelUp(null), 2600)
+        setTimeout(() => alive && setLevelUp(null), 4200)
       }
     }
     const load = () => void api.xp().then(apply).catch(() => {})
@@ -113,6 +141,11 @@ export function GameHud({ show }: { show: boolean }) {
               {Array.from({ length: AMMO_MAX }, (_, i) => (i < v.ammo ? '⚪' : '◌')).join('')}
             </span>
           )}
+          {v.buff && (
+            <span className="buff">
+              {v.buff.icon} {v.buff.name} {v.buff.shots > 0 ? `×${v.buff.shots}` : `${v.buff.left}초`}
+            </span>
+          )}
           {v.charge >= 0 && (
             <span className="charge">
               💪
@@ -121,6 +154,13 @@ export function GameHud({ show }: { show: boolean }) {
               </span>
             </span>
           )}
+        </div>
+      )}
+      {show && feed.length > 0 && (
+        <div className="kill-feed" role="status">
+          {feed.map((f) => (
+            <span key={f.id}>{f.text}</span>
+          ))}
         </div>
       )}
       {show && v.roll && (
@@ -152,6 +192,7 @@ export function GameHud({ show }: { show: boolean }) {
         <div className="level-up" role="status">
           <span>LEVEL UP!</span>
           <b>⭐ Lv.{levelUp}</b>
+          {unlockNames(levelUp).length > 0 && <em>🔓 새 꾸미기: {unlockNames(levelUp).join(', ')} · 🎨 꾸미기에서 입어 보세요</em>}
         </div>
       )}
     </>

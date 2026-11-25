@@ -134,6 +134,7 @@ export const api = {
   manito: () => call<Manito>('GET', '/me/manito'),
   openManito: () => call('POST', '/me/manito/open'),
   saveLook: (look: Look) => call<Look>('PUT', '/me/look', look),
+  arenaToday: () => call<{ top: { rank: number; name: string; kos: number; me: boolean }[] }>('GET', '/arena/today'),
   rocket: () => call<{ wishes: number }>('GET', '/me/rocket'),
   rocketWish: () => call<{ wishes: number }>('POST', '/me/rocket'),
   photo: () => call<{ image: string | null; takenAt: string | null }>('GET', '/me/photo'),

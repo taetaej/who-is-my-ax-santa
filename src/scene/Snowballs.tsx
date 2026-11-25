@@ -31,7 +31,7 @@ export function Snowballs() {
       bm.count = Math.min(snow.balls.length, MAX_BALLS)
       snow.balls.slice(-MAX_BALLS).forEach((b, i) => {
         tmp.position.set(b.x, b.y, b.z)
-        tmp.scale.setScalar(1)
+        tmp.scale.setScalar(b.big ? 2.2 : 1) // 💥 왕눈덩이
         tmp.updateMatrix()
         bm.setMatrixAt(i, tmp.matrix)
       })

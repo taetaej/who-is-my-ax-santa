@@ -43,7 +43,7 @@ describe('☃️ 눈싸움', () => {
     spawnBall(FIELD.x, FIELD.z, face(FIELD.x, FIELD.z, FIELD.x + 2, FIELD.z), 7, '민지', false)
     run(1)
     expect(said[0]).toContain('민지')
-    expect(sent).toContainEqual({ k: 'hit', by: 7, name: '수현', dmg: 15, ko: false })
+    expect(sent).toContainEqual({ k: 'hit', by: 7, byName: '민지', name: '수현', dmg: 25, ko: false })
   })
 
   it('내가 던진 공이 맞았다는 소식을 받으면 "명중!"', () => {
@@ -91,5 +91,19 @@ describe('☃️ 눈싸움', () => {
     run(1)
     expect(sent).toEqual([])
     snow.hurt = null
+  })
+
+  it('⚔️ 기절 소식은 모두의 소식판에, 아이템을 누가 먹으면 모두의 화면에서 사라진다', async () => {
+    const { padState, PADS } = await import('./powerups')
+    const feed: string[] = []
+    snow.feed = (t) => feed.push(t)
+    receive({ k: 'hit', by: 9, byName: '민지', name: '수현', dmg: 55, ko: true })
+    expect(feed.at(-1)).toContain('민지 → 수현 KO')
+    const now = 1_796_000_000 + 5
+    const st = padState(0, now)
+    receive({ k: 'pick', pad: 0, cycle: st.cycle, name: '민지', kind: st.kind })
+    expect(padState(0, now).visible).toBe(false)
+    expect(PADS).toHaveLength(4)
+    snow.feed = null
   })
 })

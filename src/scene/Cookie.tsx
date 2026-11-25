@@ -52,6 +52,16 @@ const LENS = new THREE.MeshStandardMaterial({ color: '#1d1d22', roughness: 0.3, 
 const HEART = new THREE.MeshStandardMaterial({ color: '#e0324a', roughness: 0.35 })
 const CANDY = new THREE.MeshStandardMaterial({ color: '#d8252f', roughness: 0.35 })
 const PINK = new THREE.MeshStandardMaterial({ color: '#f2a0a8', roughness: 0.6 })
+// 🔓 레벨 꾸미기 재질
+const SANTA_RED = new THREE.MeshStandardMaterial({ color: '#c62a24', roughness: 0.7 })
+const TUX = new THREE.MeshStandardMaterial({ color: '#22202e', roughness: 0.55 })
+const BELT = new THREE.MeshStandardMaterial({ color: '#1c1a24', roughness: 0.5 })
+const BOLT = new THREE.MeshStandardMaterial({ color: '#ffd23f', roughness: 0.55 })
+const BOLT_TIP = new THREE.MeshStandardMaterial({ color: '#2a2230', roughness: 0.6 })
+const GLASS = new THREE.MeshStandardMaterial({ color: '#cfe9ff', roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.28, depthWrite: false })
+const WING = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.5, emissive: '#dfe8ff', emissiveIntensity: 0.25 })
+const METAL = new THREE.MeshStandardMaterial({ color: '#c9ced9', roughness: 0.3, metalness: 0.8 })
+const FLAME = new THREE.MeshStandardMaterial({ color: '#ffd27a', emissive: '#ff7a1a', emissiveIntensity: 2.5, toneMapped: false })
 const BLUSH = new THREE.MeshStandardMaterial({ color: '#f07f86', roughness: 0.7, transparent: true, opacity: 0.85 })
 const FRECKLE = new THREE.MeshStandardMaterial({ color: '#7a3d1c', roughness: 0.7 })
 const SHINE = new THREE.MeshBasicMaterial({ color: '#ffffff' })
@@ -433,6 +443,86 @@ export function Cookie({
             <octahedronGeometry args={[0.05, 0]} />
           </mesh>
         )}
+        {/* 👕 옷 (Lv 로 열림): 몸통을 살짝 크게 감싼다 */}
+        {look.outfit !== 'none' && (
+          <group position={[0, BODY_Y, 0]}>
+            <mesh
+              material={look.outfit === 'santa' ? SANTA_RED : look.outfit === 'tux' ? TUX : look.scarf}
+              scale={look.outfit === 'padding' ? [1.14, 1.0, BODY_Z * 1.16] : [1.06, 0.97, BODY_Z * 1.07]}
+              castShadow
+            >
+              <sphereGeometry args={[BODY_R, 22, 18]} />
+            </mesh>
+            {look.outfit === 'knit' && (
+              <>
+                {[-0.06, 0.06].map((y) => (
+                  <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[1, BODY_Z * 1.08, 1]} material={ICING}>
+                    <torusGeometry args={[BODY_R * 1.02, 0.012, 6, 28]} />
+                  </mesh>
+                ))}
+                <mesh position={[0, 0, onBody(0, 0) + 0.02]} rotation={[0, 0, Math.PI / 4]} scale={[1, 1, 0.3]} material={ICING}>
+                  <octahedronGeometry args={[0.04, 0]} />
+                </mesh>
+              </>
+            )}
+            {look.outfit === 'padding' &&
+              [-0.1, -0.03, 0.04, 0.11].map((y) => (
+                <mesh key={y} position={[0, y, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[1, BODY_Z * 1.16, 1]} material={look.scarf}>
+                  <torusGeometry args={[BODY_R * Math.cos(y * 3.2) * 1.12, 0.03, 8, 28]} />
+                </mesh>
+              ))}
+            {look.outfit === 'santa' && (
+              <>
+                <mesh position={[0, -0.02, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[1, BODY_Z * 1.1, 1]} material={BELT}>
+                  <torusGeometry args={[BODY_R * 1.04, 0.02, 6, 28]} />
+                </mesh>
+                <mesh position={[0, -0.02, onBody(0, -0.02) + 0.03]} material={GOLD}>
+                  <boxGeometry args={[0.06, 0.045, 0.015]} />
+                </mesh>
+                <mesh position={[0, -0.15, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[1, BODY_Z * 1.05, 1]} material={ICING}>
+                  <torusGeometry args={[BODY_R * 0.78, 0.035, 8, 24]} />
+                </mesh>
+              </>
+            )}
+            {look.outfit === 'tux' && (
+              <>
+                <mesh position={[0, 0.01, onBody(0, 0.01) - 0.005]} scale={[0.42, 0.85, 0.2]} material={ICING}>
+                  <sphereGeometry args={[BODY_R, 14, 12]} />
+                </mesh>
+                {[-1, 1].map((sx) => (
+                  <mesh key={sx} position={[sx * 0.025, NECK_Y - BODY_Y - 0.06, onBody(0, 0.12) + 0.03]} rotation={[0, 0, sx * 0.5]} material={CANDY}>
+                    <coneGeometry args={[0.026, 0.05, 4]} />
+                  </mesh>
+                ))}
+              </>
+            )}
+          </group>
+        )}
+        {/* 🪽 천사 날개 (Lv.5) */}
+        {look.extra === 'wings' &&
+          [-1, 1].map((sx) => (
+            <mesh key={sx} position={[sx * 0.15, BODY_Y + 0.1, -BODY_R * BODY_Z - 0.04]} rotation={[0.2, sx * 0.5, sx * 0.5]} scale={[0.16, 0.24, 0.03]} material={WING} castShadow>
+              <sphereGeometry args={[1, 14, 10]} />
+            </mesh>
+          ))}
+        {/* 🚀 WithSet 제트팩 (Lv.9): 등 뒤 은빛 통 둘 + 불꽃 */}
+        {look.extra === 'jetpack' && (
+          <group position={[0, BODY_Y + 0.04, -BODY_R * BODY_Z - 0.05]}>
+            {[-1, 1].map((sx) => (
+              <group key={sx} position={[sx * 0.06, 0, 0]}>
+                <mesh material={METAL} castShadow>
+                  <cylinderGeometry args={[0.042, 0.042, 0.2, 12]} />
+                </mesh>
+                <mesh position={[0, 0.12, 0]} material={CANDY}>
+                  <coneGeometry args={[0.042, 0.06, 12]} />
+                </mesh>
+                <mesh position={[0, -0.14, 0]} rotation={[Math.PI, 0, 0]} material={FLAME}>
+                  <coneGeometry args={[0.03, 0.08, 10]} />
+                </mesh>
+              </group>
+            ))}
+          </group>
+        )}
         {look.extra === 'cape' && (
           <mesh position={[0, BODY_Y + 0.02, -BODY_R * BODY_Z - 0.015]} rotation={[0.12, 0, 0]} material={look.scarf} castShadow>
             <boxGeometry args={[0.34, 0.36, 0.02]} />
@@ -564,6 +654,38 @@ export function Cookie({
                     </mesh>
                   </group>
                 ))}
+              </group>
+            )}
+            {/* ⚡ 번개 귀 머리띠 (Lv.3): 노란 머리띠에 끝이 까만 긴 귀 */}
+            {look.hat === 'bolt' && (
+              <group>
+                <mesh position={[0, 0.02, 0]} material={BOLT}>
+                  <torusGeometry args={[0.176, 0.014, 6, 20, Math.PI]} />
+                </mesh>
+                {[-1, 1].map((sx) => (
+                  <group key={sx} position={[sx * 0.12, 0.2, 0]} rotation={[0, 0, -sx * 0.42]}>
+                    <mesh material={BOLT} scale={[1, 1, 0.5]} castShadow>
+                      <coneGeometry args={[0.07, 0.32, 10]} />
+                    </mesh>
+                    <mesh position={[0, 0.115, 0]} material={BOLT_TIP} scale={[1, 1, 0.52]}>
+                      <coneGeometry args={[0.033, 0.09, 10]} />
+                    </mesh>
+                  </group>
+                ))}
+              </group>
+            )}
+            {/* 🧑‍🚀 우주 헬멧 (Lv.7): 머리를 감싸는 유리 방울 + 흰 목테 */}
+            {look.hat === 'astro' && (
+              <group>
+                <mesh position={[0, -0.01, 0]} material={GLASS}>
+                  <sphereGeometry args={[0.235, 24, 18]} />
+                </mesh>
+                <mesh position={[0, -0.2, 0]} rotation={[Math.PI / 2, 0, 0]} material={ICING}>
+                  <torusGeometry args={[0.15, 0.03, 8, 24]} />
+                </mesh>
+                <mesh position={[0.17, 0.08, 0]} material={CANDY}>
+                  <sphereGeometry args={[0.022, 8, 6]} />
+                </mesh>
               </group>
             )}
             {look.hat === 'crown' && (

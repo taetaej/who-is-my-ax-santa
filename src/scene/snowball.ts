@@ -9,6 +9,7 @@
 
 import { damageOf } from '../gameRules'
 import { emotes } from './emote'
+import { markPicked, POWER_INFO, type PowerKind } from './powerups'
 import { launch } from './rocket'
 import type { CookieState } from './Cookie'
 import { FORTS, SPOT, addCircle, at, inArena } from './world'
@@ -36,11 +37,13 @@ export const TARGETS = [-1.0, 0, 1.0].map((d) => {
 })
 for (const t of TARGETS) addCircle(t.x, t.z, 0.45)
 
-export type Ball = { owner: number; ownerName: string; mine: boolean; power: number; x: number; y: number; z: number; vx: number; vy: number; vz: number; done: boolean }
+export type Ball = { owner: number; ownerName: string; mine: boolean; power: number; big: boolean; x: number; y: number; z: number; vx: number; vy: number; vz: number; done: boolean }
 export type Splat = { x: number; y: number; z: number; age: number }
 export type SnowMsg =
-  | { k: 'ball'; x: number; z: number; rot: number; by: number; name: string; p?: number }
-  | { k: 'hit'; by: number; name: string; dmg?: number; ko?: boolean }
+  | { k: 'ball'; x: number; z: number; rot: number; by: number; name: string; p?: number; big?: boolean }
+  | { k: 'hit'; by: number; name: string; dmg?: number; ko?: boolean; byName?: string } // name = 맞은 사람, byName = 던진 사람
+  | { k: 'pick'; pad: number; cycle: number; name: string; kind: PowerKind } // ⚔️ 아이템을 누가 먹었다
+  | { k: 'streak'; name: string; n: number } // 🔥 연속 기절시킴
   | { k: 'revive'; to: number; by: number; name: string }
   | { k: 'rocket'; name: string } // 🚀 누가 WithSet 호를 쐈다 (src/scene/rocket.ts)
 export type Body = { id: number; name: string; s: CookieState }
@@ -57,6 +60,8 @@ export const snow = {
   onHit: null as (() => void) | null,
   /** 내가 맞았다: 체력을 깎고 기절했는지 알려 준다. null 을 돌려주면 지금은 안 맞는다 (기절 중·막 일어남) */
   hurt: null as ((dmg: number, by: { id: number; name: string }) => { ko: boolean } | null) | null,
+  /** ⚔️ 눈싸움 소식 (기절·연속 KO·아이템): 화면 위 소식판에 한 줄 */
+  feed: null as ((text: string) => void) | null,
   /** 내가 던진 게 맞았다 (XP) */
   scored: null as ((ko: boolean) => void) | null,
   /** 동료가 나를 깨웠다 */
@@ -64,29 +69,37 @@ export const snow = {
 }
 
 /** 눈덩이 하나를 띄운다 (내가 던진 것 또는 방송으로 받은 것) */
-export function spawnBall(x: number, z: number, rot: number, owner: number, ownerName: string, mine: boolean, power = 0) {
+export function spawnBall(x: number, z: number, rot: number, owner: number, ownerName: string, mine: boolean, power = 0, big = false) {
   const dx = Math.sin(rot)
   const dz = Math.cos(rot)
   const sp = SPEED * (0.85 + 0.55 * power)
-  snow.balls.push({ owner, ownerName, mine, power, x: x + dx * 0.35, y: 1.0, z: z + dz * 0.35, vx: dx * sp, vy: LIFT * (0.7 + 0.35 * power), vz: dz * sp, done: false })
+  snow.balls.push({ owner, ownerName, mine, power, big, x: x + dx * 0.35, y: 1.0, z: z + dz * 0.35, vx: dx * sp, vy: LIFT * (0.7 + 0.35 * power), vz: dz * sp, done: false })
   if (snow.balls.length > 40) snow.balls.shift()
 }
 
 /** 내가 던진다: 화면에 띄우고 실시간이면 방송 */
-export function throwBall(me: Body, power = 0) {
+export function throwBall(me: Body, power = 0, big = false) {
   const { x, z, rot } = me.s
   const p = Math.round(Math.max(0, Math.min(1, power)) * 100) / 100
-  spawnBall(x, z, rot, me.id, me.name, true, p)
-  snow.send?.({ k: 'ball', x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, rot: Math.round(rot * 1000) / 1000, by: me.id, name: me.name, p })
+  spawnBall(x, z, rot, me.id, me.name, true, p, big)
+  snow.send?.({ k: 'ball', x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, rot: Math.round(rot * 1000) / 1000, by: me.id, name: me.name, p, ...(big ? { big } : {}) })
 }
 
 /** 방송으로 받은 메시지 */
 export function receive(m: SnowMsg) {
   if (m.k === 'ball') {
-    if (m.by !== snow.me?.id) spawnBall(m.x, m.z, m.rot, m.by, m.name, false, m.p ?? 0)
-  } else if (m.k === 'hit' && m.by === snow.me?.id) {
-    snow.say?.(m.ko ? `KO! 🏆 ${m.name}님 기절 😵` : `명중! 🎯 ${m.name}님`)
-    snow.scored?.(!!m.ko)
+    if (m.by !== snow.me?.id) spawnBall(m.x, m.z, m.rot, m.by, m.name, false, m.p ?? 0, !!m.big)
+  } else if (m.k === 'hit') {
+    if (m.by === snow.me?.id) {
+      snow.say?.(m.ko ? `KO! 🏆 ${m.name}님 기절 😵` : `명중! 🎯 ${m.name}님`)
+      snow.scored?.(!!m.ko)
+    }
+    if (m.ko) snow.feed?.(`💥 ${m.byName ?? '누군가'} → ${m.name} KO!`)
+  } else if (m.k === 'pick') {
+    markPicked(m.pad, m.cycle)
+    snow.feed?.(`${POWER_INFO[m.kind].icon} ${m.name}님이 ${POWER_INFO[m.kind].name} 획득!`)
+  } else if (m.k === 'streak') {
+    snow.feed?.(`🔥 ${m.name}님 ${m.n >= 3 ? `${m.n}연속` : '더블'} KO!!`)
   } else if (m.k === 'rocket') {
     if (launch()) emotes.toast?.(`🚀 ${m.name}님이 2027 WithSet 호를 쐈어요! 가보자고!!`)
   } else if (m.k === 'revive' && m.to === snow.me?.id) {
@@ -142,13 +155,14 @@ export function stepSnow(dt: number) {
     if (me && !b.mine && b.owner !== me.id && hits(b, me.s.x, me.s.z, BODY_R, BODY_H + me.s.y)) {
       b.done = true
       splat(b.x, b.y, b.z)
-      const dmg = damageOf(b.power)
+      const dmg = damageOf(b.power, b.big)
       const res = snow.hurt ? snow.hurt(dmg, { id: b.owner, name: b.ownerName }) : { ko: false }
       if (!res) continue // 기절 중이거나 막 일어났다: 맞아도 아무 일 없음
       snow.hitAt = performance.now()
       snow.onHit?.()
       if (!res.ko) snow.say?.(`퍽! 🥶 ${b.ownerName}님 눈덩이 -${dmg}`)
-      snow.send?.({ k: 'hit', by: b.owner, name: me.name, dmg, ko: res.ko })
+      snow.send?.({ k: 'hit', by: b.owner, byName: b.ownerName, name: me.name, dmg, ko: res.ko })
+      if (res.ko) snow.feed?.(`💥 ${b.ownerName} → ${me.name} KO!`)
       continue
     }
     // 다른 사람 (보이기만: 맞았는지는 그 사람 화면이 정한다)

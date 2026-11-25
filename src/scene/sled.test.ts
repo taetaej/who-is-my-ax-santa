@@ -19,6 +19,9 @@ describe('🛷 눈썰매장', () => {
     expect(actionAt(g.x, g.z)?.action).toBe('sled')
     const p = resolve(g.x, g.z)
     expect(Math.hypot(p.x - g.x, p.z - g.z)).toBeLessThan(0.01)
+    // 계단 바로 앞에 서서 눌러도 탄다 (걸어서 갈 수 있는 자리)
+    const front = resolve(sledPoint(SLED.len + 0.9, 5.75).x, sledPoint(SLED.len + 0.9, 5.75).z)
+    expect(actionAt(front.x, front.z)?.action).toBe('sled')
   })
   it('언덕은 걸어서 못 올라간다', () => {
     const mid = sledPoint(SLED.len * 0.5)

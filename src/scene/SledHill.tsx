@@ -5,7 +5,7 @@ import { M } from './materials'
 import { Snowman } from './props'
 import { SpotLabel } from './Spots'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { SLED, SLED_OBSTACLES, SLED_ROT, STAIRS, groundY, sledPoint, sledProfile, stairY } from './world'
+import { BRIDGE_Y, SLED, SLED_OBSTACLES, SLED_ROT, STAIRS, groundY, sledPoint, sledProfile, snowHeight, stairY } from './world'
 
 // 🛷 AX 썰매 레이스: 넓은 산(네 줄), 출발 현수막, 범퍼 눈더미, 점프대, 눈사람·선물상자 숲, 거리 표지판, 깃발, 타는 곳. 높이 계산은 world.ts 의 groundY 와 같다.
 
@@ -79,7 +79,7 @@ function Stairs() {
       }
     }
     // 꼭대기 나무 다리 (계단 위 → 출발선)
-    steps.push(slab(-SLED.deck, STAIRS.to + 0.4, SLED.track, STAIRS.w + STAIRS.half, SLED.h - 0.18, SLED.h))
+    steps.push(slab(-SLED.deck, STAIRS.to + 0.4, SLED.track, STAIRS.w + STAIRS.half, BRIDGE_Y - 0.2, BRIDGE_Y))
     // 다리 밑 기둥
     for (const w of [SLED.track + 1.2, STAIRS.w]) for (const s of [-SLED.deck + 0.15, STAIRS.to + 0.25]) rails.push(slab(s - 0.08, s + 0.08, w - 0.08, w + 0.08, 0, SLED.h))
     // 손잡이: 계단 양옆으로 기둥과 난간
@@ -106,7 +106,7 @@ function Stairs() {
       }
     }
     // 다리 바깥쪽 난간
-    rails.push(slab(-SLED.deck, STAIRS.to + 0.4, STAIRS.w + STAIRS.half - 0.05, STAIRS.w + STAIRS.half, SLED.h, SLED.h + 0.7))
+    rails.push(slab(-SLED.deck, STAIRS.to + 0.4, STAIRS.w + STAIRS.half - 0.05, STAIRS.w + STAIRS.half, BRIDGE_Y, BRIDGE_Y + 0.7))
     return { steps: mergeGeometries(steps.map((g) => g.toNonIndexed()))!, rails: mergeGeometries(rails.map((g) => (g.index ? g.toNonIndexed() : g)))! }
   }, [])
   return (
@@ -129,7 +129,7 @@ function useHillGeometry(from: number, to: number, w0: number, w1: number, lift 
       const s = from + (to - from) * v
       const w = w0 + (w1 - w0) * u
       const p = sledPoint(s, w)
-      pos.setXYZ(i, p.x, groundY(p.x, p.z) + lift, p.z)
+      pos.setXYZ(i, p.x, snowHeight(p.x, p.z) + lift, p.z)
     }
     g.computeVertexNormals() // 옆(w) × 앞(s) 순서라 겉면이 위를 본다
     return g

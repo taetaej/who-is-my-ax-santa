@@ -312,7 +312,7 @@ export function Village({
         <Forest />
         {/* 옛 울타리 자리의 등불 기둥 · 놀이 구역 돌길 · 로켓 · 망원경 · 수정 */}
         <Decor />
-        <Arena />
+        <Arena boards={!!me} />
         <RollField boards={!!me} me={myState} />
         {me && <XpBoard position={[4.6, 0, 19.6]} rotation={-0.25} />}
 

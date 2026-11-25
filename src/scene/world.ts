@@ -177,13 +177,23 @@ export function stairY(s: number): number {
   if (k >= 1) return SLED.h
   return (SLED.h * Math.ceil(k * STAIRS.steps)) / STAIRS.steps
 }
+/** 꼭대기 나무 다리 윗면: 눈 언덕 윗면(SLED.h)보다 살짝 높게 (같은 높이면 겹쳐서 지글거린다) */
+export const BRIDGE_Y = SLED.h + 0.06
 const onStairs = (s: number, w: number) => Math.abs(w - STAIRS.w) < STAIRS.half && s <= STAIRS.from && s >= STAIRS.to
 const onBridge = (s: number, w: number) => s >= -SLED.deck && s <= STAIRS.to + 0.4 && w >= SLED.track && w <= STAIRS.w + STAIRS.half
 /** 땅 높이 (산·점프대·계단 위면 그 높이, 아니면 0) */
 export function groundY(x: number, z: number): number {
   const { s, w } = sledLocal(x, z)
-  if (onBridge(s, w)) return SLED.h
+  if (onBridge(s, w)) return BRIDGE_Y
   if (onStairs(s, w)) return stairY(s)
+  return snowY(s, w)
+}
+/** 눈 언덕 겉면 높이 (다리·계단은 빼고). 언덕 메시는 이걸로 만든다: groundY 로 만들면 다리 자리의 눈이 다리 높이로 솟아 겹친다 */
+export function snowHeight(x: number, z: number): number {
+  const { s, w } = sledLocal(x, z)
+  return snowY(s, w)
+}
+function snowY(s: number, w: number): number {
   if (s < -SLED.deck - SLED.back || s > SLED.jump || Math.abs(w) > SLED.half) return 0
   if (s >= SLED.len) return Math.abs(w) < SLED.track ? sledProfile(s) : 0
   return sledProfile(s) * sledSide(w)
@@ -271,8 +281,10 @@ export function actionAt(x: number, z: number): { action: Action; label: string 
   if (near(SPOT.cocoa, 1.5, COCOA_SIZE.d / 2 + 0.55)) return { action: 'cocoa', label: 'E · ☕ AX 카페 핫초코 받기' }
   if (FIRE_SEATS.some((s) => Math.hypot(s.x - x, s.z - z) < 0.9)) return { action: 'sit', label: 'E · 🔥 불멍하러 앉기' }
   {
-    const g = sledPoint(SLED.len + SLED.gate, SLED.track + 1.2)
-    if (Math.hypot(g.x - x, g.z - z) < 1.4) return { action: 'sled', label: 'E · 🛷 썰매 타러 올라가기' }
+    // 타는 곳 ~ 계단 바로 앞까지 넓게 (계단 앞에 서도 E 가 뜨게)
+    const q = sledLocal(x, z)
+    if (q.s > SLED.len - 0.3 && q.s < SLED.len + SLED.gate + 1.8 && q.w > SLED.track + 0.2 && q.w < STAIRS.w + STAIRS.half + 1.0)
+      return { action: 'sled', label: 'E · 🛷 썰매 타러 계단 올라가기' }
   }
   if (inRoll(x, z)) return { action: 'roll', label: 'E · ⛄ 눈굴리기 시작 (40초)' }
   if (Math.hypot(ROCKET.x - x, ROCKET.z - z) < ROCKET.r + 1.3) return { action: 'rocket', label: 'E · 🚀 2027 WithSet 호 발사!' }

@@ -89,3 +89,26 @@ export function XpBoard({ position, rotation }: { position: V3; rotation?: numbe
   ]
   return <Sign lines={lines} position={position} rotation={rotation} />
 }
+
+/** ⚔️ 오늘의 눈싸움 왕: 오늘 기절시킨 수 1~5위 (30초마다 새로) */
+export function ArenaBoard({ position, rotation }: { position: V3; rotation?: number }) {
+  const [top, setTop] = useState<{ rank: number; name: string; kos: number; me: boolean }[] | null>(null)
+  useEffect(() => {
+    let alive = true
+    const load = () => void api.arenaToday().then((b) => alive && setTop(b.top)).catch(() => {})
+    load()
+    const t = setInterval(load, 30_000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [])
+  const lines: TextLine[] = [
+    { text: '⚔️ 오늘의 눈싸움 왕', size: 0.16, color: '#ffe7a8', weight: 900, kr: true, gap: 0.06 },
+    ...(top?.length
+      ? top.map((r, i) => ({ text: `${MEDALS[i]} ${r.name}  ${r.kos} KO`, size: 0.12, color: r.me ? '#ffcf4a' : '#ffffff', weight: 800, kr: true, gap: 0.03 }))
+      : [{ text: '오늘 첫 KO 의 주인공은?', size: 0.11, color: '#ffffff', kr: true }]),
+    { text: 'F 꾹 = 세게 · 받침대 아이템 · 쓰러진 동료는 E 3번', size: 0.08, color: '#c9d6ff', kr: true, gap: 0.06 },
+  ]
+  return <Sign lines={lines} position={position} rotation={rotation} />
+}

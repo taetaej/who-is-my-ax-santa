@@ -5,6 +5,8 @@ import type { Look } from '../look'
 import { Cookie, newCookieState, popOn, type CookieState } from './Cookie'
 import { CLIMB_SPEED, POWER_MAX, POWER_TAP, READY_SECS, alongPath, bump, newRide, pickLane, shiftLane, sledDistance, stepDown, type Ride } from './sledRide'
 import { game } from './game'
+import { BIG_SHOTS, BUFF_SECS, HEAL_HP, PADS, PICK_R, POWER_INFO, buff, buffOn, markPicked, nowSec, padState } from './powerups'
+import { inArena } from './world'
 import { api } from '../api'
 import { launch, rocket } from './rocket'
 
@@ -89,8 +91,18 @@ function viewFor(s: CookieState, talking: boolean, overview: boolean, orbit: num
     return { cam: [mx + 1.9, 2.3, mz + 3.6], look: [mx, 0.25, mz + 0.3], slow: true }
   }
   // 🛷 썰매: 언덕 위쪽 뒤에서 내려가는 쪽을 본다
-  if (s.pose === 'sled' || groundY(s.x, s.z) > 0.25)
+  if (s.pose === 'sled')
     return { cam: [s.x - SLED_DIR.x * 4.2, s.y + 2.4, s.z - SLED_DIR.z * 4.2 + 0.6], look: [s.x + SLED_DIR.x * 2.5, s.y * 0.5 + 0.2, s.z + SLED_DIR.z * 2.5] }
+  // 🪜 계단·다리를 오르는 중: 계단 아래쪽(비탈 아래)에서, 산 쪽으로 살짝 비켜 위로 올려다본다.
+  // 마을 쪽 나무가 끼지 않고, 올라가는 계단과 꼭대기 출발선이 앞에 보인다
+  if (groundY(s.x, s.z) > 0.25) {
+    const sx = -SLED_DIR.z // 계단 쪽(+w). 카메라는 반대(산 쪽)로 비킨다
+    const sz = SLED_DIR.x
+    return {
+      cam: [s.x + SLED_DIR.x * 4.8 - sx * 1.4, s.y + 3.4, s.z + SLED_DIR.z * 4.8 - sz * 1.4],
+      look: [s.x - SLED_DIR.x * 1.6, s.y + 0.8, s.z - SLED_DIR.z * 1.6],
+    }
+  }
   // ❄️ 눈밭에 누우면: 바로 위에서 내려다본다 (스노우엔젤이 잘 보이게)
   if (s.pose === 'lie') return { cam: [s.x, 5.0, s.z + 1.0], look: [s.x, 0, s.z - 0.1], slow: true }
   // 🔥 불가에 앉으면: 자리 뒤 낮은 곳에서 불을 바라본다
@@ -357,7 +369,7 @@ export function Player({
   function startCharge() {
     const s = state.current
     if (s.pose !== 'stand' || ride.current || roll.current || !canThrow(s.x, s.z)) return
-    if (game.ammo < 1) return say('눈덩이가 없어요! 잠깐 기다리면 뭉쳐져요 ❄️', 1.4)
+    if (game.ammo < 1 && !buffOn('rapid')) return say('눈덩이가 없어요! 잠깐 기다리면 뭉쳐져요 ❄️', 1.4)
     chargeFrom.current = clock.elapsedTime
   }
   function throwSnow() {
@@ -365,13 +377,16 @@ export function Player({
     chargeFrom.current = null
     game.charge = -1
     const s = state.current
-    if (from === null || s.pose !== 'stand' || !canThrow(s.x, s.z) || game.ammo < 1) return
+    if (from === null || s.pose !== 'stand' || !canThrow(s.x, s.z) || (game.ammo < 1 && !buffOn('rapid'))) return
     const t = clock.elapsedTime
-    if (t - thrownAt.current < THROW_COOLDOWN) return
+    const rapid = buffOn('rapid')
+    if (t - thrownAt.current < (rapid ? 0.12 : THROW_COOLDOWN)) return
     thrownAt.current = t
     s.waveUntil = t + 0.35 // 팔을 휘두른다
-    game.ammo -= 1
-    throwBall({ id: seed, name, s }, Math.min(1, (t - from) / CHARGE_SECS))
+    if (!rapid) game.ammo -= 1 // ⚡ 연사 중엔 줄지 않는다
+    const big = buffOn('big')
+    if (big) buff.shots -= 1
+    throwBall({ id: seed, name, s }, Math.min(1, (t - from) / CHARGE_SECS), big)
   }
 
   // ⚔️ 내가 맞았다: 체력을 깎고, 다 깎이면 기절 (10분 안에 또 기절하면 1분)
@@ -379,6 +394,13 @@ export function Player({
     const s = state.current
     const t = clock.elapsedTime
     if (s.pose === 'ko' || t < game.safeUntil || ride.current) return null
+    // 놀이 구역(눈싸움장·눈밭) 밖은 안전지대: 지나가다 맞아도 체력은 그대로
+    if (!canThrow(s.x, s.z)) return null
+    if (buffOn('shield')) {
+      popOn(s, '🛡️')
+      say('🛡️ 막았다!', 0.8)
+      return null
+    }
     game.hp = Math.max(0, game.hp - dmg)
     game.hurtAt = t
     popOn(s, `-${dmg}`)
@@ -410,13 +432,26 @@ export function Player({
     jumpAt.current = clock.elapsedTime
     say(text, 2)
   }
+  const streak = useRef<number[]>([]) // 🔥 내가 기절시킨 시각들 (연속 KO)
   const hurtRef = useRef(hurt)
   hurtRef.current = hurt
   const wakeRef = useRef(wakeUp)
   wakeRef.current = wakeUp
   useEffect(() => {
     snow.hurt = (dmg, by) => hurtRef.current(dmg, by)
-    snow.scored = (ko) => game.gainXp?.(ko ? 'ko' : 'hit')
+    snow.scored = (ko) => {
+      game.gainXp?.(ko ? 'ko' : 'hit')
+      if (!ko) return
+      // 🔥 30초 안에 연속으로 기절시키면 모두에게 소식
+      const now = Date.now()
+      streak.current = [...streak.current.filter((k) => now - k < 30_000), now]
+      const n = streak.current.length
+      if (n >= 2) {
+        snow.send?.({ k: 'streak', name, n })
+        snow.feed?.(`🔥 ${name}님 ${n >= 3 ? `${n}연속` : '더블'} KO!!`)
+        say(n >= 3 ? `🔥 ${n}연속 KO!! 눈싸움의 신` : '🔥 더블 KO!!', 2)
+      }
+    }
     snow.revived = (by) => {
       if (state.current.pose === 'ko') wakeRef.current(`${by}님이 깨워 줬다! 🙌`, REVIVE_HP)
     }
@@ -668,6 +703,27 @@ export function Player({
     // ⚔️ 체력·눈덩이·기절 (매 프레임)
     game.now = t
     game.inThrowZone = canThrow(s.x, s.z)
+    // ⚔️ 눈싸움장 아이템 줍기 (서 있을 때 받침대에 닿으면)
+    if (s.pose === 'stand' && !ride.current && inArena(s.x, s.z)) {
+      const now = nowSec()
+      PADS.forEach((pad, i) => {
+        if (Math.hypot(s.x - pad.x, s.z - pad.z) > PICK_R) return
+        const st = padState(i, now)
+        if (!st.visible) return
+        markPicked(i, st.cycle)
+        const info = POWER_INFO[st.kind]
+        if (st.kind === 'heal') game.hp = Math.min(HP_MAX, game.hp + HEAL_HP)
+        else {
+          buff.kind = st.kind
+          buff.until = now + (st.kind === 'big' ? 20 : BUFF_SECS)
+          buff.shots = st.kind === 'big' ? BIG_SHOTS : 0
+        }
+        popOn(s, info.icon)
+        say(`${info.icon} ${info.name}! ${info.line}`, 1.8)
+        snow.send?.({ k: 'pick', pad: i, cycle: st.cycle, name, kind: st.kind })
+        snow.feed?.(`${info.icon} ${name}님이 ${info.name} 획득!`)
+      })
+    }
     if (s.pose === 'ko') {
       s.speed = 0
       if (t >= game.koUntil) wakeUp('부활! 💪 다시 간다', HP_MAX)

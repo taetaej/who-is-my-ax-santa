@@ -2,7 +2,8 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef, type MutableRefObject } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { RecordBoard } from './Boards'
+import { ArenaBoard, RecordBoard } from './Boards'
+import { PADS, POWER_INFO, POWER_KINDS, nowSec, padState, type PowerKind } from './powerups'
 import type { CookieState } from './Cookie'
 import { game } from './game'
 import { M, rng } from './materials'
@@ -54,7 +55,7 @@ function pile(x: number, z: number) {
 }
 
 /** ⚔️ 눈싸움장: 둥근 눈 둔덕 안에 눈 요새 네 개, 요새 뒤마다 눈덩이 더미, 빨강·파랑 깃발 */
-export function Arena() {
+export function Arena({ boards = false }: { boards?: boolean }) {
   const geo = useMemo(() => {
     const toCenter = Math.atan2(-ARENA.z, -ARENA.x) // 마을 쪽(입구)은 비운다
     const walls: THREE.BufferGeometry[] = []
@@ -108,6 +109,105 @@ export function Arena() {
         </group>
       ))}
       <SpotLabel position={[ARENA.x, 2.6, ARENA.z]} text="⚔️ AX 눈싸움장" />
+      <PowerPads />
+      <Floodlights />
+      {boards && <ArenaBoardAtGate />}
+    </group>
+  )
+}
+
+/** 입구(마을 쪽) 옆에 세운 "오늘의 눈싸움 왕" 판 */
+function ArenaBoardAtGate() {
+  const a = Math.atan2(-ARENA.z, -ARENA.x)
+  const x = ARENA.x + Math.cos(a + 0.42) * (ARENA.r + 1.2)
+  const z = ARENA.z + Math.sin(a + 0.42) * (ARENA.r + 1.2)
+  return <ArenaBoard position={[x, 0, z]} rotation={Math.atan2(-Math.cos(a + 0.42), -Math.sin(a + 0.42))} />
+}
+
+const PAD_BASE = new THREE.MeshStandardMaterial({ color: '#2f2950', roughness: 0.5, metalness: 0.3 })
+const PAD_RING = new THREE.MeshStandardMaterial({ color: '#b8f4ff', emissive: '#4fd8ff', emissiveIntensity: 1.6, toneMapped: false })
+const ITEM_MAT: Record<PowerKind, THREE.MeshStandardMaterial> = Object.fromEntries(
+  POWER_KINDS.map((k) => [k, new THREE.MeshStandardMaterial({ color: POWER_INFO[k].color, emissive: POWER_INFO[k].color, emissiveIntensity: 1.4, roughness: 0.3, toneMapped: false })]),
+) as Record<PowerKind, THREE.MeshStandardMaterial>
+
+/** 💥🛡️⚡🍪 아이템 받침대 넷: 빛나는 고리 위에서 아이템이 둥실 돈다 (모양: 눈덩이·방패·번개·쿠키) */
+function PowerPads() {
+  const items = useRef<(THREE.Group | null)[]>([])
+  useFrame(({ clock }) => {
+    const now = nowSec()
+    const t = clock.elapsedTime
+    PADS.forEach((_, i) => {
+      const g = items.current[i]
+      if (!g) return
+      const st = padState(i, now)
+      g.visible = st.visible
+      if (!st.visible) return
+      g.children.forEach((c) => (c.visible = c.name === st.kind))
+      const pop = Math.min(1, (st.into - 2.5) * 3) // 뿅 하고 커지며 나타난다
+      g.scale.setScalar(Math.max(0.01, pop))
+      g.position.y = 0.75 + Math.sin(t * 2.2 + i) * 0.12
+      g.rotation.y = t * 1.6 + i
+    })
+  })
+  return (
+    <group>
+      {PADS.map((p, i) => (
+        <group key={i} position={[p.x, 0, p.z]}>
+          <mesh position={[0, 0.06, 0]} material={PAD_BASE} receiveShadow>
+            <cylinderGeometry args={[0.6, 0.66, 0.12, 24]} />
+          </mesh>
+          <mesh position={[0, 0.125, 0]} rotation={[-Math.PI / 2, 0, 0]} material={PAD_RING}>
+            <ringGeometry args={[0.44, 0.54, 32]} />
+          </mesh>
+          <group ref={(el) => void (items.current[i] = el)}>
+            <mesh name="big" material={ITEM_MAT.big} castShadow>
+              <icosahedronGeometry args={[0.28, 1]} />
+            </mesh>
+            <mesh name="shield" material={ITEM_MAT.shield} rotation={[0, 0, 0]} castShadow>
+              <cylinderGeometry args={[0.3, 0.3, 0.08, 6]} />
+            </mesh>
+            <mesh name="rapid" material={ITEM_MAT.rapid} rotation={[0, 0, Math.PI / 8]} castShadow>
+              <octahedronGeometry args={[0.26, 0]} />
+            </mesh>
+            <mesh name="heal" material={ITEM_MAT.heal} rotation={[Math.PI / 2, 0, 0]} castShadow>
+              <torusGeometry args={[0.2, 0.09, 10, 20]} />
+            </mesh>
+          </group>
+        </group>
+      ))}
+    </group>
+  )
+}
+
+const POLE_DARK = new THREE.MeshStandardMaterial({ color: '#2a2440', roughness: 0.6, metalness: 0.4 })
+const LAMP_HEAD = new THREE.MeshStandardMaterial({ color: '#fff4d0', emissive: '#ffe2a0', emissiveIntensity: 3, toneMapped: false })
+
+/** 🏟️ 경기장 조명탑 넷 (요새 바깥 대각선): 밤에도 눈싸움장이 환하게 */
+function Floodlights() {
+  const spots = useMemo(
+    () =>
+      [0, 1, 2, 3].map((i) => {
+        const a = (i / 4) * Math.PI * 2 + Math.PI / 4
+        return { x: ARENA.x + Math.cos(a) * (ARENA.r + 0.9), z: ARENA.z + Math.sin(a) * (ARENA.r + 0.9), face: Math.atan2(ARENA.x - (ARENA.x + Math.cos(a)), ARENA.z - (ARENA.z + Math.sin(a))) }
+      }),
+    [],
+  )
+  return (
+    <group>
+      {spots.map((p, i) => (
+        <group key={i} position={[p.x, 0, p.z]} rotation={[0, p.face, 0]}>
+          <mesh position={[0, 2, 0]} material={POLE_DARK} castShadow>
+            <cylinderGeometry args={[0.07, 0.1, 4, 8]} />
+          </mesh>
+          <mesh position={[0, 4.05, 0.12]} rotation={[0.5, 0, 0]} material={POLE_DARK}>
+            <boxGeometry args={[0.7, 0.42, 0.18]} />
+          </mesh>
+          <mesh position={[0, 4.0, 0.22]} rotation={[0.5, 0, 0]} material={LAMP_HEAD}>
+            <boxGeometry args={[0.6, 0.32, 0.04]} />
+          </mesh>
+        </group>
+      ))}
+      <pointLight position={[ARENA.x, 5.5, ARENA.z]} color="#fff0d0" intensity={22} distance={14} decay={1.5} />
     </group>
   )
 }
