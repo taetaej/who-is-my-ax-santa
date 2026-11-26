@@ -19,7 +19,7 @@ describe('questionFor (평일만)', () => {
     expect(questionFor('2026-12-16')).toBe(QUESTIONS[11]) // 수, 공개일 전날
   })
   it('주차별 질문이 정해진 날짜에 나온다', () => {
-    expect(questionFor('2026-12-01')).toContain('툴이나 단축키')
+    expect(questionFor('2026-12-01')).toContain('가장 많이 쓴 툴')
     expect(questionFor('2026-12-04')).toContain('크리스마스 소원')
     expect(questionFor('2026-12-07')).toContain('꿀팁')
     expect(questionFor('2026-12-11')).toContain('가장 큰 산')
