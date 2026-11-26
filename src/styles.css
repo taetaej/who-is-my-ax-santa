@@ -604,7 +604,7 @@ button:focus-visible { box-shadow: var(--ring); }
 @keyframes snow-hit { 0% { opacity: 0; transform: scale(1.08); } 10% { opacity: 1; transform: scale(1); } 70% { opacity: 0.8; } 100% { opacity: 0; } }
 
 
-/* ── 📻 AX 캐롤 라디오 카드 (무대 근처에서만) ─────────────────────── */
+/* ── 📻 AX 캐롤 라디오 카드 (무대 근처: 큰 카드, 멀리: 작은 알약) ─────────────────────── */
 .carol {
   position: fixed; right: 18px; bottom: 76px; width: 288px; padding: 14px 16px 12px; border-radius: 20px;
   background: linear-gradient(165deg, rgba(43, 30, 52, 0.94), rgba(28, 20, 36, 0.96)); color: #eeecf5;
@@ -627,6 +627,8 @@ button:focus-visible { box-shadow: var(--ring); }
   box-shadow: inset 0 0 0 3px hsl(var(--hue) 70% 45%);
 }
 .vinyl i::after { content: ''; position: absolute; inset: 9px; border-radius: 50%; background: #1b141e; }
+.vinyl.has-cover i { inset: 8px; background: #1b141e center / cover no-repeat; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35); }
+.vinyl.has-cover i::after { inset: 21px; }
 .vinyl.spin { animation: vinyl 2.4s linear infinite; }
 @keyframes vinyl { to { transform: rotate(360deg); } }
 .carol-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -643,11 +645,29 @@ button:focus-visible { box-shadow: var(--ring); }
 .carol-list-toggle:hover { background: rgba(255, 255, 255, 0.12); }
 .carol-list { list-style: none; margin: 6px 0 0; padding: 0; max-height: 200px; overflow: auto; }
 .carol-list li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; font-size: 13px; }
+.carol-list li:has(.thumb) { grid-template-columns: 26px minmax(0, 1fr) auto; }
+.carol-list li .thumb { width: 26px; height: 26px; border-radius: 5px; object-fit: cover; display: block; }
 .carol-list li .dot { --hue: 8; width: 8px; height: 8px; border-radius: 50%; background: hsl(var(--hue) 70% 58%); }
 .carol-list li .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .carol-list li em { font-style: normal; color: rgba(246, 236, 223, 0.5); font-size: 12px; }
 .carol-list li .d { font-size: 11px; color: rgba(246, 236, 223, 0.45); font-variant-numeric: tabular-nums; }
 .carol-list li.on { background: rgba(255, 179, 122, 0.14); color: #ffcfa8; font-weight: 700; }
+/* 멀리서: 작은 "지금 나오는 곡" 알약 */
+.carol-mini {
+  position: fixed; right: 18px; bottom: 76px; display: flex; align-items: center; gap: 8px; max-width: 240px; padding: 5px 6px 5px 5px; border-radius: 999px;
+  color: var(--x-ink); background: rgba(255, 255, 255, 0.62); backdrop-filter: blur(18px) saturate(1.5); -webkit-backdrop-filter: blur(18px) saturate(1.5); box-shadow: var(--glass);
+  transform: translateY(12px); opacity: 0; pointer-events: none; transition: opacity 0.4s, transform 0.4s;
+}
+.carol-mini.on { transform: none; opacity: 1; pointer-events: auto; }
+.carol-mini .vinyl { width: 30px; height: 30px; flex: none; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); }
+.carol-mini .vinyl i { inset: 10px; box-shadow: none; }
+.carol-mini .vinyl i::after { inset: 3px; }
+.carol-mini .vinyl.has-cover i { inset: 4px; }
+.carol-mini .vinyl.has-cover i::after { inset: 9px; }
+.carol-mini-t { min-width: 0; font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.carol-mini-play { border: 0; background: var(--x-red); color: #fff; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.carol-mini .carol-mute { margin-left: 2px; flex: none; background: rgba(255, 255, 255, 0.8); color: var(--x-ink); box-shadow: inset 0 0 0 1.5px var(--x-line); }
+@media (max-width: 640px) { .carol-mini { right: 8px; bottom: 96px; max-width: 180px; } }
 .carol-foot { margin: 10px 0 0; font-size: 11px; color: rgba(246, 236, 223, 0.45); text-align: center; }
 
 /* 모닥불 위 지금 나오는 곡 (3D 위 이름표) */

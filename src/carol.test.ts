@@ -10,7 +10,11 @@ describe('📻 곡 목록', () => {
   it('파일 이름 순서 (번호는 숫자로 비교)', () => {
     const s = songsFrom({ './carols/10 c.mp3': 'u10', './carols/2 b.mp3': 'u2', './carols/01 a.mp3': 'u1' })
     expect(s.map((x) => x.title)).toEqual(['a', 'b', 'c'])
-    expect(s[0]).toEqual({ file: '01 a.mp3', title: 'a', composer: null, url: 'u1' })
+    expect(s[0]).toEqual({ file: '01 a.mp3', title: 'a', composer: null, url: 'u1', cover: null })
+  })
+  it('곡과 이름이 같은 그림이 썸네일', () => {
+    const s = songsFrom({ './carols/01 a - 김.mp3': 'u1', './carols/02 b.mp3': 'u2' }, { './carols/01 a - 김.jpg': 'c1', './carols/b.png': 'x' })
+    expect(s.map((x) => x.cover)).toEqual(['c1', null])
   })
 })
 

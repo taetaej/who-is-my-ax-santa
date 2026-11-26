@@ -3,7 +3,7 @@
 // - 라디오처럼 모두가 같은 시각에 같은 곡의 같은 부분을 듣는다 (onAir).
 // - 파일 이름: "번호 제목 - 작곡자.mp3" (예: "01 2026 Christmas Carol - 김민지.mp3"). 작곡자는 빼도 된다.
 
-export type Song = { file: string; title: string; composer: string | null; url: string }
+export type Song = { file: string; title: string; composer: string | null; url: string; cover: string | null }
 
 /** 파일 이름 → 제목과 작곡자. 앞 번호와 확장자를 떼고, 마지막 " - " 뒤를 작곡자로 */
 export function parseSongFile(file: string): { title: string; composer: string | null } {
@@ -16,12 +16,15 @@ export function parseSongFile(file: string): { title: string; composer: string |
   return { title: base || file, composer: null }
 }
 
-/** 폴더 속 파일 목록 → 곡 목록 (파일 이름 순서) */
-export function songsFrom(files: Record<string, string>): Song[] {
+const stem = (path: string) => (path.split('/').pop() ?? path).replace(/\.[^.]+$/, '')
+
+/** 폴더 속 파일 목록 → 곡 목록 (파일 이름 순서). 곡과 이름이 같은 그림(.jpg·.png·.webp)이 있으면 썸네일 */
+export function songsFrom(files: Record<string, string>, covers: Record<string, string> = {}): Song[] {
+  const coverOf = new Map(Object.entries(covers).map(([path, url]) => [stem(path), url]))
   return Object.entries(files)
     .map(([path, url]) => {
       const file = path.split('/').pop() ?? path
-      return { file, ...parseSongFile(file), url }
+      return { file, ...parseSongFile(file), url, cover: coverOf.get(stem(path)) ?? null }
     })
     .sort((a, b) => a.file.localeCompare(b.file, 'ko', { numeric: true }))
 }

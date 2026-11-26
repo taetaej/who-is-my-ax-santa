@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { labelHue, mmss, onAir, songsFrom, type Song } from '../carol'
 import { music } from '../scene/music'
 
-// 📻 AX 캐롤 라디오 (🔥 불멍 회의실). 무대 근처에 오면 소리가 나고, 가까울수록 크다.
+// 📻 AX 캐롤 라디오 (🔥 불멍 회의실). 마을 어디서든 잔잔하게 들리고, 모닥불에 가까울수록 커진다.
+// - 불가에서는 큰 카드, 멀리서는 작은 "지금 나오는 곡" 알약만 보인다.
 // - 곡은 src/carols/ 폴더의 음원 파일. 라디오처럼 모두 같은 곡의 같은 부분을 듣는다 (carol.ts onAir).
 // - 소리를 분석해 박자를 3D 장면(스피커·불·전구)에 알려 준다 (scene/music.ts).
 
 const FILES = import.meta.glob('../carols/*.{mp3,m4a,ogg,wav,aac,MP3,M4A}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>
-export const SONGS: Song[] = songsFrom(FILES)
+const COVERS = import.meta.glob('../carols/*.{jpg,jpeg,png,webp,JPG,JPEG,PNG}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>
+export const SONGS: Song[] = songsFrom(FILES, COVERS)
 
 const MUTE_KEY = 'santa-carol-muted'
 const readMuted = () => {
@@ -62,13 +64,13 @@ function attachAnalyser(a: HTMLAudioElement) {
   }
 }
 
+/** 모닥불에서 먼 곳의 볼륨 (잔잔하게). 불가(level 1)에서는 1 */
+export const FAR_VOLUME = 0.12
+export const carolVolume = (level: number) => FAR_VOLUME + (1 - FAR_VOLUME) * Math.min(1, Math.max(0, level))
+
 export function CarolPlayer({ level, onSongChange }: { level: number; onSongChange?: (text: string) => void }) {
-  const near = level > 0
-  const [seen, setSeen] = useState(false) // 한 번이라도 무대 근처에 왔는지 (그 전엔 길이도 안 읽는다)
-  useEffect(() => {
-    if (near) setSeen(true)
-  }, [near])
-  const durations = useDurations(SONGS, seen)
+  const near = level > 0 // 불가 근처 → 큰 카드
+  const durations = useDurations(SONGS, SONGS.length > 0)
   const audio = useRef<HTMLAudioElement | null>(null)
   const ctx = useRef<AudioContext | null | undefined>(undefined)
   const [muted, setMuted] = useState(readMuted)
@@ -81,10 +83,9 @@ export function CarolPlayer({ level, onSongChange }: { level: number; onSongChan
 
   // 1초마다 시계 → 지금 흐르는 곡
   useEffect(() => {
-    if (!near) return
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
-  }, [near])
+  }, [])
   const air = useMemo(() => onAir(SONGS, (s) => durations[s.file] ?? 0, now), [durations, now])
 
   const play = (a: HTMLAudioElement) => {
@@ -105,13 +106,13 @@ export function CarolPlayer({ level, onSongChange }: { level: number; onSongChan
   // 곡이 바뀌면 그 곡을 그 위치부터. 같은 곡이면 너무 어긋났을 때만 맞춘다
   useEffect(() => {
     const a = (audio.current ??= new Audio())
-    music.song = near && air ? { title: air.song.title, composer: air.song.composer } : null
-    if (!near || muted || !air) {
+    music.song = air ? { title: air.song.title, composer: air.song.composer } : null
+    if (muted || !air) {
       a.pause()
       music.playing = false
       return
     }
-    a.volume = Math.min(1, 0.15 + level * 0.85)
+    a.volume = carolVolume(level)
     const changed = lastFile.current !== air.song.file
     if (changed) {
       if (lastFile.current !== null) songChange.current?.(`🎶 다음 곡: ${air.song.title}${air.song.composer ? ` — ${air.song.composer}` : ''}`)
@@ -121,7 +122,7 @@ export function CarolPlayer({ level, onSongChange }: { level: number; onSongChan
     } else if (Math.abs(a.currentTime - air.pos) > 2.5) a.currentTime = air.pos
     if (a.paused) play(a)
     music.playing = !a.paused
-  }, [near, muted, level, air])
+  }, [muted, level, air])
 
   useEffect(
     () => () => {
@@ -148,10 +149,30 @@ export function CarolPlayer({ level, onSongChange }: { level: number; onSongChan
     play(a)
   }
 
-  const playing = near && !muted && !blocked && !!air
+  const playing = !muted && !blocked && !!air
   const hue = air ? labelHue(air.song.title) : 8
 
   return (
+    <>
+    {SONGS.length > 0 && (
+      <div className={`carol-mini ${!near ? 'on' : ''}`} aria-hidden={near}>
+        <div className={`vinyl ${playing ? 'spin' : ''} ${air?.song.cover ? 'has-cover' : ''}`} style={{ '--hue': hue } as CSSProperties}>
+          <i style={air?.song.cover ? { backgroundImage: `url("${air.song.cover}")` } : undefined} />
+        </div>
+        {blocked && !muted && air ? (
+          <button className="carol-mini-play" onClick={playNow}>
+            ▶ 캐롤 같이 듣기
+          </button>
+        ) : (
+          <span className="carol-mini-t" title="🔥 모닥불에 가까이 가면 더 크게 들려요">
+            {air ? air.song.title : '📻 AX 캐롤 라디오'}
+          </span>
+        )}
+        <button className="carol-mute" onClick={toggle} title={muted ? '소리 켜기' : '소리 끄기'}>
+          {muted ? '🔇' : '🔊'}
+        </button>
+      </div>
+    )}
     <div className={`carol ${near ? 'on' : ''}`} aria-hidden={!near}>
       <p className="carol-kicker">
         📻 AX 캐롤 라디오 {SONGS.length > 0 && <span>· {SONGS.length}곡</span>}
@@ -160,8 +181,8 @@ export function CarolPlayer({ level, onSongChange }: { level: number; onSongChan
         </button>
       </p>
       <div className="carol-now">
-        <div className={`vinyl ${playing ? 'spin' : ''}`} style={{ '--hue': hue } as CSSProperties}>
-          <i />
+        <div className={`vinyl ${playing ? 'spin' : ''} ${air?.song.cover ? 'has-cover' : ''}`} style={{ '--hue': hue } as CSSProperties}>
+          <i style={air?.song.cover ? { backgroundImage: `url("${air.song.cover}")` } : undefined} />
         </div>
         <div className="carol-meta">
           <b>{air ? air.song.title : SONGS.length ? '곡을 불러오는 중…' : '곡이 아직 없어요'}</b>
@@ -198,7 +219,7 @@ export function CarolPlayer({ level, onSongChange }: { level: number; onSongChan
         <ol className="carol-list">
           {SONGS.map((s) => (
             <li key={s.file} className={air?.song.file === s.file ? 'on' : ''}>
-              <span className="dot" style={{ '--hue': labelHue(s.title) } as CSSProperties} />
+              {s.cover ? <img className="thumb" src={s.cover} alt="" loading="lazy" /> : <span className="dot" style={{ '--hue': labelHue(s.title) } as CSSProperties} />}
               <span className="t">
                 {s.title}
                 {s.composer && <em> {s.composer}</em>}
@@ -208,7 +229,8 @@ export function CarolPlayer({ level, onSongChange }: { level: number; onSongChan
           ))}
         </ol>
       )}
-      <p className="carol-foot">🔥 불가에 앉아서 들어 보세요 · 가까울수록 크게</p>
+      <p className="carol-foot">🔥 마을 어디서든 잔잔하게 · 불가에 가까울수록 크게</p>
     </div>
+    </>
   )
 }
