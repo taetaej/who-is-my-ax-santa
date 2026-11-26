@@ -58,6 +58,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 input { font: inherit; width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: #fff; }
 .pin { text-align: center; letter-spacing: 12px; font-size: 22px; margin-top: 8px; }
+.guest-nick { text-align: center; font-size: 18px; margin: 8px 0; }
+.panel.login .guest-link { display: block; margin: 14px auto 0; font-size: 13px; padding: 6px 12px; }
+.guest-row { cursor: default; }
 .field { display: block; margin-bottom: 12px; }
 .field span { display: block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
 

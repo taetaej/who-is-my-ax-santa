@@ -45,7 +45,7 @@ const read = (): View => ({
       : null,
 })
 
-export function GameHud({ show }: { show: boolean }) {
+export function GameHud({ show, guest = false }: { show: boolean; guest?: boolean }) {
   const [v, setV] = useState<View>(read)
   const [xp, setXp] = useState(xpStore.board)
   const [gains, setGains] = useState<{ id: number; text: string }[]>([])
@@ -72,6 +72,7 @@ export function GameHud({ show }: { show: boolean }) {
 
   // ⭐ XP: 처음에 불러오고, 1분마다 다시 (리포트·트리·선물 찾기로 저절로 쌓이는 XP 반영). 놀이로 얻으면 바로 올린다
   useEffect(() => {
+    if (guest) return // 👀 게스트는 XP 가 없다 (눈싸움은 그대로)
     let alive = true
     const apply = (b: Awaited<ReturnType<typeof api.xp>>) => {
       if (!alive) return
@@ -104,7 +105,7 @@ export function GameHud({ show }: { show: boolean }) {
       clearInterval(t)
       game.gainXp = null
     }
-  }, [])
+  }, [guest])
 
   const me = xp?.mine
   const combat = v.zone || v.hp < HP_MAX || v.charge >= 0

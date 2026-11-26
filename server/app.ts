@@ -6,7 +6,7 @@ import { awardFor, cleanGift, isEmptyGift, type Gift } from '../src/awards.js'
 import { isEmptyProfile, readProfile } from '../src/profile.js'
 import { cheer, digestDay, followUp, writeAward, aiOn } from './ai.js'
 import { INTERVIEW_MAX, cleanChat, nickname, questions, type QA } from '../src/interview.js'
-import { cleanLook } from '../src/look.js'
+import { cleanLook, defaultLook } from '../src/look.js'
 import { FIRST_DAY, QUESTIONS, cleanQuestions, isDay, kstDay, questionDay, questionFor, treeDay } from '../src/questions.js'
 import { EMPTY_LETTER, cleanLetter, missing } from './letter.js'
 import { EMPTY_GUESS, cleanGuess, guessDone, type Guess, type GuessStatus } from '../src/guess.js'
@@ -16,7 +16,7 @@ import { REAL, dudLine } from './treasure.js'
 import { isMissionId, missionById, missionOpen } from '../src/schedule.js'
 import { RECORD_KINDS, RECORD_MAX, XP_DAILY_CAP, XP_EVENT, XP_GAIN, XP_KINDS, levelOf, type RecordKind, type XpKind } from '../src/gameRules.js'
 
-type Me = { id: number; name: string; is_admin: boolean }
+type Me = { id: number; name: string; is_admin: boolean; guest?: boolean }
 type Env = { Variables: { me: Me } }
 
 export const app = new Hono<Env>().basePath('/api')
@@ -30,14 +30,41 @@ app.onError((err, c) => {
 const today = () => (process.env.VERCEL_ENV !== 'production' && isDay(process.env.SANTA_TODAY) ? process.env.SANTA_TODAY : kstDay())
 const bad = (c: Context, error: string, status: 400 | 401 | 403 | 404 | 409 | 423 = 400) => c.json({ error }, status)
 
-function login(c: Context, pid: number, v: number) {
+function login(c: Context, pid: number, v: number, guest?: string) {
   // maxAge 없음 = 세션 쿠키 (브라우저를 닫으면 사라짐). 만료는 서명 안의 exp(12시간)가 지킨다.
-  setCookie(c, COOKIE, issue(pid, v), { httpOnly: true, sameSite: 'Lax', secure: !!process.env.VERCEL, path: '/' })
+  setCookie(c, COOKIE, issue(pid, v, guest), { httpOnly: true, sameSite: 'Lax', secure: !!process.env.VERCEL, path: '/' })
+}
+
+// 👀 게스트: 산타 게임엔 안 들어오고 마을 구경·눈싸움만. players 표에 없고(id 가 GUEST_BASE 이상) 아래 길만 쓸 수 있다.
+const GUEST_BASE = 1_000_000
+const GUEST_OK: [string, RegExp][] = [
+  ['GET', /^\/api\/me$/],
+  ['POST', /^\/api\/me\/live-auth$/],
+  ['GET', /^\/api\/me\/rocket$/],
+  ['POST', /^\/api\/me\/rocket$/],
+  ['GET', /^\/api\/arena\/today$/],
+  ['GET', /^\/api\/xp$/],
+  ['GET', /^\/api\/records\/[a-z]+$/],
+]
+export const guestAllowed = (method: string, path: string) => GUEST_OK.some(([m, re]) => m === method && re.test(path))
+/** 게스트 별명: 공백 정리, 1~8자, 글자·숫자·공백만 */
+export function guestNick(raw: unknown): string | null {
+  const n = String(raw ?? '')
+    .replace(/[^\p{L}\p{N} ]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return n.length >= 1 && n.length <= 8 ? n : null
 }
 
 async function requireLogin(c: Context<Env>, next: Next) {
   const s = read(getCookie(c, COOKIE))
   if (!s) return bad(c, '로그인이 필요해요', 401)
+  if (s.g !== undefined) {
+    if (s.pid < GUEST_BASE) return bad(c, '로그인이 필요해요', 401)
+    if (!guestAllowed(c.req.method, c.req.path)) return bad(c, '게스트는 구경과 눈싸움만 할 수 있어요 👀', 403)
+    c.set('me', { id: s.pid, name: `${s.g}(게스트)`, is_admin: false, guest: true })
+    return next()
+  }
   const q = await db()
   const [me] = await q<Me & { session_version: number }>(`select id, name, is_admin, session_version from players where id = $1`, [s.pid])
   // PIN 을 초기화하면 session_version 이 올라가 기존 쿠키가 무효가 된다
@@ -105,6 +132,19 @@ app.post('/auth/login', async (c) => {
   return c.json({ ok: true })
 })
 
+// 👀 게스트 입장: 별명만 받는다. DB 에 아무것도 남기지 않는다
+app.post('/auth/guest', async (c) => {
+  const { name } = await c.req.json<{ name: string }>().catch(() => ({ name: '' }))
+  const nick = guestNick(name)
+  if (!nick) return bad(c, '별명은 1~8자 (글자·숫자)로 해 주세요')
+  const q = await db()
+  const [taken] = await q<{ id: number }>(`select id from players where name = $1`, [nick])
+  if (taken) return bad(c, '참가자 이름과 같아요. 다른 별명을 써 주세요', 409)
+  const { randomInt } = await import('node:crypto')
+  login(c, GUEST_BASE + randomInt(0, 1_000_000_000), 0, nick)
+  return c.json({ ok: true })
+})
+
 app.post('/auth/logout', (c) => {
   deleteCookie(c, COOKIE, { path: '/' })
   return c.json({ ok: true })
@@ -116,6 +156,24 @@ app.use('/me/*', requireLogin)
 
 app.get('/me', async (c) => {
   const me = c.get('me')
+  if (me.guest)
+    return c.json({
+      id: me.id,
+      name: me.name,
+      isAdmin: false,
+      guest: true,
+      phase: await getPhase(),
+      manitoOpened: false,
+      profile: null,
+      letter: 'none',
+      guess: 'none',
+      look: defaultLook(me.id),
+      todo: { tree: false, given: 0, people: 0, gift: null },
+      missions: [],
+      today: today(),
+      liveRoom: liveKind() ? LIVE_ROOM : null,
+      liveKind: liveKind(),
+    })
   const q = await db()
   const [row] = await q<{ manito_opened_at: string | null; profile: unknown; look: unknown; letter: 'none' | 'draft' | 'submitted' }>(
     `select p.manito_opened_at, p.profile, p.look,

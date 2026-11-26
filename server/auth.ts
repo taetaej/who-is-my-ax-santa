@@ -34,10 +34,11 @@ function secret(): string {
 
 const sign = (body: string) => createHmac('sha256', secret()).update(body).digest('base64url')
 
-export type Session = { pid: number; v: number; exp: number }
+/** g = 👀 게스트 별명 (게스트는 players 표에 없고 pid 가 100만 이상) */
+export type Session = { pid: number; v: number; exp: number; g?: string }
 
-export function issue(pid: number, v: number): string {
-  const body = Buffer.from(JSON.stringify({ pid, v, exp: Date.now() + MAX_AGE_SEC * 1000 })).toString('base64url')
+export function issue(pid: number, v: number, guest?: string): string {
+  const body = Buffer.from(JSON.stringify({ pid, v, exp: Date.now() + MAX_AGE_SEC * 1000, ...(guest ? { g: guest } : {}) })).toString('base64url')
   return `${body}.${sign(body)}`
 }
 

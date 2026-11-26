@@ -82,6 +82,7 @@ export function App() {
   const inputEnabled = useRef(false)
   // 처음 들어온 사람은 쿠키부터 꾸민다 (사우나 게임처럼 입장 전에)
   const firstVisit = !!me && me.look === null
+  const guest = !!me?.guest // 👀 게스트: 마을 구경·눈싸움만
   inputEnabled.current = !!me && modal === null && !firstVisit
 
   const refresh = useCallback(async () => {
@@ -129,10 +130,11 @@ export function App() {
 
   const openPanel = useCallback(
     (p: 'letter' | 'manito' | 'tree' | 'awards' | 'elf') => {
+      if (guest) return setToast('👀 게스트는 마을 구경과 눈싸움만 할 수 있어요')
       setModal(p)
       if (p === 'elf') void refresh() // 엘프는 최신 할 일 상태로 말한다
     },
-    [refresh],
+    [refresh, guest],
   )
 
   // 메시지 트리 카드 수와 오늘의 질문 (30초마다 새로)
@@ -151,11 +153,11 @@ export function App() {
   }, [showTips])
   const loadTree = useCallback(() => api.treeSummary().then(setTree, () => {}), [])
   useEffect(() => {
-    if (!loggedIn) return
+    if (!loggedIn || guest) return
     void loadTree()
     const t = setInterval(loadTree, 30_000)
     return () => clearInterval(t)
-  }, [loggedIn, loadTree])
+  }, [loggedIn, guest, loadTree])
   // 🎀 보물찾기: 15초마다 누가 찾았는지 확인 → 찾은 자리는 사라지고, 새로 찾은 사람은 마을에 알림
   const [treasure, setTreasure] = useState<TreasureState | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -175,12 +177,12 @@ export function App() {
     setTreasure(t)
   }, [])
   useEffect(() => {
-    if (!loggedIn) return
+    if (!loggedIn || guest) return
     seen.current = null
     void loadTreasure()
     const t = setInterval(loadTreasure, 15_000)
     return () => clearInterval(t)
-  }, [loggedIn, loadTreasure])
+  }, [loggedIn, guest, loadTreasure])
   useEffect(() => {
     if (!toast) return
     const t = setTimeout(() => setToast(null), 7000)
@@ -213,9 +215,9 @@ export function App() {
     : null
 
   // 엘프 NPC: 할 일이 남았으면 ❗ 와 혼잣말
-  const elf = me ? elfChatter(me) : null
-  const giftWaiting = me && me.phase === 'ACTIVE' && !me.manitoOpened
-  const head = me ? { ...headline(me), date: dayLabel(me.today) } : null
+  const elf = me && !guest ? elfChatter(me) : null
+  const giftWaiting = me && !guest && me.phase === 'ACTIVE' && !me.manitoOpened
+  const head = me && !guest ? { ...headline(me), date: dayLabel(me.today) } : null
 
   return (
     <>
@@ -301,6 +303,17 @@ export function App() {
                 )}
               </div>
             )}
+            {guest && !firstVisit && modal === null && (
+              <div className="status-card">
+                <div className="status-row guest-row">
+                  <span className="orn snow">👀</span>
+                  <span className="status-text">
+                    <small>게스트로 구경 중</small>
+                    <b>마을 구경 · 눈싸움 즐기기</b>
+                  </span>
+                </div>
+              </div>
+            )}
             {toast && modal === null && (
               <div className="toast" role="status">
                 {toast}
@@ -333,7 +346,7 @@ export function App() {
                 }}
               />
             )}
-            <GameHud show={modal === null && !firstVisit} />
+            <GameHud show={modal === null && !firstVisit} guest={guest} />
             <MiniMap show={modal === null && !firstVisit && !overview} />
 
             <div className={`help ${tips ? 'show' : ''}`}>
@@ -346,6 +359,22 @@ export function App() {
               </div>
             )}
 
+            {guest ? (
+              <nav className="dock">
+                <button onClick={() => setOverview((v) => !v)}>
+                  <Orn icon={MapTrifold} color="green" size={22} />
+                  {overview ? '전경 닫기' : '마을 전경'}
+                </button>
+                <button onClick={() => showTips(10000)}>
+                  <Orn icon={Keyboard} color="blue" size={22} />
+                  조작법
+                </button>
+                <button onClick={logout}>
+                  <Orn icon={DoorOpen} color="snow" size={22} />
+                  나가기
+                </button>
+              </nav>
+            ) : (
             <nav className="dock">
               <button onClick={() => setModal('calendar')}>
                 <Orn icon={CalendarDots} color="red" size={22} />일정
@@ -414,10 +443,11 @@ export function App() {
                 )}
               </div>
             </nav>
+            )}
 
             {modal === 'elf' && <ElfDialog me={me} question={tree?.question ?? null} onGo={(to: ElfGo) => setModal(to)} onClose={() => setModal(null)} />}
 
-            {modal && modal !== 'elf' && (
+            {modal && modal !== 'elf' && !guest && (
               <div className="backdrop" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
                 <div className="modal">
                   <button className="close" onClick={() => setModal(null)} aria-label="닫기">

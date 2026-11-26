@@ -14,6 +14,7 @@ export type Me = {
   id: number
   name: string
   isAdmin: boolean
+  guest?: boolean // 👀 게스트: 산타 게임엔 안 들어오고 마을 구경·눈싸움만
   phase: Phase
   manitoOpened: boolean
   profile: Profile | null
@@ -129,6 +130,7 @@ export const api = {
   players: () => call<Player[]>('GET', '/players'),
   setupPin: (playerId: number, pin: string) => call('POST', '/auth/setup-pin', { playerId, pin }),
   login: (playerId: number, pin: string) => call('POST', '/auth/login', { playerId, pin }),
+  guest: (name: string) => call('POST', '/auth/guest', { name }),
   logout: () => call('POST', '/auth/logout'),
   me: () => call<Me>('GET', '/me'),
   saveProfile: (p: Profile) => call('PUT', '/me/profile', p),

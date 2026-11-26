@@ -32,6 +32,9 @@ export function markEntered(playerId: number) {
   set(local, LAST, String(playerId))
 }
 
+/** 👀 게스트로 들어옴: 이 탭에서만. 지난 이름은 건드리지 않는다 */
+export const markGuestEntered = () => set(session, ENTERED, '1')
+
 export const clearEntered = () => set(session, ENTERED, null)
 
 export function lastPlayer(): number | null {
