@@ -44,6 +44,7 @@ const GUEST_OK: [string, RegExp][] = [
   ['POST', /^\/api\/me\/rocket$/],
   ['GET', /^\/api\/arena\/today$/],
   ['GET', /^\/api\/xp$/],
+  ['GET', /^\/api\/ranking$/],
   ['GET', /^\/api\/records\/[a-z]+$/],
 ]
 export const guestAllowed = (method: string, path: string) => GUEST_OK.some(([m, re]) => m === method && re.test(path))
@@ -597,7 +598,8 @@ app.get('/arena/today', async (c) => {
 app.use('/xp', requireLogin)
 const isXpKind = (k: unknown): k is XpKind => typeof k === 'string' && (XP_KINDS as readonly string[]).includes(k)
 
-async function xpBoard(meId: number) {
+/** ⭐ 모두의 XP·레벨 순위 (기록판·HUD·산타 랭킹이 같이 쓴다) */
+async function xpList(meId: number) {
   const q = await db()
   const rows = await q<{
     id: number
@@ -611,8 +613,9 @@ async function xpBoard(meId: number) {
     manito: boolean
     missions: number
     profile: unknown
+    look: unknown
   }>(
-    `select p.id, p.name, p.profile,
+    `select p.id, p.name, p.profile, p.look,
        (select count(*) from mission_checks mc where mc.player_id = p.id)::int as missions,
        coalesce((select sum(xp) from xp_daily x where x.player_id = p.id), 0)::int as play,
        exists (select 1 from letters l where l.santa_id = p.id and l.submitted_at is not null) as letter,
@@ -635,12 +638,22 @@ async function xpBoard(meId: number) {
         (r.manito ? XP_EVENT.manito : 0) +
         Number(r.missions) * XP_EVENT.mission +
         (r.profile && !isEmptyProfile(readProfile(r.profile)) ? XP_EVENT.profile : 0)
-      return { id: r.id, name: r.name, xp, ...levelOf(xp) }
+      return { id: r.id, name: r.name, xp, look: r.look, ...levelOf(xp) }
     })
     .sort((a, b) => b.xp - a.xp || a.name.localeCompare(b.name))
-    .map((r, i) => ({ rank: i + 1, id: r.id, name: r.name, xp: r.xp, lv: r.lv, cur: r.cur, need: r.need, me: r.id === meId }))
+  return list.map((r, i) => ({ rank: i + 1, id: r.id, name: r.name, xp: r.xp, lv: r.lv, cur: r.cur, need: r.need, me: r.id === meId, look: r.look }))
+}
+
+async function xpBoard(meId: number) {
+  const list = (await xpList(meId)).map(({ look: _look, ...r }) => r)
   return { top: list.slice(0, 5), mine: list.find((r) => r.me) ?? null }
 }
+
+// 🏆 산타 랭킹: 모두의 레벨과 쿠키 모습 (매칭 정보는 없다)
+app.use('/ranking', requireLogin)
+app.get('/ranking', async (c) =>
+  c.json({ list: (await xpList(c.get('me').id)).map((r) => ({ ...r, look: cleanLook(r.look, r.id) })) }),
+)
 
 app.get('/xp', async (c) => c.json(await xpBoard(c.get('me').id)))
 

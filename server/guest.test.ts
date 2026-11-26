@@ -13,6 +13,7 @@ describe('👀 게스트', () => {
     expect(guestAllowed('GET', '/api/me')).toBe(true)
     expect(guestAllowed('POST', '/api/me/live-auth')).toBe(true)
     expect(guestAllowed('GET', '/api/records/sled')).toBe(true)
+    expect(guestAllowed('GET', '/api/ranking')).toBe(true)
     expect(guestAllowed('POST', '/api/records/sled')).toBe(false)
     expect(guestAllowed('POST', '/api/xp')).toBe(false)
     expect(guestAllowed('GET', '/api/me/manito')).toBe(false)

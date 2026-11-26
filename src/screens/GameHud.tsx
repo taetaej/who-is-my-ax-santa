@@ -45,7 +45,7 @@ const read = (): View => ({
       : null,
 })
 
-export function GameHud({ show, guest = false }: { show: boolean; guest?: boolean }) {
+export function GameHud({ show, guest = false, onRank }: { show: boolean; guest?: boolean; onRank?: () => void }) {
   const [v, setV] = useState<View>(read)
   const [xp, setXp] = useState(xpStore.board)
   const [gains, setGains] = useState<{ id: number; text: string }[]>([])
@@ -112,7 +112,7 @@ export function GameHud({ show, guest = false }: { show: boolean; guest?: boolea
   return (
     <>
       {me && (
-        <div className="xp-hud" title="놀이·관찰 리포트·추리노트·메시지 트리·어워즈·숨은 선물로 XP가 쌓여요">
+        <div className="xp-hud" role="button" tabIndex={0} onClick={onRank} title="눌러서 산타 랭킹 보기 · 놀이·관찰 리포트·추리노트·메시지 트리·어워즈·숨은 선물로 XP가 쌓여요">
           <b>⭐ Lv.{me.lv}</b>
           <span className="xp-bar">
             <i style={{ width: `${(me.cur / me.need) * 100}%` }} />

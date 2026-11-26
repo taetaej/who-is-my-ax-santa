@@ -121,11 +121,13 @@ export type RecordRow = { rank: number; name: string; best: number; runs: number
 export type RecordBoard = { top: RecordRow[]; mine: RecordRow | null }
 export type XpRow = { rank: number; id: number; name: string; xp: number; lv: number; cur: number; need: number; me: boolean }
 export type XpBoard = { top: XpRow[]; mine: XpRow | null }
+export type RankRow = XpRow & { look: Look }
 
 export const api = {
   records: (kind: RecordKind) => call<RecordBoard>('GET', `/records/${kind}`),
   saveRecord: (kind: RecordKind, value: number) => call<RecordBoard & { value: number; newBest: boolean }>('POST', `/records/${kind}`, { value }),
   xp: () => call<XpBoard>('GET', '/xp'),
+  ranking: () => call<{ list: RankRow[] }>('GET', '/ranking'),
   gainXp: (kind: XpKind) => call<XpBoard & { capped: boolean }>('POST', '/xp', { kind }),
   players: () => call<Player[]>('GET', '/players'),
   setupPin: (playerId: number, pin: string) => call('POST', '/auth/setup-pin', { playerId, pin }),

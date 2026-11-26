@@ -22,9 +22,11 @@ import { MiniMap } from './screens/MiniMap'
 import { PhotoMode } from './screens/PhotoMode'
 import { Calendar, dayLabel, headline } from './screens/Calendar'
 import { Orn } from './screens/Ornament'
+import { Ranking } from './screens/Ranking'
 import {
   CalendarCheck,
   Camera,
+  Crown,
   CaretRight,
   CheckCircle,
   CalendarDots,
@@ -44,7 +46,7 @@ import {
   X,
 } from '@phosphor-icons/react'
 
-type Modal = 'manito' | 'profile' | 'letter' | 'guess' | 'look' | 'tree' | 'awards' | 'elf' | 'admin' | 'treasure' | 'calendar' | null
+type Modal = 'manito' | 'profile' | 'letter' | 'guess' | 'look' | 'tree' | 'awards' | 'elf' | 'admin' | 'treasure' | 'calendar' | 'rank' | null
 
 const LETTER_CHIP = { none: '작성 전', draft: '쓰는 중', submitted: '제출 ✓' } as const
 const GUESS_CHIP = { none: '작성 전', draft: '쓰는 중', done: '완성 ✓' } as const
@@ -346,7 +348,7 @@ export function App() {
                 }}
               />
             )}
-            <GameHud show={modal === null && !firstVisit} guest={guest} />
+            <GameHud show={modal === null && !firstVisit} guest={guest} onRank={() => setModal('rank')} />
             <MiniMap show={modal === null && !firstVisit && !overview} />
 
             <div className={`help ${tips ? 'show' : ''}`}>
@@ -364,6 +366,10 @@ export function App() {
                 <button onClick={() => setOverview((v) => !v)}>
                   <Orn icon={MapTrifold} color="green" size={22} />
                   {overview ? '전경 닫기' : '마을 전경'}
+                </button>
+                <button onClick={() => setModal('rank')}>
+                  <Orn icon={Crown} color="gold" size={22} />
+                  랭킹
                 </button>
                 <button onClick={() => showTips(10000)}>
                   <Orn icon={Keyboard} color="blue" size={22} />
@@ -417,6 +423,10 @@ export function App() {
                     <button onClick={() => setModal('look')}>
                       <Orn icon={PaintBrush} color="red" />쿠키 꾸미기
                     </button>
+                    <button onClick={() => setModal('rank')}>
+                      <Orn icon={Crown} color="gold" />
+                      산타 랭킹
+                    </button>
                     <button onClick={() => setOverview((v) => !v)}>
                       <Orn icon={MapTrifold} color="green" />
                       {overview ? '전경 닫기' : '마을 전경 보기'}
@@ -447,7 +457,7 @@ export function App() {
 
             {modal === 'elf' && <ElfDialog me={me} question={tree?.question ?? null} onGo={(to: ElfGo) => setModal(to)} onClose={() => setModal(null)} />}
 
-            {modal && modal !== 'elf' && !guest && (
+            {modal && modal !== 'elf' && (!guest || modal === 'rank') && (
               <div className="backdrop" onClick={(e) => e.target === e.currentTarget && setModal(null)}>
                 <div className="modal">
                   <button className="close" onClick={() => setModal(null)} aria-label="닫기">
@@ -487,6 +497,7 @@ export function App() {
                   {modal === 'letter' && <LetterForm meName={me.name} onSaved={refresh} />}
                   {modal === 'guess' && <GuessForm onSaved={refresh} />}
                   {modal === 'treasure' && treasure && <TreasureBoard t={treasure} />}
+                  {modal === 'rank' && <Ranking />}
                   {modal === 'calendar' && (
                     <Calendar
                       me={me}
