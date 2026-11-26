@@ -2,7 +2,7 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { api } from '../api'
-import { CHEEKS, COLORED_HATS, COLORS, DECOS, DOUGHS, EXTRAS, EYES, HATS, MOUTHS, OUTFITS, defaultLook, randomLook, unlockLevel, type LockKind, type Look } from '../look'
+import { CHEEKS, COLORED_HATS, COLORS, DECOS, DOUGHS, EXTRAS, EYES, HATS, MOUTHS, OUTFITS, cleanLook, defaultLook, randomLook, unlockLevel, type LockKind, type Look } from '../look'
 import { xpStore } from '../scene/game'
 import { Cookie, newCookieState } from '../scene/Cookie'
 
@@ -68,12 +68,16 @@ export function LookEditor({ seed, name, current, first, onDone }: { seed: numbe
   // 개발 중 확인용: localStorage 'santa-unlock-all' 이면 전부 열기 (배포 빌드에는 없음)
   const level = import.meta.env.DEV && localStorage.getItem('santa-unlock-all') ? 99 : lv
   const random = () => setLook(randomLook(Math.random, level))
+  // 👀 잠긴 것도 눌러서 입어볼 수는 있다. 저장할 때는 잠긴 것만 기본값으로 돌려 놓는다 (서버도 똑같이 거른다)
+  const kept = cleanLook(look, seed, level)
+  const trying = (['dough', 'outfit', 'hat', 'extra'] as const).filter((k) => kept[k] !== look[k])
 
   const save = async () => {
     setBusy(true)
     setError('')
     try {
-      await api.saveLook(look)
+      await api.saveLook(kept)
+      setLook(kept)
       onDone()
     } catch (e) {
       setError((e as Error).message)
@@ -115,7 +119,7 @@ export function LookEditor({ seed, name, current, first, onDone }: { seed: numbe
                   const need = unlockLevel('dough', k)
                   const locked = need > level
                   return (
-                    <button key={k} className={`chip-btn ${look.dough === k ? 'on' : ''} ${locked ? 'locked' : ''}`} disabled={locked} onClick={() => set({ dough: k })} title={locked ? `Lv.${need} 에 열려요` : undefined}>
+                    <button key={k} className={`chip-btn ${look.dough === k ? 'on' : ''} ${locked ? 'locked' : ''}`} onClick={() => set({ dough: k })} title={locked ? `Lv.${need} 에 열려요 · 지금은 입어보기만` : undefined}>
                       <i className="dot" style={{ background: DOUGHS[k].color }} />
                       {DOUGHS[k].label}
                       {locked && <em className="lock">🔒 Lv.{need}</em>}
@@ -164,6 +168,7 @@ export function LookEditor({ seed, name, current, first, onDone }: { seed: numbe
         </div>
       </div>
 
+      {trying.length > 0 && <p className="try-on">👀 🔒 잠긴 걸 입어보는 중이에요. 저장하면 잠긴 건 빼고 저장돼요.</p>}
       <div className="letter-actions">
         <button className="ghost" onClick={random}>
           🎲 아무거나
@@ -177,7 +182,7 @@ export function LookEditor({ seed, name, current, first, onDone }: { seed: numbe
   )
 }
 
-/** 고르기 칸. lock 이 있으면 레벨이 모자란 것은 🔒 Lv.N 으로 잠가 둔다 */
+/** 고르기 칸. lock 이 있으면 레벨이 모자란 것은 🔒 Lv.N 표시 (입어보기는 된다) */
 function Pick<K extends string>({
   title,
   options,
@@ -201,7 +206,7 @@ function Pick<K extends string>({
           const need = lock ? unlockLevel(lock, k) : 1
           const locked = need > level
           return (
-            <button key={k} className={`chip-btn ${value === k ? 'on' : ''} ${locked ? 'locked' : ''}`} disabled={locked} onClick={() => onPick(k)} title={locked ? `Lv.${need} 에 열려요` : undefined}>
+            <button key={k} className={`chip-btn ${value === k ? 'on' : ''} ${locked ? 'locked' : ''}`} onClick={() => onPick(k)} title={locked ? `Lv.${need} 에 열려요 · 지금은 입어보기만` : undefined}>
               {options[k]}
               {locked && <em className="lock">🔒 Lv.{need}</em>}
             </button>

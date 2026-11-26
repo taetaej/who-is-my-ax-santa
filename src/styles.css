@@ -293,6 +293,11 @@ textarea {
 .tree-day { font-weight: 800; color: var(--green); min-width: 70px; text-align: center; }
 .tree-q { text-align: center; font-size: 24px; margin: 8px 0 14px; }
 .tree-q span { display: block; font-size: 13px; color: var(--muted); font-weight: 700; margin-bottom: 4px; }
+.tree-digest { margin: 0 auto 14px; max-width: 560px; padding: 12px 16px; border-radius: 16px; background: rgba(255, 255, 255, 0.72); border: 1px solid rgba(46, 138, 82, 0.25); box-shadow: 0 6px 18px rgba(30, 60, 90, 0.08); }
+.tree-digest b { display: block; font-size: 13px; color: #2e8a52; margin-bottom: 4px; }
+.tree-digest p { margin: 0; font-size: 14px; line-height: 1.55; }
+.tree-digest .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.tree-digest .tags span { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(46, 138, 82, 0.1); color: #2e8a52; }
 .tree-write { display: flex; gap: 8px; align-items: center; }
 .tree-write .primary { width: auto; margin: 0; white-space: nowrap; }
 .tree-write .ghost { white-space: nowrap; flex: none; }
@@ -855,6 +860,7 @@ button:focus-visible { box-shadow: var(--ring); }
 /* ── 🎄 메시지 트리 돌아보기 (TreeShow.tsx, 발표 화면) ─────────── */
 .tree-show { width: min(1200px, 96vw); text-align: center; }
 .tree-show-q { font-size: clamp(26px, 3.6vw, 44px); margin: 0 0 20px; color: var(--red); line-height: 1.25; }
+.tree-show-digest { max-width: 760px; margin: -8px auto 18px; font-size: clamp(14px, 1.5vw, 18px); line-height: 1.55; opacity: 0.85; }
 .tree-show-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; text-align: left; }
 .tree-show-card { width: 260px; }
 .tree-show-cards.many { gap: 10px; }
@@ -1294,6 +1300,8 @@ input[type='range'] { background: transparent; border: 0; box-shadow: none; }
 @media (max-width: 640px) { .kill-feed { top: auto; bottom: 230px; right: 8px; } }
 
 /* 🔓 레벨로 열리는 꾸미기 */
-.chip-btn.locked { opacity: 0.55; filter: grayscale(0.6); cursor: not-allowed; }
+.chip-btn.locked { opacity: 0.6; filter: grayscale(0.5); }
+.chip-btn.locked.on { opacity: 1; filter: none; outline: 2px dashed var(--x-red); outline-offset: 1px; }
+.try-on { margin: 8px 0 0; font-size: 13px; font-weight: 700; color: var(--x-red); text-align: center; }
 .chip-btn .lock { font-style: normal; font-size: 11px; font-weight: 800; color: var(--x-red); margin-left: 2px; }
 .level-up em { display: block; margin-top: 8px; font-style: normal; font-size: 15px; font-weight: 800; color: #fff; text-shadow: 0 2px 10px rgba(80, 40, 160, 0.9); }

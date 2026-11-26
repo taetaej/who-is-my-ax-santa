@@ -69,6 +69,7 @@ export function TreeShow({ onClose }: { onClose: () => void }) {
           {dayLabel(d.day)} · {i}일차 · 카드 {ms.length}장
         </p>
         <h1 className="tree-show-q">{d.question}</h1>
+        {d.digest && <p className="tree-show-digest">🧝 {d.digest}</p>}
         <div className={`tree-show-cards ${ms.length > 8 ? 'many' : ''}`}>
           {ms.map((m, k) => (
             <div key={k} className={`tree-show-card tone-${k % 5} ${m.hearts === best ? 'best' : ''}`}>

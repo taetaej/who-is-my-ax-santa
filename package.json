@@ -13,6 +13,7 @@
     "awards": "tsx --env-file-if-exists=.env scripts/awards.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
     "@electric-sql/pglite": "0.5.16",
     "@liveblocks/client": "3.25.1",
     "@liveblocks/node": "3.25.1",

@@ -4,6 +4,7 @@ import { COOKIE, LOCK_MINUTES, MAX_FAILS, PIN_RE, hashPin, issue, read, verifyPi
 import { PHASES, db, getPhase, type Phase } from './db.js'
 import { awardFor, cleanGift, isEmptyGift, type Gift } from '../src/awards.js'
 import { isEmptyProfile, readProfile } from '../src/profile.js'
+import { cheer, digestDay, followUp, writeAward, aiOn } from './ai.js'
 import { INTERVIEW_MAX, cleanChat, nickname, questions, type QA } from '../src/interview.js'
 import { cleanLook } from '../src/look.js'
 import { FIRST_DAY, QUESTIONS, cleanQuestions, isDay, kstDay, questionDay, questionFor, treeDay } from '../src/questions.js'
@@ -429,6 +430,45 @@ app.put('/tree/today', async (c) => {
   return c.json({ ok: true })
 })
 
+// 🤖 지난 날의 트리를 엘프(Claude)가 두세 줄로 정리. 처음 여는 사람이 쓰고 저장해 두면 다음부터는 그대로 준다.
+// 오늘(아직 쓰는 중인 날)은 정리하지 않는다. 키가 없거나 답이 없는 날은 digest: null
+type Digest = { summary: string; keywords: string[] }
+async function treeDigest(day: string): Promise<{ digest: Digest | null; pending: boolean }> {
+  const q = await db()
+  const [row] = await q<{ summary: string | null; keywords: string[] }>(`select summary, keywords from tree_digests where day = $1`, [day])
+  if (row?.summary) return { digest: { summary: row.summary, keywords: row.keywords }, pending: false }
+  if (!aiOn() || day >= treeDay()) return { digest: null, pending: false }
+  const msgs = await q<{ name: string; body: string; hearts: number }>(
+    `select p.name, m.body, (select count(*)::int from hearts h where h.message_id = m.id) as hearts
+     from messages m join players p on p.id = m.player_id where m.day = $1 order by m.created_at`,
+    [day],
+  )
+  if (!msgs.length) return { digest: null, pending: false }
+  // 쓰는 사람 하나만: 줄이 없거나, 쓰다 멈춘 지 2분이 넘었을 때만 가져간다
+  const claimed = await q(
+    `insert into tree_digests (day) values ($1)
+     on conflict (day) do update set started_at = now()
+       where tree_digests.summary is null and tree_digests.started_at < now() - interval '2 minutes'
+     returning day`,
+    [day],
+  )
+  if (!claimed.length) return { digest: null, pending: true }
+  const qs = await getQuestions()
+  const d = await digestDay(questionFor(day, qs.list, qs.start), msgs.map((m) => ({ ...m, hearts: Number(m.hearts) })))
+  if (!d) {
+    await q(`delete from tree_digests where day = $1 and summary is null`, [day])
+    return { digest: null, pending: false }
+  }
+  await q(`update tree_digests set summary = $2, keywords = $3 where day = $1`, [day, d.summary, d.keywords])
+  return { digest: d, pending: false }
+}
+
+app.get('/tree/digest', async (c) => {
+  const day = c.req.query('day')
+  if (!isDay(day)) return bad(c, '날짜가 이상해요')
+  return c.json(await treeDigest(day))
+})
+
 app.post('/tree/:id/heart', async (c) => {
   const id = Number(c.req.param('id'))
   if (!Number.isInteger(id)) return bad(c, '없는 메시지예요', 404)
@@ -639,7 +679,17 @@ app.post('/awards/interview', async (c) => {
   const [{ newcomer: meNew }] = await q<{ newcomer: boolean }>(`select newcomer from players where id = $1`, [me.id])
   const chat = cleanChat(body.chat)
   const qs = questions(p.name, meNew || p.newcomer)
-  if (chat.length < INTERVIEW_MAX && (chat.length === 0 || body.finish !== true)) return c.json({ done: false, question: qs[chat.length] })
+  if (chat.length < INTERVIEW_MAX && (chat.length === 0 || body.finish !== true)) {
+    // 🤖 2번 질문은 첫 답을 듣고 엘프(Claude)가 되묻는다. 3번 앞에는 짧은 맞장구. 안 되면 고정 질문
+    const fresh = meNew || p.newcomer
+    let question = qs[chat.length]
+    if (chat.length === 1) question = (await followUp(p.name, chat[0].q, chat[0].a, fresh)) ?? question
+    if (chat.length === 2) {
+      const line = await cheer(p.name, chat)
+      if (line) question = `${line} ${question}`
+    }
+    return c.json({ done: false, question })
+  }
 
   const [old] = await q<{ chips: string[]; custom: string | null }>(`select chips, custom from keywords where giver_id = $1 and receiver_id = $2`, [me.id, receiverId])
   const nick = chat.length === INTERVIEW_MAX ? nickname(chat[INTERVIEW_MAX - 1].a) : null
@@ -806,11 +856,13 @@ app.get('/admin/tree-recap', async (c) => {
   const [{ people }] = await q<{ people: number }>(`select count(*)::int as people from players`)
   const qs = await getQuestions()
   const days = [...new Set(rows.map((r) => r.day))].sort()
+  const digests = await q<{ day: string; summary: string }>(`select day, summary from tree_digests where summary is not null`)
   return c.json({
     people,
     days: days.map((day) => ({
       day,
       question: questionFor(day, qs.list, qs.start),
+      digest: digests.find((d) => d.day === day)?.summary ?? null,
       messages: rows.filter((r) => r.day === day).map((r) => ({ name: r.name, body: r.body, hearts: Number(r.hearts) })),
     })),
   })
@@ -827,6 +879,7 @@ app.get('/admin/awards', async (c) => {
   )
   const ids = await q<{ id: number; name: string }>(`select id, name from players order by name`)
   return c.json({
+    ai: aiOn(),
     people: rows.length - 1,
     players: rows,
     cards: ids.map((p) => {
@@ -843,6 +896,37 @@ app.put('/admin/players/:id/newcomer', async (c) => {
   const q = await db()
   await q(`update players set newcomer = $2 where id = $1`, [id, newcomer === true])
   return c.json({ id, newcomer: newcomer === true })
+})
+
+// 🤖 상장 AI 로 쓰기: 받은 사람별로 키워드와 인터뷰 답(누가 했는지 빼고, 순서 섞어서)을 Claude 에 주고 상 이름 + 문구를 받는다.
+// missing 이면 상장이 아직 없는 사람만. 재료가 하나도 없는 사람은 건너뛴다 (키워드 상이 대신 나간다)
+app.post('/admin/awards/ai-cards', async (c) => {
+  if (!aiOn()) return bad(c, 'Claude 키(ANTHROPIC_API_KEY)가 아직 없어요', 409)
+  const { missing } = await c.req.json<{ missing?: unknown }>().catch(() => ({ missing: false }))
+  const q = await db()
+  const players = await q<{ id: number; name: string; newcomer: boolean }>(`select id, name, newcomer from players order by name`)
+  const rows = await q<{ receiver_id: number; chips: string[]; custom: string | null; chat: QA[] | null }>(`select receiver_id, chips, custom, chat from keywords`)
+  const have = new Set((await q<{ player_id: number }>(`select player_id from award_cards`)).map((r) => r.player_id))
+  const shuffle = <T,>(xs: T[]) => xs.map((x) => [Math.random(), x] as const).sort((a, b) => a[0] - b[0]).map(([, x]) => x)
+  const todo = players
+    .filter((p) => !(missing === true && have.has(p.id)))
+    .map((p) => {
+      const mine = rows.filter((r) => r.receiver_id === p.id)
+      const keywords = awardFor(mine.map((r) => cleanGift(r))).words.map((w) => ({ word: w.label, n: w.n }))
+      const interviews = shuffle(mine.filter((r) => r.chat?.length)).map((r) => r.chat!.map((x) => x.a))
+      return { id: p.id, input: { name: p.name, newcomer: p.newcomer, keywords, interviews } }
+    })
+  const ready = todo.filter((t) => t.input.keywords.length || t.input.interviews.length)
+  const results = await Promise.all(ready.map(async (t) => ({ id: t.id, card: await writeAward(t.input) })))
+  for (const r of results) {
+    if (!r.card) continue
+    await q(
+      `insert into award_cards (player_id, title, citation) values ($1, $2, $3)
+       on conflict (player_id) do update set title = excluded.title, citation = excluded.citation, updated_at = now()`,
+      [r.id, r.card.title, r.card.citation],
+    )
+  }
+  return c.json({ made: results.filter((r) => r.card).length, failed: results.filter((r) => !r.card).length, empty: todo.length - ready.length })
 })
 
 // 상장 고치기 (운영자가 직접)
@@ -913,6 +997,7 @@ app.post('/admin/reset-all', async (c) => {
   for (const sql of [
     `delete from hearts`,
     `delete from messages`,
+    `delete from tree_digests`,
     `delete from keywords`,
     `delete from award_cards`,
     `delete from treasure_finds`,

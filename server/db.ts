@@ -58,6 +58,13 @@ async function migrate(q: Query) {
     created_at timestamptz not null default now(),
     unique (player_id, day)
   )`)
+  // 🤖 메시지 트리 하루 정리 (지난 날만). summary 가 비어 있으면 누가 쓰는 중 (started_at 2분 넘으면 다시 쓴다)
+  await q(`create table if not exists tree_digests (
+    day text primary key,
+    summary text,
+    keywords text[] not null default '{}',
+    started_at timestamptz not null default now()
+  )`)
   await q(`create table if not exists hearts (
     message_id int not null references messages(id) on delete cascade,
     player_id int not null references players(id),

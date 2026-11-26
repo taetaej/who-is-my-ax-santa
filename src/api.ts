@@ -38,6 +38,7 @@ export type Awards = {
 }
 export type AwardCardRow = { id: number; title: string | null; citation: string | null }
 export type AdminAwards = {
+  ai: boolean // 서버에 Claude 키가 있는지
   people: number
   players: { id: number; name: string; newcomer: boolean; given: number }[]
   cards: (AwardCardRow & { name: string })[]
@@ -85,7 +86,7 @@ export type RevealCard = {
   suspectIsMyTarget: boolean
   photo: string | null // 📸 산타가 마을에서 몰래 찍은 사진 (data URL)
 }
-export type TreeRecap = { people: number; days: { day: string; question: string; messages: { name: string; body: string; hearts: number }[] }[] }
+export type TreeRecap = { people: number; days: { day: string; question: string; digest?: string | null; messages: { name: string; body: string; hearts: number }[] }[] }
 export type Reveal = { people: { id: number; name: string }[]; cards: RevealCard[] }
 export type Manito = { name: string; profile: Profile | null }
 export type AdminStatus = {
@@ -141,6 +142,7 @@ export const api = {
   savePhoto: (image: string) => call<{ ok: true }>('PUT', '/me/photo', { image }),
   checkMission: (id: MissionId, done: boolean) => call<{ ok: true }>('PUT', `/me/missions/${id}`, { done }),
   treeSummary: () => call<TreeSummary>('GET', '/tree/summary'),
+  treeDigest: (day: string) => call<{ digest: { summary: string; keywords: string[] } | null; pending: boolean }>('GET', `/tree/digest?day=${day}`),
   tree: (day?: string) => call<TreeDay>('GET', `/tree${day ? `?day=${day}` : ''}`),
   postTree: (body: string) => call('PUT', '/tree/today', { body }),
   heart: (id: number) => call<{ liked: boolean }>('POST', `/tree/${id}/heart`),
@@ -150,6 +152,7 @@ export const api = {
     call<{ done: false; question: string } | { done: true; gift: Gift; chat: QA[] }>('POST', '/awards/interview', { receiverId, chat, finish }),
   adminAwards: () => call<AdminAwards>('GET', '/admin/awards'),
   setNewcomer: (id: number, newcomer: boolean) => call<{ id: number; newcomer: boolean }>('PUT', `/admin/players/${id}/newcomer`, { newcomer }),
+  aiCards: (missing: boolean) => call<{ made: number; failed: number; empty: number }>('POST', '/admin/awards/ai-cards', { missing }),
   saveCard: (id: number, title: string, citation: string) => call<AwardCardRow>('PUT', `/admin/awards/cards/${id}`, { title, citation }),
   treasure: () => call<TreasureState>('GET', '/treasure'),
   openTreasure: (spot: string) =>

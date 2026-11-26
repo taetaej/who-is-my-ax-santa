@@ -43,10 +43,11 @@ export function Admin({ onPhaseChange, onQuestions }: { onPhaseChange: () => voi
 }
 
 // 어워즈 진행: 사람마다 동료 몇 명을 인터뷰했는지만. 누가 누구에게 무슨 말을 했는지는 운영자도 못 본다.
-// 상장: 공개일 전에 Claude Code 가 받은 사람별 답(누가 했는지는 빼고)으로 써서 넣고(scripts/awards.ts), 운영자가 여기서 읽고 고친다.
+// 상장: 공개일 전에 🤖 상장 쓰기(서버가 Claude 로)로 받은 사람별 답(누가 했는지는 빼고)으로 써서 넣고, 운영자가 여기서 읽고 고친다.
 function AwardsAdmin() {
   const [data, setData] = useState<AdminAwards | null>(null)
   const [error, setError] = useState('')
+  const [aiMsg, setAiMsg] = useState('')
 
   const load = useCallback(() => api.adminAwards().then(setData, (e: Error) => setError(e.message)), [])
   useEffect(() => {
@@ -58,6 +59,19 @@ function AwardsAdmin() {
   const setCard = (row: AwardCardRow) => setData((d) => d && { ...d, cards: d.cards.map((c) => (c.id === row.id ? { ...c, ...row } : c)) })
 
   const made = data.cards.filter((c) => c.title).length
+  const writeCards = async (missing: boolean) => {
+    if (!missing && made && !window.confirm('이미 있는 상장도 전부 새로 써요. 직접 고친 문구도 바뀌어요. 계속할까요?')) return
+    setError('')
+    setAiMsg('🤖 Claude 가 상장을 쓰고 있어요… (1분쯤 걸려요)')
+    try {
+      const r = await api.aiCards(missing)
+      setAiMsg(`✅ ${r.made}명 상장을 썼어요.${r.failed ? ` ${r.failed}명은 실패했어요 (다시 눌러 보세요).` : ''}${r.empty ? ` 받은 답이 없는 ${r.empty}명은 건너뛰었어요.` : ''}`)
+      await load()
+    } catch (e) {
+      setAiMsg('')
+      setError((e as Error).message)
+    }
+  }
   const setNewcomer = async (id: number, newcomer: boolean) => {
     setError('')
     setData((d) => d && { ...d, players: d.players.map((p) => (p.id === id ? { ...p, newcomer } : p)) })
@@ -107,9 +121,22 @@ function AwardsAdmin() {
 
       <h3>🏆 상장 ({made}/{data.cards.length})</h3>
       <p className="muted small">
-        인터뷰가 모이면 (12/15쯤) Claude Code 에 <b>"어워즈 상장 만들어줘"</b>라고 말해 주세요. 사람마다 받은 답을 모아(누가 했는지는 빼고) 상 이름과 상장 문구를 써서
-        여기에 넣어 줘요. 읽어 보고 어색하면 ✏️ 고치면 돼요. 상장은 <b>공개일</b>에 모두에게 열려요. (상장이 없는 사람은 가장 많이 받은 키워드가 상이 돼요)
+        인터뷰가 모이면 (12/15쯤) 아래 <b>🤖 상장 쓰기</b>를 눌러 주세요. Claude 가 사람마다 받은 키워드와 인터뷰 답을 모아(누가 했는지는 빼고) 상 이름과 상장 문구를
+        써서 여기에 넣어 줘요. 읽어 보고 어색하면 ✏️ 고치면 돼요. 상장은 <b>공개일</b>에 모두에게 열려요. (상장이 없는 사람은 가장 많이 받은 키워드가 상이 돼요)
       </p>
+      {data.ai ? (
+        <div className="letter-actions" style={{ justifyContent: 'flex-start' }}>
+          <button className="primary small" type="button" disabled={aiMsg.startsWith('🤖')} onClick={() => void writeCards(false)}>
+            🤖 상장 쓰기 (전부)
+          </button>
+          <button className="ghost small" type="button" disabled={aiMsg.startsWith('🤖')} onClick={() => void writeCards(true)}>
+            없는 사람만
+          </button>
+        </div>
+      ) : (
+        <p className="muted small">⚠️ 서버에 Claude 키가 없어서 🤖 상장 쓰기를 쓸 수 없어요.</p>
+      )}
+      {aiMsg && <p className="muted small">{aiMsg}</p>}
       {error && <p className="error">{error}</p>}
       <table>
         <thead>

@@ -102,6 +102,8 @@ export function MessageTree({ onChange }: { onChange: () => void }) {
       )}
       {isToday && <p className="muted small">하루에 한 장, 이름과 함께 걸려요. 내일이 되면 새 질문이 열려요.</p>}
 
+      {!isToday && data.messages.length > 0 && <Digest key={data.day} day={data.day} />}
+
       {data.messages.length === 0 ? (
         <p className="tree-empty">{isToday ? '아직 아무도 안 걸었어요. 첫 오너먼트를 걸어 보세요! ✨' : '이날은 걸린 답이 없어요'}</p>
       ) : (
@@ -121,5 +123,54 @@ export function MessageTree({ onChange }: { onChange: () => void }) {
       )}
       {error && <p className="error">{error}</p>}
     </div>
+  )
+}
+
+/** 🤖 지난 날의 엘프 정리. 처음 여는 사람 화면에서 쓰이는 동안은 "정리하는 중", 누가 쓰는 중이면 잠깐 뒤 다시 본다 */
+function Digest({ day }: { day: string }) {
+  const [state, setState] = useState<{ summary: string; keywords: string[] } | 'loading' | null>('loading')
+  useEffect(() => {
+    let alive = true
+    let timer = 0
+    const get = async (tries: number) => {
+      try {
+        const r = await api.treeDigest(day)
+        if (!alive) return
+        if (r.digest) setState(r.digest)
+        else if (r.pending && tries < 6) timer = window.setTimeout(() => void get(tries + 1), 4000)
+        else setState(null)
+      } catch {
+        if (alive) setState(null)
+      }
+    }
+    void get(0)
+    return () => {
+      alive = false
+      window.clearTimeout(timer)
+    }
+  }, [day])
+  if (state === null) return null
+  return (
+    <aside className="tree-digest">
+      <b>🧝 엘프의 하루 정리</b>
+      {state === 'loading' ? (
+        <p className="iv-typing">
+          <i />
+          <i />
+          <i />
+        </p>
+      ) : (
+        <>
+          <p>{state.summary}</p>
+          {state.keywords.length > 0 && (
+            <div className="tags">
+              {state.keywords.map((k) => (
+                <span key={k}>#{k}</span>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </aside>
   )
 }
